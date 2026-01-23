@@ -15,10 +15,22 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
   // Ubah ke loose boolean check agar lebih aman
   const shouldLoop = !!options.loop;
   
+  // STRATEGI LOOP STABIL:
+  // FFmpeg sering gagal melakukan looping timestamps dengan flag -stream_loop -1 pada RTMP.
+  // Solusi paling stabil untuk VPS adalah menduplikasi entry di playlist.txt sebanyak mungkin (misal 1000x).
+  // Ini memastikan timestamps selalu linear tanpa reset, mencegah streaming mati.
+  const loopCount = shouldLoop ? 1000 : 1;
+  const playlistEntries = [];
+  
+  for (let i = 0; i < loopCount; i++) {
+      files.forEach(f => {
+          playlistEntries.push(`file '${path.resolve(f).replace(/'/g, "'\\''")}'`);
+      });
+  }
+
   // FIX: Gunakan path absolute agar FFmpeg tidak bingung mencari file
   const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
-  const playlistContent = files.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join('\n');
-  fs.writeFileSync(playlistPath, playlistContent);
+  fs.writeFileSync(playlistPath, playlistEntries.join('\n'));
 
   return new Promise((resolve, reject) => {
     let command = ffmpeg();
@@ -33,6 +45,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       ].join(',');
 
       // 1. INPUT 0: VISUAL (Image/Color)
+      // Menggunakan -re di sini sebagai Master Clock
       let imageInput = options.coverImagePath;
       if (!imageInput || !fs.existsSync(imageInput)) {
         command.input('color=c=black:s=1280x720:r=24')
@@ -43,14 +56,11 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       }
 
       // 2. INPUT 1: AUDIO (Playlist)
-      // FIX ORDER: -stream_loop harus didefinisikan SEBELUM input file dan SEBELUM format concat
-      const audioInputOptions = [];
-      if (shouldLoop) {
-          audioInputOptions.push('-stream_loop', '-1');
-      }
-      audioInputOptions.push('-f', 'concat', '-safe', '0');
-      
-      command.input(playlistPath).inputOptions(audioInputOptions);
+      // Kita tidak menggunakan -stream_loop lagi, tapi mengandalkan playlist yang sangat panjang.
+      command.input(playlistPath).inputOptions([
+        '-f', 'concat', 
+        '-safe', '0'
+      ]);
 
       // OUTPUT OPTIONS
       const outputOpts = [
@@ -76,8 +86,11 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-b:a 128k',
         '-ar 44100',
         
-        // FIX LOOP GAP: Resample audio agar timestamp tetap sinkron saat loop
-        '-af aresample=async=1',
+        // CRITICAL FIX FOR AUDIO SYNC:
+        // 1. aresample: Koreksi drift sampling rate
+        // 2. asetpts=N/SR/TB: Generate timestamp baru yang monoton (terus naik) berdasarkan jumlah sampel.
+        //    Ini mencegah error "Non-monotonous DTS" yang mematikan stream saat ganti lagu atau loop.
+        '-af aresample=async=1000,asetpts=N/SR/TB',
         
         '-fflags +genpts+igndts', 
         '-max_muxing_queue_size 9999',
@@ -88,6 +101,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       ];
 
       // CRITICAL FIX: Hanya gunakan -shortest jika TIDAK looping.
+      // Jika looping (playlist panjang), kita biarkan stream mati sendiri kalau habis (setelah ribuan jam).
       if (!shouldLoop) {
         outputOpts.push('-shortest');
       }
@@ -96,10 +110,9 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
     } else {
       // --- MODE VIDEO (Direct Stream Copy) ---
-      // Fix order for video loop as well
+      // Sama, kita gunakan playlist panjang untuk loop video
       const videoInputOpts = ['-f', 'concat', '-safe', '0', '-re'];
-      if (shouldLoop) videoInputOpts.unshift('-stream_loop', '-1');
-
+      
       command
         .input(playlistPath)
         .inputOptions(videoInputOpts);
@@ -114,7 +127,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
     currentCommand = command
       .on('start', (commandLine) => {
         console.log('FFmpeg Engine Started:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Loop: ${shouldLoop}` });
+        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Mode Loop: ${shouldLoop ? 'Infinite (Polyfill)' : 'Single Run'}` });
       })
       .on('progress', (progress) => {
         if (global.io) {
@@ -125,9 +138,6 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         }
       })
       .on('stderr', (stderrLine) => {
-        // Filter some harmless looping warnings
-        if (stderrLine.includes('DTS') || stderrLine.includes('non-monotonous')) return;
-
         if (stderrLine.includes('bitrate=') || stderrLine.includes('Error') || stderrLine.includes('Conversion failed')) {
             if (global.io) global.io.emit('log', { type: 'debug', message: stderrLine });
         }

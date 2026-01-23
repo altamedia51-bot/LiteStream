@@ -315,8 +315,8 @@
                             </div>
 
                             <div class="mb-4">
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hero Description</label>
-                                <input type="text" id="setting-landing-desc" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hero Description (Allows HTML)</label>
+                                <textarea id="setting-landing-desc" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50"></textarea>
                             </div>
                             
                             <div class="grid grid-cols-2 gap-4">
@@ -460,7 +460,8 @@
                 const data = await res.json();
                 
                 if (data.landing_title) document.getElementById('landing-title-display').innerHTML = data.landing_title;
-                if (data.landing_desc) document.getElementById('landing-desc-display').textContent = data.landing_desc;
+                // Allow HTML for description too
+                if (data.landing_desc) document.getElementById('landing-desc-display').innerHTML = data.landing_desc;
                 if (data.landing_btn_reg) document.getElementById('landing-btn-reg-display').textContent = data.landing_btn_reg;
                 if (data.landing_btn_login) document.getElementById('landing-btn-login-display').textContent = data.landing_btn_login;
             } catch (e) { console.error("Failed to load landing content", e); }
