@@ -170,9 +170,9 @@
 
                 <!-- Media Category Sub-Tabs -->
                 <div class="flex p-1 bg-slate-900 rounded-2xl border border-slate-800 w-fit">
-                    <button onclick="switchMediaTab('video')" id="mt-video" class="media-subtab active px-6 py-2.5 rounded-xl text-xs font-bold transition-all">VIDEOS</button>
-                    <button onclick="switchMediaTab('audio')" id="mt-audio" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all">AUDIOS (MP3)</button>
-                    <button onclick="switchMediaTab('image')" id="mt-image" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all">IMAGES (JPG)</button>
+                    <button onclick="switchMediaTab('video')" id="mt-video" class="media-subtab active px-6 py-2.5 rounded-xl text-xs font-bold transition-all">VIDEOS <span id="count-video" class="ml-1 opacity-70 text-[10px]">(0)</span></button>
+                    <button onclick="switchMediaTab('audio')" id="mt-audio" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all">AUDIOS <span id="count-audio" class="ml-1 opacity-70 text-[10px]">(0)</span></button>
+                    <button onclick="switchMediaTab('image')" id="mt-image" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all">IMAGES <span id="count-image" class="ml-1 opacity-70 text-[10px]">(0)</span></button>
                 </div>
 
                 <div id="media-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -286,7 +286,17 @@
         async function fetchMedia() {
             const res = await fetch('/api/videos');
             allMedia = await res.json();
+            updateTabCounts();
             renderMediaList();
+        }
+
+        function updateTabCounts() {
+            const counts = { video: 0, audio: 0, image: 0 };
+            allMedia.forEach(m => { if(counts[m.type] !== undefined) counts[m.type]++; });
+            
+            document.getElementById('count-video').textContent = `(${counts.video})`;
+            document.getElementById('count-audio').textContent = `(${counts.audio})`;
+            document.getElementById('count-image').textContent = `(${counts.image})`;
         }
 
         function switchMediaTab(tab) {
@@ -384,7 +394,33 @@
         async function handleLogout() { await fetch('/api/logout', { method: 'POST' }); location.reload(); }
         async function fetchSettings() { const res = await fetch('/api/settings'); const d = await res.json(); document.getElementById('setting-rtmp').value = d.rtmp_url; }
         async function saveSettings(e) { e.preventDefault(); await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ rtmp_url: document.getElementById('setting-rtmp').value }) }); alert("Saved!"); }
-        async function handleUpload(input) { if(!input.files[0]) return; const fd = new FormData(); fd.append('video', input.files[0]); const res = await fetch('/api/videos/upload', {method:'POST', body:fd}); if((await res.json()).success) fetchMedia(); else alert("Gagal."); }
+        
+        async function handleUpload(input) { 
+            if(!input.files[0]) return; 
+            const fd = new FormData(); 
+            fd.append('video', input.files[0]); 
+            
+            // UI Feedback
+            const btn = input.previousElementSibling.querySelector('button:last-child'); // Tombol Upload
+            const oldText = btn.textContent;
+            btn.textContent = "Uploading...";
+            btn.disabled = true;
+
+            const res = await fetch('/api/videos/upload', {method:'POST', body:fd}); 
+            const data = await res.json();
+            
+            if(data.success) { 
+                await fetchMedia(); 
+                // Auto Switch ke tab tipe file yg baru diupload
+                switchMediaTab(data.type);
+            } else { 
+                alert(data.error || "Gagal."); 
+            }
+            
+            btn.textContent = oldText;
+            btn.disabled = false;
+        }
+
         async function deleteMedia(id) { if(!confirm("Hapus?")) return; await fetch(`/api/videos/${id}`, {method:'DELETE'}); fetchMedia(); }
         async function startPlaylist() {
             const rtmpUrl = document.getElementById('setting-rtmp').value;

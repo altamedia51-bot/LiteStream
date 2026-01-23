@@ -76,7 +76,7 @@ router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (
   let type = (ext === '.mp3') ? 'audio' : (['.jpg','.png','.jpeg'].includes(ext) ? 'image' : 'video');
   const id = await saveVideo({ user_id: userId, filename: file.filename, path: file.path, size: file.size, type });
   db.run("UPDATE users SET storage_used = storage_used + ? WHERE id = ?", [file.size, userId]);
-  res.json({ success: true, id });
+  res.json({ success: true, id, type });
 });
 
 router.delete('/videos/:id', async (req, res) => {
@@ -100,25 +100,50 @@ router.post('/playlist/start', async (req, res) => {
 
   db.get("SELECT p.allowed_types FROM users u JOIN plans p ON u.plan_id = p.id WHERE u.id = ?", [userId], (err, plan) => {
     const placeholders = ids.map(() => '?').join(',');
-    db.all(`SELECT * FROM videos WHERE id IN (${placeholders}) AND user_id = ?`, [...ids, userId], async (err, videos) => {
-      if (!videos || videos.length === 0) return res.status(404).json({ error: "Media tidak ditemukan" });
+    db.all(`SELECT * FROM videos WHERE id IN (${placeholders}) AND user_id = ?`, [...ids, userId], async (err, items) => {
+      if (!items || items.length === 0) return res.status(404).json({ error: "Media tidak ditemukan" });
 
-      const hasVideo = videos.some(v => v.type === 'video');
-      if (hasVideo && !plan.allowed_types.includes('video')) {
-        return res.status(403).json({ error: "Paket Anda tidak mendukung streaming Video." });
-      }
+      // LOGIKA SMART PLAYLIST: Pisahkan tipe media
+      const videoFiles = items.filter(i => i.type === 'video');
+      const audioFiles = items.filter(i => i.type === 'audio');
+      const imageFiles = items.filter(i => i.type === 'image');
 
-      let coverPath = null;
-      if (coverImageId) {
-          const cover = await new Promise(r => db.get("SELECT path FROM videos WHERE id = ?", [coverImageId], (e, row) => r(row)));
-          if (cover) coverPath = cover.path;
+      let playlistPaths = [];
+      let finalCoverPath = null;
+
+      if (videoFiles.length > 0) {
+        // --- MODE VIDEO ---
+        // Jika ada video, kita prioritaskan video. Audio/Image campuran akan diabaikan untuk menjaga kestabilan stream.
+        if (!plan.allowed_types.includes('video')) {
+            return res.status(403).json({ error: "Paket Anda tidak mendukung streaming Video. Hanya Audio." });
+        }
+        playlistPaths = videoFiles.map(v => v.path);
+      } 
+      else if (audioFiles.length > 0) {
+        // --- MODE AUDIO (RADIO) ---
+        playlistPaths = audioFiles.map(a => a.path);
+
+        // Cari Cover Image:
+        // 1. Cek apakah user mengirim ID cover spesifik (opsional)
+        if (coverImageId) {
+            const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
+            if(cov) finalCoverPath = cov.path;
+        }
+        // 2. Jika tidak, cek apakah user memilih image di tab Images (mixed selection)
+        if (!finalCoverPath && imageFiles.length > 0) {
+            finalCoverPath = imageFiles[0].path; // Ambil image pertama yang dipilih
+        }
+      } 
+      else {
+        return res.status(400).json({ error: "Pilih file Audio atau Video untuk diputar." });
       }
 
       try {
-          const filePaths = videos.map(v => v.path);
-          startStream(filePaths, rtmpUrl, { loop: !!loop, coverImagePath: coverPath });
-          res.json({ success: true, message: `Streaming ${videos.length} file dimulai.` });
-      } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
+          startStream(playlistPaths, rtmpUrl, { loop: !!loop, coverImagePath: finalCoverPath });
+          res.json({ success: true, message: `Streaming ${playlistPaths.length} file dimulai.` });
+      } catch (e) { 
+          res.status(500).json({ error: "Engine Error: " + e.message }); 
+      }
     });
   });
 });
