@@ -3,56 +3,45 @@
 
 Aplikasi streaming ringan untuk VPS spesifikasi rendah (1 Core, 1GB RAM).
 
-## Alur Deployment
+## Alur Deployment Baru
 
-### 1. Persiapan di VPS (Ubuntu/Debian)
-Jalankan perintah ini satu kali untuk menginstall dependensi sistem:
+### 1. Persiapan di VPS
 ```bash
-# Update sistem
 sudo apt update && sudo apt upgrade -y
-
-# Install FFmpeg (Mesin Utama Streaming)
 sudo apt install ffmpeg -y
-
-# Install Node.js 20 (LTS - Versi Stabil Terbaru)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-
-# Install PM2 (Process Manager agar aplikasi jalan terus di background)
 sudo npm install pm2 -g
 ```
 
-### 2. Clone dari GitHub
+### 2. Instalasi Pertama
 ```bash
 git clone https://github.com/USERNAME/REPO_NAME.git litestream
 cd litestream/backend
 npm install
-```
-
-### 3. Jalankan Aplikasi
-```bash
-# Menjalankan server menggunakan PM2
 pm2 start server.js --name "litestream"
-
-# Pastikan PM2 otomatis jalan saat VPS reboot
-pm2 save
-pm2 startup
 ```
 
-### 4. Update Kode di Kemudian Hari
-Jika Anda melakukan perubahan kode di AI Studio dan sudah push ke GitHub, cukup jalankan ini di VPS:
+### 3. CARA UPDATE KODE (Sangat Penting)
+Jika Anda sudah melakukan perubahan di AI Studio dan ingin menerapkannya di VPS:
 ```bash
-cd litestream
-git pull
+# Pastikan Anda berada di folder utama (bukan di dalam folder backend)
+cd ~/litestream
+
+# Tarik perubahan
+git pull origin main
+
+# Restart server PM2
 pm2 restart litestream
 ```
 
-## Fitur Utama
-- **Ultra-Low CPU**: Menggunakan mode `-c copy` untuk video sehingga VPS 1 Core tetap dingin.
-- **Audio-to-Video Engine**: Streaming MP3 dengan background gambar diam (hanya 2 FPS) untuk menghemat tenaga CPU.
-- **SQLite Database**: Tidak perlu install MySQL/PostgreSQL yang memakan banyak RAM.
-- **Real-time Monitoring**: Dashboard berbasis Socket.io untuk melihat log FFmpeg secara langsung.
+## Tips Troubleshooting
+- **Cek Port**: `sudo ss -tulpn | grep :3000`
+- **Cek Log Real-time**: `pm2 logs litestream`
+- **Cek RAM**: `free -h`
+- **Jika Layar Blank**: Pastikan file `index.html` dan `index.tsx` ada di folder root (utama), bukan tersembunyi di folder lain. Server sudah dikonfigurasi untuk mencari file tersebut di root.
 
-## Catatan Penting
-- Pastikan Port `3000` di firewall VPS Anda sudah dibuka.
-- Jika ingin menggunakan domain (misal: `stream.anda.com`), gunakan Nginx sebagai reverse proxy.
+## Fitur Utama
+- **Ultra-Low CPU**: Menggunakan mode `-c copy` untuk video.
+- **Audio-to-Video Engine**: Streaming MP3 dengan background gambar diam (hanya 2 FPS).
+- **SQLite Database**: Ringan & tanpa setup rumit.
