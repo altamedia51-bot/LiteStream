@@ -240,10 +240,43 @@
             <div id="tab-settings" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">Settings</h2>
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
-                    <form onsubmit="saveSettings(event)" class="space-y-4">
-                        <label class="block text-xs font-bold text-slate-400 uppercase">Stream Target (RTMP URL)</label>
-                        <input type="text" id="setting-rtmp" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="rtmp://a.rtmp.youtube.com/live2/xxxx-xxxx">
-                        <button type="submit" class="bg-indigo-600 px-10 py-4 rounded-2xl font-bold hover:bg-indigo-500">Save Configuration</button>
+                    <form onsubmit="saveSettings(event)" class="space-y-6">
+                        
+                        <!-- Platform Dropdown -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Streaming Platform</label>
+                            <div class="relative">
+                                <select id="setting-platform" onchange="handlePlatformChange()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white appearance-none outline-none focus:ring-2 ring-indigo-500/50 font-bold cursor-pointer">
+                                    <option value="youtube">YouTube Live</option>
+                                    <option value="facebook">Facebook Live</option>
+                                    <option value="twitch">Twitch</option>
+                                    <option value="custom">Custom RTMP</option>
+                                </select>
+                                <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custom Server URL (Hidden by default) -->
+                        <div id="server-url-container" class="hidden">
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">RTMP Server URL</label>
+                            <input type="text" id="setting-server-url" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="e.g. rtmp://my.custom.server/live/">
+                        </div>
+
+                        <!-- Stream Key Input -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Stream Key</label>
+                            <div class="relative">
+                                <input type="password" id="setting-key" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Paste your Stream Key here">
+                                <button type="button" onclick="toggleKeyVisibility()" class="absolute inset-y-0 right-5 text-slate-400 hover:text-white"><i id="eye-icon" class="fas fa-eye"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Hidden field to verify stored full URL -->
+                        <input type="hidden" id="setting-full-rtmp">
+
+                        <button type="submit" class="bg-indigo-600 w-full py-4 rounded-2xl font-bold hover:bg-indigo-500 shadow-lg">Save Configuration</button>
                     </form>
                 </div>
             </div>
@@ -283,6 +316,13 @@
         let allMedia = [];
         let isLoginMode = true;
         let currentMediaTab = 'video';
+        
+        // RTMP Constants
+        const PLATFORMS = {
+            youtube: 'rtmp://a.rtmp.youtube.com/live2/',
+            facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/',
+            twitch: 'rtmp://live.twitch.tv/app/'
+        };
 
         function setView(viewId) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
@@ -479,8 +519,6 @@
         function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
         function toggleAuthMode() { isLoginMode = !isLoginMode; showAuth(isLoginMode ? 'login' : 'register'); }
         async function handleLogout() { await fetch('/api/logout', { method: 'POST' }); location.reload(); }
-        async function fetchSettings() { const res = await fetch('/api/settings'); const d = await res.json(); document.getElementById('setting-rtmp').value = d.rtmp_url; }
-        async function saveSettings(e) { e.preventDefault(); await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ rtmp_url: document.getElementById('setting-rtmp').value }) }); alert("Saved!"); }
         
         async function handleUpload(input) { 
             if(!input.files[0]) return; 
@@ -498,7 +536,6 @@
             
             if(data.success) { 
                 await fetchMedia(); 
-                // Auto Switch ke tab tipe file yg baru diupload
                 switchMediaTab(data.type);
             } else { 
                 alert(data.error || "Gagal."); 
@@ -510,12 +547,91 @@
 
         async function deleteMedia(id) { if(!confirm("Hapus?")) return; await fetch(`/api/videos/${id}`, {method:'DELETE'}); fetchMedia(); }
         async function startPlaylist() {
-            const rtmpUrl = document.getElementById('setting-rtmp').value;
-            if(!rtmpUrl) return alert("RTMP URL Kosong!");
+            const rtmpUrl = document.getElementById('setting-full-rtmp').value;
+            if(!rtmpUrl) return alert("Setting RTMP belum dikonfigurasi. Silakan ke tab Settings.");
             const res = await fetch('/api/playlist/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true }) });
-            alert((await res.json()).message || "Gagal memulai.");
+            const d = await res.json();
+            if(d.error) alert(d.error); else alert(d.message);
         }
         async function stopStream() { await fetch('/api/stream/stop', { method: 'POST' }); }
+
+        // --- NEW SETTINGS LOGIC ---
+        async function fetchSettings() { 
+            const res = await fetch('/api/settings'); 
+            const d = await res.json(); 
+            
+            document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
+            document.getElementById('setting-server-url').value = d.custom_server_url || '';
+            document.getElementById('setting-key').value = d.stream_key || '';
+            document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
+            
+            handlePlatformChange();
+        }
+
+        function handlePlatformChange() {
+            const platform = document.getElementById('setting-platform').value;
+            const customContainer = document.getElementById('server-url-container');
+            
+            if (platform === 'custom') {
+                customContainer.classList.remove('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        }
+
+        function toggleKeyVisibility() {
+            const input = document.getElementById('setting-key');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        async function saveSettings(e) { 
+            e.preventDefault(); 
+            
+            const platform = document.getElementById('setting-platform').value;
+            const key = document.getElementById('setting-key').value.trim();
+            let serverUrl = '';
+
+            if (platform === 'custom') {
+                serverUrl = document.getElementById('setting-server-url').value.trim();
+            } else {
+                serverUrl = PLATFORMS[platform];
+            }
+
+            if (!serverUrl) return alert("Server URL wajib untuk Custom RTMP");
+            if (!key) return alert("Stream Key wajib diisi");
+
+            // Pastikan URL diakhiri slash jika bukan kosong
+            if (serverUrl && !serverUrl.endsWith('/')) serverUrl += '/';
+
+            const fullUrl = serverUrl + key;
+
+            const payload = {
+                stream_platform: platform,
+                stream_key: key,
+                custom_server_url: platform === 'custom' ? serverUrl : '',
+                rtmp_url: fullUrl
+            };
+
+            await fetch('/api/settings', { 
+                method: 'POST', 
+                headers: {'Content-Type':'application/json'}, 
+                body: JSON.stringify(payload) 
+            }); 
+            
+            // Update hidden full url field for immediate usage
+            document.getElementById('setting-full-rtmp').value = fullUrl;
+            
+            alert("Konfigurasi Tersimpan!"); 
+        }
 
         socket.on('log', (data) => {
             const consoleEl = document.getElementById('logConsole');
@@ -536,17 +652,15 @@
                 document.getElementById('btn-stop-stream').classList.add('hidden');
                 document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-slate-500";
                 document.getElementById('status-label').textContent = "Offline";
-                // Reset stats
                 if(document.getElementById('stat-duration')) document.getElementById('stat-duration').textContent = '00:00:00';
                 if(document.getElementById('stat-bitrate')) document.getElementById('stat-bitrate').textContent = '0 kbps';
             }
         });
 
-        // Listen for real-time stats
         socket.on('stats', (data) => {
             const durEl = document.getElementById('stat-duration');
             const bitEl = document.getElementById('stat-bitrate');
-            if(durEl) durEl.textContent = data.duration.split('.')[0]; // hapus milidetik
+            if(durEl) durEl.textContent = data.duration.split('.')[0]; 
             if(bitEl) bitEl.textContent = data.bitrate;
         });
 

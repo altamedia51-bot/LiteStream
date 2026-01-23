@@ -96,7 +96,7 @@ router.post('/playlist/start', async (req, res) => {
   const userId = req.session.user.id;
 
   if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih minimal 1 media" });
-  if (!rtmpUrl) return res.status(400).json({ error: "RTMP URL Kosong" });
+  if (!rtmpUrl) return res.status(400).json({ error: "RTMP URL Kosong. Cek Settings." });
 
   db.get("SELECT p.allowed_types FROM users u JOIN plans p ON u.plan_id = p.id WHERE u.id = ?", [userId], (err, plan) => {
     const placeholders = ids.map(() => '?').join(',');
@@ -113,7 +113,6 @@ router.post('/playlist/start', async (req, res) => {
 
       if (videoFiles.length > 0) {
         // --- MODE VIDEO ---
-        // Jika ada video, kita prioritaskan video. Audio/Image campuran akan diabaikan untuk menjaga kestabilan stream.
         if (!plan.allowed_types.includes('video')) {
             return res.status(403).json({ error: "Paket Anda tidak mendukung streaming Video. Hanya Audio." });
         }
@@ -123,15 +122,12 @@ router.post('/playlist/start', async (req, res) => {
         // --- MODE AUDIO (RADIO) ---
         playlistPaths = audioFiles.map(a => a.path);
 
-        // Cari Cover Image:
-        // 1. Cek apakah user mengirim ID cover spesifik (opsional)
         if (coverImageId) {
             const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
             if(cov) finalCoverPath = cov.path;
         }
-        // 2. Jika tidak, cek apakah user memilih image di tab Images (mixed selection)
         if (!finalCoverPath && imageFiles.length > 0) {
-            finalCoverPath = imageFiles[0].path; // Ambil image pertama yang dipilih
+            finalCoverPath = imageFiles[0].path; 
         }
       } 
       else {
@@ -153,7 +149,27 @@ router.post('/stream/stop', (req, res) => {
   res.json({ success });
 });
 
-router.get('/settings', (req, res) => db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", (err, row) => res.json({ rtmp_url: row ? row.value : '' })));
-router.post('/settings', (req, res) => db.run("INSERT OR REPLACE INTO stream_settings (key, value) VALUES ('rtmp_url', ?)", [req.body.rtmp_url], () => res.json({ success: true })));
+// SETTINGS: GET multi keys
+router.get('/settings', (req, res) => {
+    db.all("SELECT key, value FROM stream_settings WHERE key IN ('rtmp_url', 'stream_platform', 'stream_key', 'custom_server_url')", (err, rows) => {
+        const settings = {};
+        if(rows) rows.forEach(r => settings[r.key] = r.value);
+        res.json(settings);
+    });
+});
+
+// SETTINGS: POST multi keys
+router.post('/settings', (req, res) => {
+    const { rtmp_url, stream_platform, stream_key, custom_server_url } = req.body;
+    
+    const stmt = db.prepare("INSERT OR REPLACE INTO stream_settings (key, value) VALUES (?, ?)");
+    stmt.run('rtmp_url', rtmp_url || '');
+    stmt.run('stream_platform', stream_platform || 'youtube');
+    stmt.run('stream_key', stream_key || '');
+    stmt.run('custom_server_url', custom_server_url || '');
+    stmt.finalize();
+    
+    res.json({ success: true });
+});
 
 module.exports = router;
