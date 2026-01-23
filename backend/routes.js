@@ -4,6 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cron = require('node-cron');
 const { getVideos, saveVideo, deleteVideo, db } = require('./database');
 const { startStream, stopStream, isStreaming } = require('./streamEngine');
 
@@ -26,9 +27,11 @@ const playNext = async () => {
 
   if (currentPlaylistIndex >= playlistQueue.length) {
     if (playlistOptions.loop) {
-      currentPlaylistIndex = 0; // Reset ke awal jika loop aktif
+      currentPlaylistIndex = 0;
     } else {
       isPlaylistRunning = false;
+      nowPlayingFilename = "";
+      if (global.io) global.io.emit('log', { type: 'end', message: 'Playlist selesai.' });
       return;
     }
   }
@@ -50,20 +53,54 @@ const playNext = async () => {
     try {
       await startStream(video.path, playlistOptions.rtmpUrl, {
         coverImagePath: playlistOptions.coverPath,
-        loop: false // FFmpeg jangan loop internal agar kita bisa pindah ke file berikutnya di Node.js
+        loop: false
       });
-      
-      // Jika FFmpeg selesai normal (on 'end'), lanjut ke berikutnya
       currentPlaylistIndex++;
       playNext();
     } catch (e) {
-      console.error("Stream Error, skipping...", e);
       currentPlaylistIndex++;
       playNext();
     }
   });
 };
 
+// Scheduler Worker: Cek setiap menit
+cron.schedule('* * * * *', () => {
+  const now = new Date().toISOString();
+  db.all("SELECT * FROM schedules WHERE scheduled_at <= ? AND status = 'pending'", [now], async (err, rows) => {
+    if (err || !rows) return;
+    
+    for (const schedule of rows) {
+      console.log(`Scheduler: Menjalankan jadwal ID ${schedule.id}`);
+      
+      // Update status agar tidak dobel eksekusi
+      db.run("UPDATE schedules SET status = 'completed' WHERE id = ?", [schedule.id]);
+
+      // Ambil detail cover
+      let coverPath = null;
+      if (schedule.cover_image_id) {
+        const cover = await new Promise(r => db.get("SELECT path FROM videos WHERE id = ?", [schedule.cover_image_id], (e, row) => r(row)));
+        if (cover) coverPath = cover.path;
+      }
+
+      // Jalankan playlist
+      stopStream();
+      playlistQueue = JSON.parse(schedule.media_ids);
+      currentPlaylistIndex = 0;
+      isPlaylistRunning = true;
+      playlistOptions = { 
+        rtmpUrl: schedule.rtmp_url, 
+        coverPath: coverPath, 
+        loop: !!schedule.loop_playlist 
+      };
+      
+      playNext();
+      if (global.io) global.io.emit('log', { type: 'info', message: `JADWAL OTOMATIS DIMULAI (ID: ${schedule.id})` });
+    }
+  });
+});
+
+// Routes API
 router.get('/videos', async (req, res) => {
   res.json(await getVideos());
 });
@@ -82,28 +119,19 @@ router.delete('/videos/:id', async (req, res) => {
   });
 });
 
-// NEW: Start Playlist
 router.post('/playlist/start', async (req, res) => {
   const { ids, rtmpUrl, coverImageId, loop } = req.body;
-  
   if (!ids || ids.length === 0) return res.status(400).json({ error: "No media selected" });
-
-  stopStream(); // Hentikan yang sedang jalan
-  
+  stopStream();
   playlistQueue = ids;
   currentPlaylistIndex = 0;
   isPlaylistRunning = true;
-  
-  // Ambil cover path jika ada
   let coverPath = null;
   if (coverImageId) {
     const cover = await new Promise(r => db.get("SELECT path FROM videos WHERE id = ?", [coverImageId], (e, row) => r(row)));
     if (cover) coverPath = cover.path;
   }
-
   playlistOptions = { rtmpUrl, coverPath, loop };
-
-  // Mulai proses background
   playNext();
   res.json({ success: true });
 });
@@ -111,12 +139,36 @@ router.post('/playlist/start', async (req, res) => {
 router.post('/stream/stop', (req, res) => {
   isPlaylistRunning = false;
   playlistQueue = [];
+  nowPlayingFilename = "";
   const stopped = stopStream();
   res.json({ success: stopped });
 });
 
 router.get('/stream/status', (req, res) => {
   res.json({ active: isStreaming(), nowPlaying: nowPlayingFilename });
+});
+
+// SCHEDULE ENDPOINTS
+router.get('/schedules', (req, res) => {
+  db.all("SELECT * FROM schedules WHERE status = 'pending' ORDER BY scheduled_at ASC", (err, rows) => {
+    res.json(rows || []);
+  });
+});
+
+router.post('/schedules', (req, res) => {
+  const { media_ids, rtmp_url, cover_image_id, loop_playlist, scheduled_at } = req.body;
+  db.run(
+    "INSERT INTO schedules (media_ids, rtmp_url, cover_image_id, loop_playlist, scheduled_at) VALUES (?, ?, ?, ?, ?)",
+    [JSON.stringify(media_ids), rtmp_url, cover_image_id, loop_playlist ? 1 : 0, scheduled_at],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+router.delete('/schedules/:id', (req, res) => {
+  db.run("DELETE FROM schedules WHERE id = ?", [req.params.id], () => res.json({ success: true }));
 });
 
 router.get('/settings', (req, res) => {

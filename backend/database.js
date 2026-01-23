@@ -13,6 +13,17 @@ const initDB = () => {
       db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT 'admin')`);
       db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
       db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
+      
+      // Tabel baru untuk Penjadwalan
+      db.run(`CREATE TABLE IF NOT EXISTS schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        media_ids TEXT, 
+        rtmp_url TEXT, 
+        cover_image_id INTEGER, 
+        loop_playlist INTEGER DEFAULT 1, 
+        scheduled_at DATETIME, 
+        status TEXT DEFAULT 'pending'
+      )`);
 
       // Seeding User Admin
       const defaultUser = 'admin';
@@ -33,19 +44,14 @@ const initDB = () => {
             }
           });
         } else {
-          // Validasi apakah password lama masih cocok dengan admin123
           const isMatch = await bcrypt.compare(defaultPass, user.password_hash);
           if (!isMatch) {
-            console.log("DB: Password mismatch terdeteksi, mereset password admin...");
+            console.log("DB: Password mismatch, mereset...");
             db.run("UPDATE users SET password_hash = ? WHERE username = ?", [hash, defaultUser], (err) => {
               if (err) reject(err);
-              else {
-                console.log("DB: Password admin telah direset ke admin123");
-                resolve();
-              }
+              else resolve();
             });
           } else {
-            console.log("DB: User admin sudah siap.");
             resolve();
           }
         }
