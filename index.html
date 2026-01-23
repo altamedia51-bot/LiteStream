@@ -27,12 +27,12 @@
                 <p id="auth-subtitle" class="text-slate-500 text-sm">Kelola stream Anda dengan paket hemat</p>
             </div>
             <form id="login-form" onsubmit="handleAuth(event, 'login')" class="space-y-4">
-                <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm" placeholder="Username">
-                <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm" placeholder="Password">
-                <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold shadow-xl">SIGN IN</button>
+                <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white" placeholder="Username">
+                <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white" placeholder="Password">
+                <button type="submit" id="login-btn" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold shadow-xl transition-all hover:bg-indigo-500">SIGN IN</button>
                 <p class="text-center text-xs text-slate-500">Belum punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Daftar Trial</a></p>
             </form>
-            <div id="auth-error" class="hidden text-rose-500 text-xs text-center p-3 bg-rose-500/10 rounded-xl"></div>
+            <div id="auth-error" class="hidden text-rose-500 text-xs text-center p-3 bg-rose-500/10 rounded-xl border border-rose-500/20"></div>
         </div>
     </div>
 
@@ -128,13 +128,28 @@
         let authMode = 'login';
         let currentUpgradeUserId = null;
 
+        function toggleAuthMode() {
+            authMode = authMode === 'login' ? 'register' : 'login';
+            document.getElementById('auth-title').textContent = authMode === 'login' ? 'LiteStream Login' : 'LiteStream Register';
+            document.getElementById('auth-subtitle').textContent = authMode === 'login' ? 'Kelola stream Anda dengan paket hemat' : 'Dapatkan akses trial 500MB hari ini';
+            document.querySelector('p.text-center.text-xs.text-slate-500').innerHTML = authMode === 'login' 
+                ? 'Belum punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Daftar Trial</a>'
+                : 'Sudah punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Login Saja</a>';
+            document.getElementById('login-btn').textContent = authMode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT';
+        }
+
         async function checkAuth() {
-            const res = await fetch('/api/check-auth');
-            const data = await res.json();
-            if (data.authenticated) {
-                currentUser = data.user;
-                showDashboard();
-            } else {
+            try {
+                const res = await fetch('/api/check-auth');
+                const data = await res.json();
+                if (data.authenticated) {
+                    currentUser = data.user;
+                    showDashboard();
+                } else {
+                    document.getElementById('login-view').classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error("Auth check failed:", e);
                 document.getElementById('login-view').classList.remove('hidden');
             }
         }
@@ -170,15 +185,33 @@
             e.preventDefault();
             const username = document.getElementById('login-user').value;
             const password = document.getElementById('login-pass').value;
-            const res = await fetch(`/api/${mode}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (data.success) location.reload();
-            else document.getElementById('auth-error').textContent = data.error;
-            document.getElementById('auth-error').classList.remove('hidden');
+            const errEl = document.getElementById('auth-error');
+            
+            errEl.classList.add('hidden');
+            
+            try {
+                const res = await fetch(`/api/${authMode}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (authMode === 'register') {
+                        alert(data.message);
+                        toggleAuthMode();
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    errEl.textContent = data.error || "Gagal melakukan aksi";
+                    errEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                errEl.textContent = "Koneksi ke server terputus.";
+                errEl.classList.remove('hidden');
+            }
         }
 
         async function fetchMedia() {
@@ -193,7 +226,7 @@
                             <p class="text-[10px] text-slate-500 uppercase">${(v.size/1024/1024).toFixed(2)} MB • ${v.type}</p>
                         </div>
                     </div>
-                    <button onclick="deleteMedia(${v.id})" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>
+                    <button onclick="deleteMedia(${v.id})" class="text-slate-600 hover:text-rose-500 transition-colors"><i class="fas fa-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -205,16 +238,27 @@
         }
 
         async function handleUpload(input) {
+            if (!input.files[0]) return;
             const fd = new FormData(); fd.append('video', input.files[0]);
-            const res = await fetch('/api/videos/upload', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (data.success) checkAuth();
-            else alert(data.error);
+            try {
+                const res = await fetch('/api/videos/upload', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    checkAuth();
+                    input.value = '';
+                } else alert(data.error);
+            } catch (e) {
+                alert("Upload gagal. Periksa koneksi atau ukuran file.");
+            }
         }
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + tab).classList.add('active');
+            
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById('nav-' + tab).classList.add('active');
+            
             if (tab === 'users') fetchUsers();
         }
 
@@ -223,7 +267,7 @@
             const users = await res.json();
             document.getElementById('user-table-body').innerHTML = users.map(u => `
                 <tr class="border-b border-slate-700/50">
-                    <td class="p-4 font-bold">${u.username}</td>
+                    <td class="p-4 font-bold text-white">${u.username}</td>
                     <td class="p-4 text-indigo-400">${u.plan_name}</td>
                     <td class="p-4 text-slate-400">${(u.storage_used/1024/1024).toFixed(1)} MB</td>
                     <td class="p-4 text-right">
@@ -253,6 +297,12 @@
             });
             closeUpgradeModal();
             fetchUsers();
+            if (currentUpgradeUserId === currentUser.id) checkAuth();
+        }
+
+        async function handleLogout() {
+            await fetch('/api/logout', {method: 'POST'});
+            location.reload();
         }
 
         window.onload = checkAuth;

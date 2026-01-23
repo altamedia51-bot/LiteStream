@@ -37,12 +37,25 @@ const isAuthenticated = (req, res, next) => {
 
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  db.get(`
+  
+  const query = `
     SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
     FROM users u 
     JOIN plans p ON u.plan_id = p.id 
-    WHERE u.username = ?`, [username], async (err, user) => {
-    if (user && await bcrypt.compare(password, user.password_hash)) {
+    WHERE u.username = ?`;
+
+  db.get(query, [username], async (err, user) => {
+    if (err) {
+      console.error("Login DB Error:", err);
+      return res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+
+    if (!user) {
+      console.warn(`Login Failed: User '${username}' not found or Plan missing.`);
+      return res.status(401).json({ success: false, error: 'User tidak ditemukan atau data paket bermasalah' });
+    }
+
+    if (await bcrypt.compare(password, user.password_hash)) {
       req.session.user = { 
         id: user.id, 
         username: user.username, 
@@ -52,8 +65,13 @@ app.post('/api/login', (req, res) => {
         max_storage_mb: user.max_storage_mb,
         allowed_types: user.allowed_types
       };
-      return req.session.save(() => res.json({ success: true }));
+      return req.session.save(() => {
+        console.log(`Login Success: ${username}`);
+        res.json({ success: true });
+      });
     }
+    
+    console.warn(`Login Failed: Wrong password for user '${username}'`);
     res.status(401).json({ success: false, error: 'Username atau Password salah' });
   });
 });
