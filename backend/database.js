@@ -9,14 +9,32 @@ const db = new sqlite3.Database(dbPath);
 const initDB = () => {
   return new Promise((resolve, reject) => {
     db.serialize(async () => {
-      // Buat Tabel
-      db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT 'admin')`);
-      db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+      // 1. Tabel Plans
+      db.run(`CREATE TABLE IF NOT EXISTS plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        name TEXT, 
+        max_storage_mb INTEGER, 
+        allowed_types TEXT, 
+        max_active_streams INTEGER
+      )`);
+
+      // 2. Tabel Users (Update dengan plan_id dan storage_used)
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        username TEXT UNIQUE, 
+        password_hash TEXT, 
+        role TEXT DEFAULT 'user',
+        plan_id INTEGER DEFAULT 1,
+        storage_used INTEGER DEFAULT 0,
+        FOREIGN KEY(plan_id) REFERENCES plans(id)
+      )`);
+
+      db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
       db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
       
-      // Tabel baru untuk Penjadwalan
       db.run(`CREATE TABLE IF NOT EXISTS schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        user_id INTEGER,
         media_ids TEXT, 
         rtmp_url TEXT, 
         cover_image_id INTEGER, 
@@ -25,43 +43,34 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
+      // Seeding Plans
+      db.get("SELECT count(*) as count FROM plans", (err, row) => {
+        if (row.count === 0) {
+          console.log("DB: Seeding Default Plans...");
+          db.run("INSERT INTO plans (name, max_storage_mb, allowed_types, max_active_streams) VALUES (?, ?, ?, ?)", ['Free Trial', 500, 'audio', 1]);
+          db.run("INSERT INTO plans (name, max_storage_mb, allowed_types, max_active_streams) VALUES (?, ?, ?, ?)", ['Radio Station', 5120, 'audio', 1]);
+          db.run("INSERT INTO plans (name, max_storage_mb, allowed_types, max_active_streams) VALUES (?, ?, ?, ?)", ['Content Creator', 10240, 'video,audio', 2]);
+        }
+      });
+
       // Seeding User Admin
       const defaultUser = 'admin';
       const defaultPass = 'admin123';
+      const hash = await bcrypt.hash(defaultPass, 10);
       
-      db.get("SELECT * FROM users WHERE username = ?", [defaultUser], async (err, user) => {
-        if (err) return reject(err);
-        
-        const hash = await bcrypt.hash(defaultPass, 10);
-        
+      db.get("SELECT * FROM users WHERE username = ?", [defaultUser], (err, user) => {
         if (!user) {
-          console.log("DB: Seeding admin baru...");
-          db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [defaultUser, hash], (err) => {
-            if (err) reject(err);
-            else {
-              console.log("DB: Admin created: admin / admin123");
-              resolve();
-            }
-          });
+          db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [defaultUser, hash, 'admin', 3], () => resolve());
         } else {
-          const isMatch = await bcrypt.compare(defaultPass, user.password_hash);
-          if (!isMatch) {
-            console.log("DB: Password mismatch, mereset...");
-            db.run("UPDATE users SET password_hash = ? WHERE username = ?", [hash, defaultUser], (err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-          } else {
-            resolve();
-          }
+          resolve();
         }
       });
     });
   });
 };
 
-const getVideos = () => new Promise((res, rej) => db.all("SELECT * FROM videos ORDER BY created_at DESC", (err, rows) => err ? rej(err) : res(rows)));
-const saveVideo = (data) => new Promise((res, rej) => db.run("INSERT INTO videos (filename, path, size, type) VALUES (?, ?, ?, ?)", [data.filename, data.path, data.size, data.type || 'video'], function(err) { err ? rej(err) : res(this.lastID); }));
+const getVideos = (userId) => new Promise((res, rej) => db.all("SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC", [userId], (err, rows) => err ? rej(err) : res(rows)));
+const saveVideo = (data) => new Promise((res, rej) => db.run("INSERT INTO videos (user_id, filename, path, size, type) VALUES (?, ?, ?, ?, ?)", [data.user_id, data.filename, data.path, data.size, data.type || 'video'], function(err) { err ? rej(err) : res(this.lastID); }));
 const deleteVideo = (id) => new Promise((res, rej) => db.run("DELETE FROM videos WHERE id = ?", [id], (err) => err ? rej(err) : res()));
 
 module.exports = { initDB, getVideos, saveVideo, deleteVideo, db, dbPath };

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LiteStream VPS Dashboard</title>
+    <title>LiteStream SaaS Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -13,621 +13,246 @@
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; margin: 0; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .console-log::-webkit-scrollbar { width: 6px; }
-        .console-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .nav-link.active { background: rgba(79, 70, 229, 0.1); color: #818cf8; border-right: 3px solid #6366f1; }
         #main-app { display: none; }
-        #login-view { display: flex; }
-        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
-    <!-- Auth View (Login/Register) -->
-    <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6 overflow-y-auto">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 md:p-10 space-y-8 shadow-2xl fade-in my-auto">
-            <div class="text-center space-y-2">
-                <div class="bg-indigo-600 w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/20">
-                    <i id="auth-icon" class="fas fa-lock text-white text-2xl"></i>
-                </div>
-                <h2 id="auth-title" class="text-2xl font-bold tracking-tight">LiteStream Login</h2>
-                <p id="auth-subtitle" class="text-slate-500 text-sm">Masukkan kredensial LiteStream Anda</p>
+    <!-- Auth View -->
+    <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
+            <div class="text-center">
+                <h2 id="auth-title" class="text-2xl font-bold">LiteStream Login</h2>
+                <p id="auth-subtitle" class="text-slate-500 text-sm">Kelola stream Anda dengan paket hemat</p>
             </div>
-
-            <!-- Login Form -->
             <form id="login-form" onsubmit="handleAuth(event, 'login')" class="space-y-4">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Username</label>
-                    <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="admin">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Password</label>
-                    <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="••••••••">
-                </div>
-                <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98]">SIGN IN</button>
+                <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm" placeholder="Username">
+                <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm" placeholder="Password">
+                <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold shadow-xl">SIGN IN</button>
+                <p class="text-center text-xs text-slate-500">Belum punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Daftar Trial</a></p>
             </form>
-
-            <!-- Register Form -->
-            <form id="register-form" onsubmit="handleAuth(event, 'register')" class="hidden space-y-4">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">New Username</label>
-                    <input type="text" id="reg-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="my_vps_user">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">New Password</label>
-                    <input type="password" id="reg-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="minimal 6 karakter">
-                </div>
-                <button type="submit" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-600/20 transition-all active:scale-[0.98]">CREATE ACCOUNT</button>
-            </form>
-
-            <div id="auth-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20 fade-in"></div>
-            <div id="auth-success" class="hidden text-emerald-500 text-xs font-bold text-center bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 fade-in"></div>
-
-            <div class="pt-4 border-t border-slate-700/50 text-center space-y-4">
-                <button id="toggle-auth-btn" onclick="toggleAuthMode()" class="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-                    Belum punya akun? Registrasi di sini
-                </button>
-                <div class="flex items-center justify-center gap-4 pt-2">
-                    <button onclick="activateDemoMode()" class="text-[10px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1">
-                        <i class="fas fa-flask"></i> Demo
-                    </button>
-                    <span class="text-slate-700">|</span>
-                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" class="text-[10px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-widest transition-colors">Billing Docs</a>
-                </div>
-            </div>
+            <div id="auth-error" class="hidden text-rose-500 text-xs text-center p-3 bg-rose-500/10 rounded-xl"></div>
         </div>
     </div>
 
-    <!-- Main App Layout (Hidden by default) -->
+    <!-- Main Layout -->
     <div id="main-app" class="flex flex-col md:flex-row min-h-screen">
-        <aside class="w-full md:w-64 bg-slate-800 border-r border-slate-700 flex-shrink-0 flex flex-col">
-            <div class="p-6">
-                <div class="flex items-center gap-3 mb-10">
-                    <div class="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
-                        <i class="fas fa-tower-broadcast text-white"></i>
-                    </div>
-                    <h1 class="font-bold text-xl tracking-tight">LiteStream</h1>
-                </div>
-                <nav class="space-y-1">
-                    <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200 active">
-                        <i class="fas fa-desktop w-5"></i> <span class="text-sm font-medium">Overview</span>
-                    </button>
-                    <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
-                        <i class="fas fa-folder-open w-5"></i> <span class="text-sm font-medium">Library</span>
-                    </button>
-                    <button onclick="switchTab('schedules')" id="nav-schedules" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
-                        <i class="fas fa-calendar-alt w-5"></i> <span class="text-sm font-medium">Schedules</span>
-                    </button>
-                    <button onclick="switchTab('users')" id="nav-users" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
-                        <i class="fas fa-users w-5"></i> <span class="text-sm font-medium">Users</span>
-                    </button>
-                    <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
-                        <i class="fas fa-cog w-5"></i> <span class="text-sm font-medium">Settings</span>
-                    </button>
-                </nav>
-            </div>
-            <div class="mt-auto p-6">
-                <button onclick="handleLogout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all text-sm font-bold">
-                    <i class="fas fa-sign-out-alt w-5"></i> Logout
-                </button>
-            </div>
+        <aside class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col p-6">
+            <h1 class="font-bold text-xl mb-10 flex items-center gap-2"><i class="fas fa-bolt text-indigo-500"></i> LiteStream</h1>
+            <nav class="space-y-2 flex-1">
+                <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 active"><i class="fas fa-chart-pie"></i> Overview</button>
+                <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400"><i class="fas fa-folder"></i> Media</button>
+                <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400"><i class="fas fa-user-shield"></i> Users</button>
+                <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400"><i class="fas fa-cog"></i> Settings</button>
+            </nav>
+            <button onclick="handleLogout()" class="mt-auto text-rose-400 text-sm font-bold flex items-center gap-2 px-4 py-3 hover:bg-rose-500/10 rounded-xl"><i class="fas fa-power-off"></i> Logout</button>
         </aside>
 
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <header class="h-16 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md">
-                <h2 id="current-tab-title" class="text-lg font-bold text-slate-200 capitalize">Overview</h2>
-                <div class="flex items-center gap-4">
-                    <div id="live-badge" class="hidden items-center gap-2 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-full border border-rose-500/20 animate-pulse">
-                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
-                    </div>
-                    <div class="text-xs text-slate-500">User: <span id="user-display" class="text-indigo-400 font-bold">...</span></div>
+        <main class="flex-1 overflow-y-auto p-8">
+            <!-- Quota Widget (Always Visible Header) -->
+            <div id="quota-widget" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paket Saat Ini</p>
+                    <h3 id="plan-name-display" class="text-xl font-bold text-indigo-400">Loading...</h3>
                 </div>
-            </header>
-
-            <div class="flex-1 overflow-y-auto p-8 max-w-6xl mx-auto w-full">
-                <!-- Tab Overview -->
-                <div id="tab-overview" class="tab-content active space-y-8">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Now Playing</p>
-                            <div id="stat-now-playing" class="text-lg font-bold text-slate-200 truncate">Idle</div>
-                        </div>
-                        <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Queue Status</p>
-                            <div id="stat-queue-count" class="text-2xl font-bold text-indigo-400">0 Items</div>
-                        </div>
-                        <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Efficiency</p>
-                            <div class="text-2xl font-bold text-emerald-400">Ultra Low</div>
-                        </div>
+                <div class="flex-1 max-w-md w-full space-y-2">
+                    <div class="flex justify-between text-[10px] font-bold uppercase">
+                        <span class="text-slate-400">Penyimpanan Terpakai</span>
+                        <span id="storage-text" class="text-slate-200">0 / 0 MB</span>
                     </div>
-                    <div class="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl">
-                        <div class="bg-slate-700/30 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
-                            <h3 class="font-bold text-sm">Streaming Logs</h3>
-                            <button onclick="stopStreaming()" id="btn-stop-stream" class="hidden text-[10px] bg-rose-500 px-3 py-1 rounded-lg font-bold">STOP</button>
-                        </div>
-                        <div id="logConsole" class="console-log bg-slate-950 p-6 font-mono text-[11px] h-80 overflow-y-auto text-slate-300"></div>
+                    <div class="h-2 bg-slate-900 rounded-full overflow-hidden">
+                        <div id="storage-bar" class="h-full bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
+                <button onclick="alert('Hubungi admin untuk upgrade!')" class="bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 px-6 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 hover:text-white transition-all">UPGRADE PLAN</button>
+            </div>
 
-                <!-- Tab Library -->
-                <div id="tab-library" class="tab-content space-y-6">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h3 class="text-xl font-bold">Media Library</h3>
-                            <p class="text-xs text-slate-500">Pilih file untuk mulai streaming.</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button id="btn-play-selected" onclick="openPlaylistModal('now')" class="hidden bg-emerald-600 px-6 py-2.5 rounded-xl font-bold text-sm">Play Selected (<span id="selected-count">0</span>)</button>
-                            <button id="btn-schedule-selected" onclick="openPlaylistModal('schedule')" class="hidden bg-indigo-600 px-6 py-2.5 rounded-xl font-bold text-sm">Schedule Selected</button>
-                            <button onclick="document.getElementById('uploadInput').click()" class="bg-slate-700 px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-600 transition-colors">
-                                <i class="fas fa-upload mr-2"></i> Upload
-                            </button>
-                        </div>
-                        <input type="file" id="uploadInput" class="hidden" multiple onchange="handleUpload(this)">
+            <div id="tab-overview" class="tab-content active space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-4">Fitur Paket</h4>
+                        <ul id="plan-features" class="space-y-3 text-sm text-slate-300">
+                            <!-- Feature List -->
+                        </ul>
                     </div>
-                    <div id="upload-progress-container" class="hidden space-y-3 p-6 bg-slate-800/50 border border-slate-700 rounded-3xl">
-                        <div id="upload-items" class="space-y-4"></div>
-                    </div>
-                    <div id="media-list" class="grid grid-cols-1 gap-3"></div>
-                </div>
-
-                <!-- Tab Schedules -->
-                <div id="tab-schedules" class="tab-content space-y-6">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-xl font-bold">Scheduled Streams</h3>
-                    </div>
-                    <div id="schedule-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                </div>
-
-                <!-- Tab Users -->
-                <div id="tab-users" class="tab-content space-y-6">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h3 class="text-xl font-bold">User Management</h3>
-                            <p class="text-xs text-slate-500">Kelola akun yang memiliki akses ke dashboard ini.</p>
-                        </div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 rounded-3xl overflow-hidden">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-700/30 border-b border-slate-700">
-                                <tr>
-                                    <th class="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest">Username</th>
-                                    <th class="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest">Role</th>
-                                    <th class="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="user-list-body">
-                                <!-- Data User Muncul Disini -->
-                            </tbody>
-                        </table>
+                    <div class="bg-slate-950 p-6 rounded-3xl border border-slate-700 h-64 overflow-y-auto font-mono text-[10px]" id="logConsole">
+                        <p class="text-slate-600">-- Menunggu aktivitas stream --</p>
                     </div>
                 </div>
+            </div>
 
-                <!-- Tab Settings -->
-                <div id="tab-settings" class="tab-content space-y-6 max-w-xl">
-                    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 space-y-6">
-                        <h3 class="text-xl font-bold">RTMP Configuration</h3>
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Global RTMP URL</label>
-                            <input type="text" id="rtmp-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-indigo-400 outline-none" placeholder="rtmp://...">
-                        </div>
-                        <button onclick="saveSettings()" class="bg-indigo-600 w-full py-3 rounded-xl font-bold text-sm transition-all hover:bg-indigo-500">Save Configuration</button>
-                    </div>
+            <div id="tab-library" class="tab-content space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Media Library</h2>
+                    <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-2.5 rounded-xl font-bold text-sm">Upload File</button>
+                    <input type="file" id="file-up" class="hidden" onchange="handleUpload(this)">
+                </div>
+                <div id="media-list" class="grid grid-cols-1 gap-3"></div>
+            </div>
+
+            <div id="tab-users" class="tab-content space-y-6">
+                <h2 class="text-2xl font-bold">User & Plan Management</h2>
+                <div class="bg-slate-800 rounded-3xl overflow-hidden border border-slate-700">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-900/50 text-[10px] uppercase font-bold text-slate-500">
+                            <tr>
+                                <th class="p-4">User</th>
+                                <th class="p-4">Paket</th>
+                                <th class="p-4">Storage</th>
+                                <th class="p-4 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body" class="text-sm"></tbody>
+                    </table>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Modals -->
-    <div id="liveModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 md:p-10 space-y-6 shadow-2xl fade-in">
-            <h3 id="modal-title" class="text-2xl font-bold">Setup Stream</h3>
-            <div id="schedule-time-box" class="hidden space-y-2">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Waktu Eksekusi</label>
-                <input type="datetime-local" id="schedule-time-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
-            </div>
-            <div id="playlist-preview" class="space-y-1 max-h-32 overflow-y-auto text-[10px] text-slate-400 bg-slate-900/50 p-3 rounded-xl border border-slate-700"></div>
-            <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cover Image (Untuk Audio)</label>
-                <select id="cover-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"></select>
-            </div>
-            <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
-                <span class="text-sm font-bold">Loop Playlist</span>
-                <input type="checkbox" id="loop-checkbox" checked class="w-6 h-6 rounded accent-indigo-600">
-            </div>
-            <div class="flex gap-4 pt-4">
-                <button onclick="closeModal()" class="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-700 transition-colors">Batal</button>
-                <button id="modal-submit-btn" onclick="submitPlaylist()" class="flex-1 py-4 bg-emerald-600 rounded-2xl font-bold text-sm hover:bg-emerald-500 shadow-lg shadow-emerald-500/20">MULAI</button>
+    <!-- Upgrade Modal (Admin Only) -->
+    <div id="upgradeModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-sm rounded-3xl p-8 space-y-6">
+            <h3 class="text-xl font-bold">Upgrade User Plan</h3>
+            <p id="upgrade-user-name" class="text-sm text-slate-400">User: -</p>
+            <select id="plan-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm"></select>
+            <div class="flex gap-4">
+                <button onclick="closeUpgradeModal()" class="flex-1 py-3 border border-slate-700 rounded-xl text-sm">Batal</button>
+                <button onclick="submitUpgrade()" class="flex-1 py-3 bg-indigo-600 rounded-xl text-sm font-bold">Simpan</button>
             </div>
         </div>
     </div>
 
     <script>
-        let isDemoMode = false;
-        let authMode = 'login'; 
         let currentUser = null;
-
-        // Fungsi Toggle Login/Register
-        function toggleAuthMode() {
-            const loginForm = document.getElementById('login-form');
-            const registerForm = document.getElementById('register-form');
-            const title = document.getElementById('auth-title');
-            const subtitle = document.getElementById('auth-subtitle');
-            const icon = document.getElementById('auth-icon');
-            const toggleBtn = document.getElementById('toggle-auth-btn');
-            const errDiv = document.getElementById('auth-error');
-            const succDiv = document.getElementById('auth-success');
-
-            errDiv.classList.add('hidden');
-            succDiv.classList.add('hidden');
-
-            if (authMode === 'login') {
-                authMode = 'register';
-                loginForm.classList.add('hidden');
-                registerForm.classList.remove('hidden');
-                title.textContent = "LiteStream Register";
-                subtitle.textContent = "Buat akun baru untuk mengelola LiteStream";
-                icon.className = "fas fa-user-plus text-white text-2xl";
-                toggleBtn.textContent = "Sudah punya akun? Login di sini";
-            } else {
-                authMode = 'login';
-                registerForm.classList.add('hidden');
-                loginForm.classList.remove('hidden');
-                title.textContent = "LiteStream Login";
-                subtitle.textContent = "Masukkan kredensial LiteStream Anda";
-                icon.className = "fas fa-lock text-white text-2xl";
-                toggleBtn.textContent = "Belum punya akun? Registrasi di sini";
-            }
-        }
-
-        // Handler Auth
-        async function handleAuth(e, mode) {
-            e.preventDefault();
-            const errDiv = document.getElementById('auth-error');
-            const succDiv = document.getElementById('auth-success');
-            errDiv.classList.add('hidden');
-            succDiv.classList.add('hidden');
-
-            const username = mode === 'login' ? document.getElementById('login-user').value : document.getElementById('reg-user').value;
-            const password = mode === 'login' ? document.getElementById('login-pass').value : document.getElementById('reg-pass').value;
-
-            try {
-                const res = await fetch(`/api/${mode}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    if (mode === 'login') {
-                        location.reload();
-                    } else {
-                        succDiv.textContent = data.message;
-                        succDiv.classList.remove('hidden');
-                        setTimeout(toggleAuthMode, 2000);
-                    }
-                } else {
-                    errDiv.textContent = data.error || "Terjadi kesalahan";
-                    errDiv.classList.remove('hidden');
-                }
-            } catch (e) {
-                errDiv.textContent = "Server tidak merespons.";
-                errDiv.classList.remove('hidden');
-            }
-        }
+        let authMode = 'login';
+        let currentUpgradeUserId = null;
 
         async function checkAuth() {
-            if (localStorage.getItem('liteStream_demo') === 'true') return activateDemoMode();
-            try {
-                const res = await fetch('/api/check-auth');
-                const data = await res.json();
-                if (data.authenticated) {
-                    currentUser = data.user;
-                    showDashboard(data.user);
-                } else {
-                    showLogin();
-                }
-            } catch(e) { showLogin(); }
+            const res = await fetch('/api/check-auth');
+            const data = await res.json();
+            if (data.authenticated) {
+                currentUser = data.user;
+                showDashboard();
+            } else {
+                document.getElementById('login-view').classList.remove('hidden');
+            }
         }
 
-        function showDashboard(user) {
-            document.getElementById('login-view').style.display = 'none';
+        function showDashboard() {
+            document.getElementById('login-view').classList.add('hidden');
             document.getElementById('main-app').style.display = 'flex';
-            document.getElementById('user-display').textContent = user.username;
-            if (!isDemoMode) initSocket();
-            fetchMedia();
-            fetchSchedules();
-        }
-
-        function showLogin() {
-            document.getElementById('login-view').style.display = 'flex';
-            document.getElementById('main-app').style.display = 'none';
-        }
-
-        function initSocket() {
-            const socket = io();
-            socket.on('log', data => {
-                if (data.type === 'start') updateStreamUI(true, data.filename);
-                if (data.type === 'end') updateStreamUI(false);
-                addLog(data.message);
-            });
-            socket.on('queue-update', d => {
-                const countEl = document.getElementById('stat-queue-count');
-                if (countEl) countEl.textContent = d.count + ' Items';
-            });
-        }
-
-        function addLog(msg) {
-            const el = document.getElementById('logConsole');
-            if (!el) return;
-            const p = document.createElement('p');
-            p.className = 'py-0.5';
-            p.innerHTML = `<span class="opacity-30 mr-2 text-[9px]">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-            el.appendChild(p);
-            el.scrollTop = el.scrollHeight;
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
-            document.getElementById('tab-' + tab).classList.add('active');
-            document.getElementById('nav-' + tab).classList.add('active');
-            document.getElementById('current-tab-title').textContent = tab;
+            document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             
-            if (tab === 'schedules') fetchSchedules();
-            if (tab === 'library') fetchMedia();
-            if (tab === 'settings') fetchSettings();
-            if (tab === 'users') fetchUsers();
+            // Render Quota
+            const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
+            const totalMB = currentUser.max_storage_mb;
+            const percent = (usedMB / totalMB) * 100;
+            
+            document.getElementById('storage-text').textContent = `${usedMB} / ${totalMB} MB`;
+            const bar = document.getElementById('storage-bar');
+            bar.style.width = percent + '%';
+            bar.className = `h-full transition-all duration-500 ${percent > 90 ? 'bg-rose-500' : (percent > 70 ? 'bg-amber-500' : 'bg-indigo-500')}`;
+
+            // Features List
+            const feats = document.getElementById('plan-features');
+            feats.innerHTML = `
+                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> Max Streams: ${currentUser.max_active_streams}</li>
+                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> Allowed: ${currentUser.allowed_types.toUpperCase()}</li>
+                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> SaaS Cloud Storage</li>
+            `;
+
+            if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
+            fetchMedia();
         }
 
-        // --- MEDIA LOGIC ---
-        let mediaData = [];
-        let selectedIds = new Set();
+        async function handleAuth(e, mode) {
+            e.preventDefault();
+            const username = document.getElementById('login-user').value;
+            const password = document.getElementById('login-pass').value;
+            const res = await fetch(`/api/${mode}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else document.getElementById('auth-error').textContent = data.error;
+            document.getElementById('auth-error').classList.remove('hidden');
+        }
 
         async function fetchMedia() {
-            try {
-                const res = await fetch('/api/videos');
-                mediaData = await res.json();
-                renderMedia();
-            } catch (e) { console.error("Gagal ambil media", e); }
-        }
-
-        function renderMedia() {
-            const list = document.getElementById('media-list');
-            if (!list) return;
-            list.innerHTML = mediaData.map(item => `
-                <div class="relative group">
-                    <input type="checkbox" id="chk-${item.id}" class="hidden peer" onchange="toggleSelection(${item.id})">
-                    <label for="chk-${item.id}" class="block bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-between cursor-pointer peer-checked:border-indigo-500 hover:border-slate-600 transition-all">
-                        <div class="flex items-center gap-4">
-                            <div class="p-3 bg-slate-900 rounded-xl">
-                                <i class="fas ${item.type === 'audio' ? 'fa-music text-amber-400' : (item.type === 'image' ? 'fa-image text-emerald-400' : 'fa-video text-indigo-400')}"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-sm text-slate-200">${item.filename}</h4>
-                                <p class="text-[10px] text-slate-500 uppercase font-medium tracking-tighter">${(item.size/1024/1024).toFixed(1)} MB • ${item.type}</p>
-                            </div>
+            const res = await fetch('/api/videos');
+            const data = await res.json();
+            document.getElementById('media-list').innerHTML = data.map(v => `
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <i class="fas ${v.type === 'audio' ? 'fa-music text-amber-500' : 'fa-video text-indigo-500'}"></i>
+                        <div>
+                            <p class="font-bold text-sm">${v.filename}</p>
+                            <p class="text-[10px] text-slate-500 uppercase">${(v.size/1024/1024).toFixed(2)} MB • ${v.type}</p>
                         </div>
-                        <button onclick="event.preventDefault(); deleteMedia(${item.id})" class="text-slate-600 hover:text-rose-500 p-2 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-trash-alt"></i></button>
-                    </label>
+                    </div>
+                    <button onclick="deleteMedia(${v.id})" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>
                 </div>
             `).join('');
         }
 
-        function toggleSelection(id) {
-            if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
-            const count = selectedIds.size;
-            document.getElementById('btn-play-selected').classList.toggle('hidden', count === 0);
-            document.getElementById('btn-schedule-selected').classList.toggle('hidden', count === 0);
-            document.getElementById('selected-count').textContent = count;
-        }
-
         async function deleteMedia(id) {
-            if(!confirm("Hapus file ini permanen?")) return;
+            if (!confirm('Hapus file? Storage akan bertambah kembali.')) return;
             await fetch('/api/videos/' + id, { method: 'DELETE' });
-            selectedIds.delete(id);
-            fetchMedia();
-        }
-
-        // --- USER MGMT LOGIC ---
-        async function fetchUsers() {
-            try {
-                const res = await fetch('/api/users');
-                const users = await res.json();
-                const body = document.getElementById('user-list-body');
-                if (!body) return;
-                
-                body.innerHTML = users.map(u => `
-                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/10 transition-colors">
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-indigo-400">
-                                    ${u.username[0].toUpperCase()}
-                                </div>
-                                <span class="font-medium">${u.username}</span>
-                                ${currentUser && currentUser.id === u.id ? '<span class="text-[9px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/30">YOU</span>' : ''}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="text-[10px] bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-lg uppercase tracking-widest font-bold text-slate-400">${u.role}</span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button 
-                                onclick="deleteUser(${u.id})" 
-                                ${currentUser && currentUser.id === u.id ? 'disabled class="text-slate-700 cursor-not-allowed"' : 'class="text-slate-500 hover:text-rose-500 transition-colors"'}
-                            >
-                                <i class="fas fa-user-minus"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (e) { console.error("Gagal ambil users", e); }
-        }
-
-        async function deleteUser(id) {
-            if (!confirm("Hapus pengguna ini? Dia tidak akan bisa login lagi.")) return;
-            try {
-                const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (data.success) fetchUsers();
-                else alert(data.error || "Gagal menghapus user.");
-            } catch (e) { alert("Server error."); }
-        }
-
-        // --- PLAYLIST LOGIC ---
-        function openPlaylistModal(mode) {
-            modalMode = mode;
-            document.getElementById('modal-title').textContent = mode === 'now' ? 'Stream Sekarang' : 'Jadwalkan Stream';
-            document.getElementById('schedule-time-box').classList.toggle('hidden', mode === 'now');
-            document.getElementById('modal-submit-btn').textContent = mode === 'now' ? 'MULAI SEKARANG' : 'SET JADWAL';
-            
-            const selectedMedia = mediaData.filter(m => selectedIds.has(m.id));
-            document.getElementById('playlist-preview').innerHTML = selectedMedia.map(m => `<div class="py-1 border-b border-slate-800 last:border-0">• ${m.filename}</div>`).join('');
-            
-            const select = document.getElementById('cover-select');
-            select.innerHTML = '<option value="">Default (Hitam)</option>' + mediaData.filter(m => m.type === 'image').map(i => `<option value="${i.id}">${i.filename}</option>`).join('');
-            
-            document.getElementById('liveModal').classList.remove('hidden');
-        }
-
-        function closeModal() { document.getElementById('liveModal').classList.add('hidden'); }
-
-        async function submitPlaylist() {
-            const rtmpRes = await fetch('/api/settings');
-            const rtmpData = await rtmpRes.json();
-            
-            if (!rtmpData.rtmp_url) return alert("RTMP URL belum diatur di Settings!");
-
-            const payload = {
-                ids: Array.from(selectedIds),
-                media_ids: Array.from(selectedIds),
-                rtmpUrl: rtmpData.rtmp_url,
-                rtmp_url: rtmpData.rtmp_url,
-                coverImageId: document.getElementById('cover-select').value,
-                cover_image_id: document.getElementById('cover-select').value || null,
-                loop: document.getElementById('loop-checkbox').checked,
-                loop_playlist: document.getElementById('loop-checkbox').checked,
-                scheduled_at: document.getElementById('schedule-time-input').value
-            };
-
-            if (modalMode === 'now') {
-                const res = await fetch('/api/playlist/start', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                if ((await res.json()).success) { closeModal(); switchTab('overview'); }
-            } else {
-                if (!payload.scheduled_at) return alert("Pilih waktu jadwal!");
-                const res = await fetch('/api/schedules', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                if ((await res.json()).success) { closeModal(); switchTab('schedules'); alert("Stream berhasil dijadwalkan!"); }
-            }
-        }
-
-        async function fetchSchedules() {
-            const res = await fetch('/api/schedules');
-            const data = await res.json();
-            const list = document.getElementById('schedule-list');
-            if (!list) return;
-            if (data.length === 0) {
-                list.innerHTML = '<div class="col-span-full text-center py-20 bg-slate-800/30 rounded-3xl border border-dashed border-slate-700 text-slate-500">Tidak ada jadwal aktif.</div>';
-                return;
-            }
-            list.innerHTML = data.map(s => {
-                const date = new Date(s.scheduled_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-                const mediaCount = JSON.parse(s.media_ids).length;
-                return `
-                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl flex justify-between items-center shadow-lg hover:border-indigo-500 transition-all">
-                        <div class="space-y-1">
-                            <div class="flex items-center gap-2 text-indigo-400 font-bold text-sm">
-                                <i class="fas fa-clock"></i> <span>${date}</span>
-                            </div>
-                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${mediaCount} File • Loop: ${s.loop_playlist ? 'AKTIF' : 'NONAKTIF'}</p>
-                        </div>
-                        <button onclick="deleteSchedule(${s.id})" class="bg-rose-500/10 text-rose-500 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        async function deleteSchedule(id) {
-            if (!confirm('Hapus jadwal otomatis ini?')) return;
-            await fetch('/api/schedules/' + id, { method: 'DELETE' });
-            fetchSchedules();
-        }
-
-        function updateStreamUI(isActive, filename) {
-            const badge = document.getElementById('live-badge');
-            const np = document.getElementById('stat-now-playing');
-            const stopBtn = document.getElementById('btn-stop-stream');
-            if (badge) badge.classList.toggle('hidden', !isActive);
-            if (np) np.textContent = isActive ? (filename || 'Streaming...') : 'Idle';
-            if (stopBtn) stopBtn.classList.toggle('hidden', !isActive);
+            checkAuth(); // Refresh quota info
         }
 
         async function handleUpload(input) {
-            const container = document.getElementById('upload-progress-container');
-            const items = document.getElementById('upload-items');
-            container.classList.remove('hidden');
-            for (const file of input.files) {
-                const uploadId = 'up-' + Math.random().toString(36).substr(2,5);
-                items.insertAdjacentHTML('afterbegin', `<div id="${uploadId}" class="bg-slate-900 p-3 rounded-xl text-[10px]"><div class="flex justify-between mb-1"><span>${file.name}</span><span id="${uploadId}-p">0%</span></div><div class="h-1 bg-slate-800 rounded-full overflow-hidden"><div id="${uploadId}-b" class="h-full bg-indigo-500" style="width:0%"></div></div></div>`);
-                
-                const xhr = new XMLHttpRequest();
-                const fd = new FormData(); fd.append('video', file);
-                xhr.upload.onprogress = e => {
-                    const p = Math.round((e.loaded/e.total)*100);
-                    const pEl = document.getElementById(`${uploadId}-p`);
-                    const bEl = document.getElementById(`${uploadId}-b`);
-                    if (pEl) pEl.textContent = p + '%';
-                    if (bEl) bEl.style.width = p + '%';
-                };
-                xhr.onload = () => { fetchMedia(); setTimeout(() => {
-                    const el = document.getElementById(uploadId);
-                    if (el) el.remove();
-                }, 2000); };
-                xhr.open('POST', '/api/videos/upload'); xhr.send(fd);
-            }
-            input.value = '';
+            const fd = new FormData(); fd.append('video', input.files[0]);
+            const res = await fetch('/api/videos/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.success) checkAuth();
+            else alert(data.error);
         }
 
-        async function stopStreaming() {
-            if(!confirm('Hentikan stream yang sedang berjalan?')) return;
-            await fetch('/api/stream/stop', { method: 'POST' });
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'users') fetchUsers();
         }
 
-        async function saveSettings() {
-            const rtmp = document.getElementById('rtmp-input').value;
-            await fetch('/api/settings', {
+        async function fetchUsers() {
+            const res = await fetch('/api/users');
+            const users = await res.json();
+            document.getElementById('user-table-body').innerHTML = users.map(u => `
+                <tr class="border-b border-slate-700/50">
+                    <td class="p-4 font-bold">${u.username}</td>
+                    <td class="p-4 text-indigo-400">${u.plan_name}</td>
+                    <td class="p-4 text-slate-400">${(u.storage_used/1024/1024).toFixed(1)} MB</td>
+                    <td class="p-4 text-right">
+                        <button onclick="openUpgradeModal(${u.id}, '${u.username}')" class="text-indigo-400 hover:underline">Edit Plan</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function openUpgradeModal(id, name) {
+            currentUpgradeUserId = id;
+            document.getElementById('upgrade-user-name').textContent = `User: ${name}`;
+            const res = await fetch('/api/plans');
+            const plans = await res.json();
+            document.getElementById('plan-select').innerHTML = plans.map(p => `<option value="${p.id}">${p.name} (${p.max_storage_mb}MB)</option>`).join('');
+            document.getElementById('upgradeModal').classList.remove('hidden');
+        }
+
+        function closeUpgradeModal() { document.getElementById('upgradeModal').classList.add('hidden'); }
+
+        async function submitUpgrade() {
+            const plan_id = document.getElementById('plan-select').value;
+            await fetch('/api/admin/assign-plan', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ rtmp_url: rtmp })
+                body: JSON.stringify({ user_id: currentUpgradeUserId, plan_id })
             });
-            alert('Konfigurasi RTMP berhasil disimpan!');
-        }
-
-        async function fetchSettings() {
-            const res = await fetch('/api/settings');
-            const data = await res.json();
-            document.getElementById('rtmp-input').value = data.rtmp_url;
-        }
-
-        async function handleLogout() {
-            await fetch('/api/logout', {method: 'POST'});
-            location.reload();
-        }
-
-        function activateDemoMode() {
-            isDemoMode = true;
-            localStorage.setItem('liteStream_demo', 'true');
-            showDashboard({ username: 'Demo_User' });
+            closeUpgradeModal();
+            fetchUsers();
         }
 
         window.onload = checkAuth;
