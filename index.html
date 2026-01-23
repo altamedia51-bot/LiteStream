@@ -54,19 +54,27 @@
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8">
             <div class="text-center">
                 <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/20">
-                    <i class="fas fa-bolt text-2xl text-white"></i>
+                    <i class="fas fa-bolt text-2xl text-white" id="auth-icon"></i>
                 </div>
-                <h2 class="text-2xl font-bold">LiteStream</h2>
-                <p class="text-slate-500 text-sm mt-1">Streaming VPS Ringan</p>
+                <h2 class="text-2xl font-bold" id="auth-title">LiteStream</h2>
+                <p class="text-slate-500 text-sm mt-1" id="auth-subtitle">Streaming VPS Ringan</p>
             </div>
-            <form id="login-form" onsubmit="handleAuth(event)" class="space-y-4">
+            
+            <div id="auth-msg" class="hidden p-4 rounded-2xl text-xs font-bold text-center border"></div>
+
+            <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
                 <div class="space-y-1">
                     <input type="text" id="login-user" required class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-2 ring-indigo-500/50 outline-none transition-all" placeholder="Username">
                 </div>
                 <div class="space-y-1">
                     <input type="password" id="login-pass" required class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-2 ring-indigo-500/50 outline-none transition-all" placeholder="Password">
                 </div>
-                <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white shadow-xl hover:bg-indigo-500 active:scale-95 transition-all">MASUK DASHBOARD</button>
+                <button type="submit" id="auth-btn" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white shadow-xl hover:bg-indigo-500 active:scale-95 transition-all uppercase tracking-wider">MASUK DASHBOARD</button>
+                
+                <p class="text-center text-xs text-slate-500 mt-4">
+                    <span id="toggle-text">Belum punya akun?</span> 
+                    <button type="button" onclick="toggleAuthMode()" id="toggle-btn" class="text-indigo-400 font-bold hover:underline">Daftar Sekarang</button>
+                </p>
             </form>
         </div>
     </div>
@@ -261,6 +269,34 @@
         const socket = io();
         let currentUser = null;
         let selectedMedia = new Set();
+        let isLoginMode = true;
+
+        // Toggle antara Login dan Register
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            const btn = document.getElementById('auth-btn');
+            const toggleText = document.getElementById('toggle-text');
+            const toggleBtn = document.getElementById('toggle-btn');
+            const authMsg = document.getElementById('auth-msg');
+
+            authMsg.classList.add('hidden');
+
+            if (isLoginMode) {
+                title.textContent = "LiteStream";
+                subtitle.textContent = "Streaming VPS Ringan";
+                btn.textContent = "MASUK DASHBOARD";
+                toggleText.textContent = "Belum punya akun?";
+                toggleBtn.textContent = "Daftar Sekarang";
+            } else {
+                title.textContent = "Buat Akun";
+                subtitle.textContent = "Dapatkan Paket Free Trial Langsung";
+                btn.textContent = "DAFTAR SEKARANG";
+                toggleText.textContent = "Sudah punya akun?";
+                toggleBtn.textContent = "Login Saja";
+            }
+        }
 
         // Handle Status Updates (Real-time)
         socket.on('log', (data) => {
@@ -421,13 +457,43 @@
             e.preventDefault();
             const username = document.getElementById('login-user').value;
             const password = document.getElementById('login-pass').value;
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (data.success) location.reload(); else alert(data.error);
+            const authMsg = document.getElementById('auth-msg');
+            const authBtn = document.getElementById('auth-btn');
+
+            authMsg.classList.add('hidden');
+            authBtn.disabled = true;
+            authBtn.textContent = "SEDANG DIPROSES...";
+
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (isLoginMode) {
+                        location.reload();
+                    } else {
+                        // Jika registrasi sukses, tampilkan pesan sukses dan pindah ke login
+                        authMsg.textContent = data.message;
+                        authMsg.className = "p-4 rounded-2xl text-xs font-bold text-center border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 block";
+                        setTimeout(() => toggleAuthMode(), 2000);
+                    }
+                } else {
+                    authMsg.textContent = data.error;
+                    authMsg.className = "p-4 rounded-2xl text-xs font-bold text-center border bg-rose-500/10 border-rose-500/20 text-rose-400 block";
+                }
+            } catch (err) {
+                authMsg.textContent = "Koneksi server gagal";
+                authMsg.className = "p-4 rounded-2xl text-xs font-bold text-center border bg-rose-500/10 border-rose-500/20 text-rose-400 block";
+            } finally {
+                authBtn.disabled = false;
+                authBtn.textContent = isLoginMode ? "MASUK DASHBOARD" : "DAFTAR SEKARANG";
+            }
         }
 
         async function fetchSettings() {
