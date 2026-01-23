@@ -177,9 +177,11 @@
                 <h1 class="font-bold text-xl tracking-tight">LiteStream</h1>
             </div>
             <nav class="space-y-2 flex-1">
-                <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium active"><i class="fas fa-grid-2"></i> Overview</button>
+                <!-- UPDATED: Changed icon to fa-home -->
+                <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium active"><i class="fas fa-home"></i> Overview</button>
                 <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-folder"></i> Media Library</button>
-                <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Admin Panel</button>
+                <!-- FIX: Exact same class structure as others for alignment -->
+                <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Admin Panel</button>
                 <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-sliders"></i> Settings</button>
                 <button onclick="switchTab('profile')" id="nav-profile" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-user-circle"></i> My Profile</button>
             </nav>
@@ -219,12 +221,12 @@
                             <div id="live-card" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl mb-5 pulse-live text-center">
                                 <div class="mb-4"><span class="text-emerald-400 font-bold text-[10px] tracking-widest">LIVE TRANSMISSION</span></div>
                                 <div class="grid grid-cols-2 gap-3">
-                                    <div class="bg-slate-900/50 rounded-xl p-2 border border-emerald-500/10">
-                                        <p class="text-[8px] text-emerald-500/70 font-bold uppercase mb-1">DURATION</p>
+                                    <div class="bg-slate-900/50 rounded-xl p-3 border border-emerald-500/10 flex flex-col items-center justify-center">
+                                        <p class="text-[8px] text-emerald-500/70 font-bold uppercase mb-1"><i class="fas fa-clock mr-1"></i> DURATION</p>
                                         <p id="stat-duration" class="text-sm font-mono font-bold text-white">00:00:00</p>
                                     </div>
-                                    <div class="bg-slate-900/50 rounded-xl p-2 border border-emerald-500/10">
-                                        <p class="text-[8px] text-emerald-500/70 font-bold uppercase mb-1">BITRATE</p>
+                                    <div class="bg-slate-900/50 rounded-xl p-3 border border-emerald-500/10 flex flex-col items-center justify-center">
+                                        <p class="text-[8px] text-emerald-500/70 font-bold uppercase mb-1"><i class="fas fa-tachometer-alt mr-1"></i> BITRATE</p>
                                         <p id="stat-bitrate" class="text-sm font-mono font-bold text-white">0 kbps</p>
                                     </div>
                                 </div>
