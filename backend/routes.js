@@ -39,7 +39,25 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Public Plans API
+router.get('/plans-public', (req, res) => {
+  db.all("SELECT * FROM plans", (err, rows) => res.json(rows));
+});
+
+// Admin Managed Plans
 router.get('/plans', isAdmin, (req, res) => db.all("SELECT * FROM plans", (err, rows) => res.json(rows)));
+
+router.put('/plans/:id', isAdmin, (req, res) => {
+  const { name, max_storage_mb, allowed_types } = req.body;
+  db.run("UPDATE plans SET name = ?, max_storage_mb = ?, allowed_types = ? WHERE id = ?", 
+    [name, max_storage_mb, allowed_types, req.params.id], 
+    function(err) {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
 router.get('/users', isAdmin, (req, res) => db.all("SELECT u.id, u.username, u.role, u.storage_used, p.name as plan_name FROM users u JOIN plans p ON u.plan_id = p.id", (err, rows) => res.json(rows)));
 
 router.get('/videos', async (req, res) => res.json(await getVideos(req.session.user.id)));

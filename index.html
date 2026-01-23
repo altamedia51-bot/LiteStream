@@ -63,7 +63,7 @@
             </div>
             <div class="hidden md:flex gap-8 text-sm font-semibold text-slate-400">
                 <a href="#features" class="hover:text-white transition-colors">Features</a>
-                <a href="#tech" class="hover:text-white transition-colors">Technology</a>
+                <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
             </div>
             <button onclick="showAuth()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl transition-all active:scale-95">Get Started</button>
         </nav>
@@ -110,6 +110,17 @@
             </div>
         </section>
 
+        <!-- Pricing Section -->
+        <section id="pricing" class="py-24 px-6 lg:px-20">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl lg:text-5xl font-bold mb-4">Pilih Paket Streaming</h2>
+                <p class="text-slate-400 italic">Mulai gratis, upgrade saat butuh lebih banyak storage.</p>
+            </div>
+            <div id="pricing-grid" class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <!-- Dinamis dari API -->
+            </div>
+        </section>
+
         <footer class="py-10 text-center border-t border-slate-800 text-slate-500 text-xs">
             &copy; 2024 LiteStream Engine. All Rights Reserved.
         </footer>
@@ -151,7 +162,7 @@
             <nav class="space-y-2 flex-1">
                 <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium active"><i class="fas fa-grid-2"></i> Overview</button>
                 <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-folder"></i> Media Library</button>
-                <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Users Admin</button>
+                <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Admin Panel</button>
                 <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-sliders"></i> Settings</button>
             </nav>
             <div class="pt-6 border-t border-slate-800 mt-6">
@@ -253,16 +264,30 @@
                 </div>
             </div>
 
-            <div id="tab-users" class="tab-content space-y-6">
-                <h2 class="text-2xl font-bold">Admin Panel</h2>
-                <div class="bg-slate-800/50 border border-slate-700/50 rounded-3xl overflow-hidden shadow-xl overflow-x-auto">
-                    <table class="w-full text-left min-w-[500px]">
-                        <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500">
-                            <tr><th class="p-5">Account</th><th class="p-5">Plan</th><th class="p-5">Usage</th><th class="p-5 text-right">Actions</th></tr>
-                        </thead>
-                        <tbody id="user-table-body" class="text-sm"></tbody>
-                    </table>
-                </div>
+            <div id="tab-users" class="tab-content space-y-12">
+                <section>
+                    <h2 class="text-2xl font-bold mb-6">User Accounts</h2>
+                    <div class="bg-slate-800/50 border border-slate-700/50 rounded-3xl overflow-hidden shadow-xl overflow-x-auto">
+                        <table class="w-full text-left min-w-[500px]">
+                            <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500">
+                                <tr><th class="p-5">Account</th><th class="p-5">Plan</th><th class="p-5">Usage</th><th class="p-5 text-right">Actions</th></tr>
+                            </thead>
+                            <tbody id="user-table-body" class="text-sm"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold mb-6">Manage Plans (Pricing)</h2>
+                    <div class="bg-slate-800/50 border border-slate-700/50 rounded-3xl overflow-hidden shadow-xl overflow-x-auto">
+                        <table class="w-full text-left min-w-[500px]">
+                            <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500">
+                                <tr><th class="p-5">Package Name</th><th class="p-5">Storage (MB)</th><th class="p-5">Allowed Media</th><th class="p-5 text-right">Actions</th></tr>
+                            </thead>
+                            <tbody id="plan-table-body" class="text-sm"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
         </main>
 
@@ -309,8 +334,10 @@
             const p = document.createElement('p');
             p.className = data.type === 'error' ? 'text-rose-400 font-bold' : (data.type === 'start' ? 'text-emerald-400 font-bold' : 'text-slate-400');
             p.textContent = `> ${data.message}`;
-            consoleEl.appendChild(p);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
+            if (consoleEl) {
+                consoleEl.appendChild(p);
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
             if (data.type === 'start') updateLiveUI(true, data.message);
             if (data.type === 'end' || data.type === 'error' || data.message.includes('dihentikan')) updateLiveUI(false);
         });
@@ -326,6 +353,31 @@
             if (isLive && document.getElementById('stream-status-msg')) document.getElementById('stream-status-msg').textContent = msg;
         }
 
+        async function fetchPlansLanding() {
+            try {
+                const res = await fetch('/api/plans-public');
+                const plans = await res.json();
+                const grid = document.getElementById('pricing-grid');
+                if (!grid) return;
+                
+                grid.innerHTML = plans.map(p => {
+                    const isPremium = p.name.toLowerCase().includes('creator') || p.id === 3;
+                    return `
+                    <div class="glass p-10 rounded-[3rem] border border-slate-800 hover:border-indigo-500/50 transition-all ${isPremium ? 'ring-2 ring-indigo-500/20 bg-indigo-500/5' : ''}">
+                        <h4 class="text-xl font-bold mb-2">${p.name}</h4>
+                        <div class="text-3xl font-extrabold mb-6">${p.max_storage_mb >= 1024 ? (p.max_storage_mb/1024).toFixed(0)+'GB' : p.max_storage_mb+'MB'} <span class="text-sm font-normal text-slate-500">storage</span></div>
+                        <ul class="space-y-4 mb-10 text-sm text-slate-400">
+                            <li><i class="fas fa-check text-indigo-400 mr-2"></i> Support ${p.allowed_types.split(',').join(' & ')}</li>
+                            <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_active_streams} Concurrent Stream</li>
+                            <li><i class="fas fa-check text-indigo-400 mr-2"></i> VPS Optimization Included</li>
+                        </ul>
+                        <button onclick="showAuth('register')" class="w-full py-4 rounded-2xl font-bold text-sm ${isPremium ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-white border border-slate-700'} hover:scale-105 transition-all">Pilih Paket</button>
+                    </div>
+                    `;
+                }).join('');
+            } catch (e) { console.error("Plans fetch failed", e); }
+        }
+
         async function checkAuth() {
             try {
                 const res = await fetch('/api/check-auth');
@@ -335,9 +387,11 @@
                     showDashboard(); 
                 } else { 
                     document.getElementById('landing-view').classList.remove('hidden');
+                    fetchPlansLanding();
                 }
             } catch (e) { 
                 document.getElementById('landing-view').classList.remove('hidden');
+                fetchPlansLanding();
             }
         }
 
@@ -450,7 +504,7 @@
             document.querySelectorAll('.nav-link, nav button').forEach(l => l.classList.remove('active'));
             document.getElementById('nav-' + tab)?.classList.add('active');
             document.getElementById('mob-nav-' + tab)?.classList.add('active');
-            if (tab === 'users') fetchUsers();
+            if (tab === 'users') { fetchUsers(); fetchAdminPlans(); }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -510,9 +564,41 @@
                     <td class="p-5"><div>${u.username}</div><div class="text-[10px] text-slate-500">${u.role}</div></td>
                     <td class="p-5 text-indigo-400">${u.plan_name}</td>
                     <td class="p-5 text-slate-400">${(u.storage_used/1024/1024).toFixed(1)} MB</td>
-                    <td class="p-5 text-right"><button class="text-xs font-bold text-indigo-500">MANAGE</button></td>
+                    <td class="p-5 text-right"><button class="text-xs font-bold text-indigo-500 hover:underline">MANAGE</button></td>
                 </tr>
             `).join('');
+        }
+
+        async function fetchAdminPlans() {
+            const res = await fetch('/api/plans');
+            const data = await res.json();
+            const body = document.getElementById('plan-table-body');
+            if (body) body.innerHTML = data.map(p => `
+                <tr class="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
+                    <td class="p-5 font-bold">${p.name}</td>
+                    <td class="p-5 text-slate-300">${p.max_storage_mb} MB</td>
+                    <td class="p-5 text-slate-400 font-mono text-xs uppercase">${p.allowed_types}</td>
+                    <td class="p-5 text-right">
+                        <button onclick="editPlan(${p.id}, '${p.name}', ${p.max_storage_mb}, '${p.allowed_types}')" class="bg-indigo-600/20 text-indigo-400 px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all">EDIT PACK</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function editPlan(id, oldName, oldStorage, oldTypes) {
+            const name = prompt("Nama Paket:", oldName);
+            if (name === null) return;
+            const storage = prompt("Kuota Storage (MB):", oldStorage);
+            if (storage === null) return;
+            const types = prompt("Allowed Types (comma separated, e.g: audio,video):", oldTypes);
+            if (types === null) return;
+
+            const res = await fetch(`/api/plans/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, max_storage_mb: parseInt(storage), allowed_types: types })
+            });
+            if ((await res.json()).success) { fetchAdminPlans(); alert("Paket berhasil diperbarui!"); }
         }
 
         async function handleLogout() { if (confirm("Logout?")) { await fetch('/api/logout', {method: 'POST'}); location.reload(); } }
