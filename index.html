@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LiteStream - Multi-Platform Streaming Server</title>
+    
+    <!-- Favicon: SVG Data URI (Bolt Icon) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath d='M13 10V3L4 14h7v7l9-11h-7z'/%3E%3C/svg%3E">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -102,7 +106,6 @@
                     <i class="fas fa-layer-group text-emerald-400 text-2xl"></i>
                 </div>
                 <h3 class="text-xl font-bold mb-4">Multi-Platform</h3>
-                <h3 class="text-xl font-bold mb-4"></h3>
                 <p class="text-slate-400 text-sm leading-relaxed">Satu server untuk banyak target. Streaming ke Youtube, Twitch, Facebook, hingga Tiktok.</p>
             </div>
         </section>
@@ -112,7 +115,7 @@
         </footer>
     </div>
 
-    <!-- AUTH VIEW (Login/Register Modal) -->
+    <!-- AUTH VIEW -->
     <div id="login-view" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl relative">
             <button onclick="hideAuth()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
@@ -140,7 +143,6 @@
 
     <!-- MAIN APP DASHBOARD -->
     <div id="main-app" class="hidden flex flex-col md:flex-row min-h-screen">
-        <!-- Sidebar -->
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
             <div class="flex items-center gap-3 mb-12">
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center"><i class="fas fa-bolt text-white"></i></div>
@@ -158,7 +160,6 @@
         </aside>
 
         <main class="flex-1 p-4 md:p-10 max-w-6xl mx-auto w-full">
-            <!-- Mobile Header (Hanya muncul saat login) -->
             <header class="md:hidden flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <span class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><i class="fas fa-bolt text-xs text-white"></i></span> LiteStream
@@ -169,7 +170,6 @@
                 </div>
             </header>
 
-            <!-- Quota Card -->
             <div class="bg-slate-800 border border-slate-700/50 rounded-3xl p-6 mb-6 shadow-xl relative overflow-hidden">
                 <div class="flex flex-col md:flex-row gap-6 items-center">
                     <div class="text-center md:text-left">
@@ -188,10 +188,6 @@
                 </div>
             </div>
 
-            <!-- Dashboard Content Tabs (Existing logic) -->
-            <!-- ... TAB OVERVIEW, LIBRARY, SETTINGS, USERS ... -->
-            <!-- (Konten Dashboard tetap sama seperti versi sebelumnya) -->
-            
             <div id="tab-overview" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1">
@@ -270,7 +266,6 @@
             </div>
         </main>
 
-        <!-- Mobile Nav Bar -->
         <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-slate-800 mobile-nav px-6 py-3 flex justify-between items-center z-50">
             <button onclick="switchTab('overview')" id="mob-nav-overview" class="flex flex-col items-center gap-1 text-slate-400 active"><i class="fas fa-grid-2 text-xl"></i><span class="text-[9px] font-bold uppercase">Status</span></button>
             <button onclick="switchTab('library')" id="mob-nav-library" class="flex flex-col items-center gap-1 text-slate-400"><i class="fas fa-folder text-xl"></i><span class="text-[9px] font-bold uppercase">Media</span></button>
@@ -286,7 +281,6 @@
         let currentFilter = 'all';
         let isLoginMode = true;
 
-        // View Visibility Logic
         function showAuth(mode = 'login') {
             isLoginMode = mode === 'login';
             updateAuthUI();
