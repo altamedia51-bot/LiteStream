@@ -1,70 +1,75 @@
 
 const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
+const fs = require('fs');
 
 let currentCommand = null;
 
 /**
- * Memulai streaming dengan optimasi CBR (Constant Bitrate) untuk mencegah loading/buffering.
+ * Memulai streaming. Mendukung single file atau array of paths (Playlist).
  */
-const startStream = (inputPath, rtmpUrl, options = {}) => {
+const startStream = (inputPaths, rtmpUrl, options = {}) => {
   if (currentCommand) {
     stopStream();
   }
 
-  const isAudio = inputPath.toLowerCase().endsWith('.mp3');
+  // Normalisasi input ke array
+  const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
+  const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
   const shouldLoop = options.loop === true;
+  
+  // Buat file playlist untuk concat demuxer (Sangat ringan untuk VPS)
+  const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
+  const playlistContent = files.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
+  fs.writeFileSync(playlistPath, playlistContent);
 
   return new Promise((resolve, reject) => {
     let command = ffmpeg();
 
-    // Input Configuration
-    if (isAudio) {
+    if (isAllAudio) {
+      // MODE AUDIO PLAYLIST + BACKGROUND IMAGE
       const imagePath = options.coverImagePath || path.join(__dirname, 'default_cover.jpg');
       
-      // Input Gambar (Looping untuk visual)
-      command.input(imagePath).inputOptions(['-loop 1', '-thread_queue_size 1024']);
-      
-      // Input Audio
-      if (shouldLoop) {
-        command.input(inputPath).inputOptions(['-stream_loop -1', '-re', '-thread_queue_size 1024']);
-      } else {
-        command.input(inputPath).inputOptions(['-re', '-thread_queue_size 1024']);
-      }
+      command
+        .input(imagePath).inputOptions(['-loop 1'])
+        .input(playlistPath).inputOptions([
+          '-f concat',
+          '-safe 0',
+          shouldLoop ? '-stream_loop -1' : '',
+          '-re'
+        ].filter(Boolean));
 
-      // Output Settings untuk Audio + Image (Butuh Re-encoding Video)
       command.outputOptions([
         '-c:v libx264',
-        '-preset ultrafast', // Sangat penting untuk VPS 1 Core
+        '-preset ultrafast',
         '-tune stillimage',
         '-pix_fmt yuv420p',
-        '-r 15',             // 15 FPS lebih disukai YouTube daripada 2/10 FPS
-        '-g 30',             // Keyframe setiap 2 detik (15fps * 2)
-        
-        // CBR SETTINGS (Solusi untuk "Low Bitrate" Warning)
-        '-b:v 2000k',        // Set video bitrate ke 2000k agar stabil
+        '-r 15',
+        '-g 30',
+        '-b:v 2000k',
         '-minrate 2000k',
         '-maxrate 2000k',
-        '-bufsize 4000k',    // Buffer 2x dari bitrate
-        
+        '-bufsize 4000k',
         '-c:a aac',
         '-b:a 128k',
         '-ar 44100',
-        '-shortest',         // Berhenti jika salah satu input habis (berguna jika tidak loop)
+        '-shortest',
         '-f flv',
         '-flvflags no_duration_filesize'
       ]);
     } else {
-      // VIDEO MODE (Copy codec agar hemat CPU)
-      if (shouldLoop) {
-        command.input(inputPath).inputOptions(['-stream_loop -1', '-re', '-thread_queue_size 1024']);
-      } else {
-        command.input(inputPath).inputOptions(['-re', '-thread_queue_size 1024']);
-      }
+      // MODE VIDEO PLAYLIST (Copy Codec - Zero CPU Load)
+      command
+        .input(playlistPath)
+        .inputOptions([
+          '-f concat',
+          '-safe 0',
+          shouldLoop ? '-stream_loop -1' : '',
+          '-re'
+        ].filter(Boolean));
 
       command.outputOptions([
-        '-c:v copy',
-        '-c:a copy',
+        '-c copy', // Sangat penting untuk VPS 1GB RAM
         '-f flv',
         '-flvflags no_duration_filesize'
       ]);
@@ -72,23 +77,21 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
 
     currentCommand = command
       .on('start', (commandLine) => {
-        console.log('FFmpeg Spawned:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Aktif (Loop: ${shouldLoop}) - Bitrate: 2000kbps` });
+        console.log('FFmpeg Command:', commandLine);
+        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist dimulai (${files.length} file).` });
       })
       .on('stderr', (stderrLine) => {
-        // Hanya kirim stats bitrate ke dashboard agar tidak lag
         if (stderrLine.includes('bitrate=')) {
           if (global.io) global.io.emit('log', { type: 'debug', message: stderrLine });
         }
       })
       .on('error', (err) => {
-        console.error('FFmpeg Error:', err.message);
-        if (global.io) global.io.emit('log', { type: 'error', message: `FFmpeg Error: ${err.message}` });
+        if (global.io) global.io.emit('log', { type: 'error', message: `Stream Error: ${err.message}` });
         currentCommand = null;
         reject(err);
       })
       .on('end', () => {
-        if (global.io) global.io.emit('log', { type: 'end', message: 'Streaming selesai.' });
+        if (global.io) global.io.emit('log', { type: 'end', message: 'Streaming Playlist selesai.' });
         currentCommand = null;
         resolve();
       });
@@ -101,9 +104,10 @@ const stopStream = () => {
   if (currentCommand) {
     try {
       currentCommand.kill('SIGKILL');
-    } catch (e) { console.error(e); }
+      console.log("FFmpeg process killed manually.");
+    } catch (e) { console.error("Error killing FFmpeg:", e); }
     currentCommand = null;
-    if (global.io) global.io.emit('log', { type: 'info', message: 'Stream dihentikan.' });
+    if (global.io) global.io.emit('log', { type: 'info', message: 'Streaming telah dihentikan oleh pengguna.' });
     return true;
   }
   return false;
