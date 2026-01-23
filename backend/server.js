@@ -115,8 +115,9 @@ app.get('/api/check-auth', (req, res) => {
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ success: true })));
 
 const routes = require('./routes');
+// UPDATE: Menambahkan '/plans-public' ke dalam whitelist agar bisa diakses tanpa login
 app.use('/api', (req, res, next) => {
-  if (['/login', '/register', '/check-auth'].includes(req.path)) return next();
+  if (['/login', '/register', '/check-auth', '/plans-public'].includes(req.path)) return next();
   return isAuthenticated(req, res, next);
 }, routes);
 
