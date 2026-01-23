@@ -12,31 +12,18 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
   const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
-  // Ubah ke loose boolean check agar lebih aman
   const shouldLoop = !!options.loop;
   
-  // STRATEGI LOOP STABIL:
-  // FFmpeg sering gagal melakukan looping timestamps dengan flag -stream_loop -1 pada RTMP.
-  // Solusi paling stabil untuk VPS adalah menduplikasi entry di playlist.txt sebanyak mungkin (misal 1000x).
-  // Ini memastikan timestamps selalu linear tanpa reset, mencegah streaming mati.
-  const loopCount = shouldLoop ? 1000 : 1;
-  const playlistEntries = [];
-  
-  for (let i = 0; i < loopCount; i++) {
-      files.forEach(f => {
-          playlistEntries.push(`file '${path.resolve(f).replace(/'/g, "'\\''")}'`);
-      });
-  }
-
-  // FIX: Gunakan path absolute agar FFmpeg tidak bingung mencari file
+  // 1. Buat Playlist File (Standard, 1x list saja)
   const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
-  fs.writeFileSync(playlistPath, playlistEntries.join('\n'));
+  const playlistContent = files.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join('\n');
+  fs.writeFileSync(playlistPath, playlistContent);
 
   return new Promise((resolve, reject) => {
     let command = ffmpeg();
 
     if (isAllAudio) {
-      // --- MODE AUDIO (RADIO/PODCAST) ---
+      // --- MODE AUDIO (RADIO/PODCAST - TRUE INFINITE) ---
       
       const videoFilter = [
         'scale=1280:720:force_original_aspect_ratio=decrease',
@@ -44,8 +31,9 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         'format=yuv420p'
       ].join(',');
 
-      // 1. INPUT 0: VISUAL (Image/Color)
-      // Menggunakan -re di sini sebagai Master Clock
+      // INPUT 0: IMAGE BACKGROUND
+      // -loop 1: Gambar diulang terus menerus (infinite image stream)
+      // -re: Membaca input secara realtime (penting agar tidak terlalu cepat)
       let imageInput = options.coverImagePath;
       if (!imageInput || !fs.existsSync(imageInput)) {
         command.input('color=c=black:s=1280x720:r=24')
@@ -55,12 +43,21 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
                .inputOptions(['-loop 1', '-framerate 2', '-re']); 
       }
 
-      // 2. INPUT 1: AUDIO (Playlist)
-      // Kita tidak menggunakan -stream_loop lagi, tapi mengandalkan playlist yang sangat panjang.
-      command.input(playlistPath).inputOptions([
-        '-f', 'concat', 
-        '-safe', '0'
-      ]);
+      // INPUT 1: AUDIO PLAYLIST
+      const audioInputOptions = [];
+      
+      // TRUE INFINITE LOOP LOGIC:
+      // -stream_loop -1: Memerintahkan FFmpeg mengulang input ini selamanya.
+      // Diletakkan SEBELUM input file (-i).
+      if (shouldLoop) {
+          audioInputOptions.push('-stream_loop', '-1');
+      }
+      
+      // -re : Read at native frame rate. Mencegah FFmpeg membaca file secepat kilat.
+      audioInputOptions.push('-re'); 
+      audioInputOptions.push('-f', 'concat', '-safe', '0');
+      
+      command.input(playlistPath).inputOptions(audioInputOptions);
 
       // OUTPUT OPTIONS
       const outputOpts = [
@@ -68,14 +65,14 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-map 1:a',
         `-vf ${videoFilter}`,
         '-c:v libx264',
-        '-preset ultrafast',
+        '-preset ultrafast', // Hemat CPU VPS
         
         '-r 24',
         '-g 48',
         '-keyint_min 48',
         '-sc_threshold 0',
         
-        // FIX BITRATE YOUTUBE
+        // Bitrate Stabil untuk YouTube
         '-b:v 3000k',
         '-minrate 3000k', 
         '-maxrate 3000k',
@@ -86,33 +83,33 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-b:a 128k',
         '-ar 44100',
         
-        // CRITICAL FIX FOR AUDIO SYNC:
-        // 1. aresample: Koreksi drift sampling rate
-        // 2. asetpts=N/SR/TB: Generate timestamp baru yang monoton (terus naik) berdasarkan jumlah sampel.
-        //    Ini mencegah error "Non-monotonous DTS" yang mematikan stream saat ganti lagu atau loop.
-        '-af aresample=async=1000,asetpts=N/SR/TB',
+        // --- RAHASIA TRUE INFINITE ---
+        // asetpts=N/SR/TB : 
+        // Ini memaksa FFmpeg membuat timestamp BARU berdasarkan jumlah sample yang lewat,
+        // BUKAN berdasarkan timestamp dari file asli.
+        // Saat file mp3 mengulang (loop), timestamp asli jadi 0, tapi filter ini akan
+        // membuatnya terus naik (misal: jam ke-100 tetap lanjut).
+        '-af aresample=async=1,asetpts=N/SR/TB',
         
         '-fflags +genpts+igndts', 
-        '-max_muxing_queue_size 9999',
         '-ignore_unknown',
         
         '-f flv',
         '-flvflags no_duration_filesize'
       ];
 
-      // CRITICAL FIX: Hanya gunakan -shortest jika TIDAK looping.
-      // Jika looping (playlist panjang), kita biarkan stream mati sendiri kalau habis (setelah ribuan jam).
-      if (!shouldLoop) {
-        outputOpts.push('-shortest');
-      }
+      // HAPUS -shortest.
+      // Kita ingin stream jalan selamanya mengikuti audio yang diloop, atau gambar yang diloop.
+      // Jika salah satu mati, stream mati. Karena dua-duanya infinite, stream infinite.
 
       command.outputOptions(outputOpts);
 
     } else {
       // --- MODE VIDEO (Direct Stream Copy) ---
-      // Sama, kita gunakan playlist panjang untuk loop video
       const videoInputOpts = ['-f', 'concat', '-safe', '0', '-re'];
-      
+      // Loop untuk video juga menggunakan native stream loop
+      if (shouldLoop) videoInputOpts.unshift('-stream_loop', '-1');
+
       command
         .input(playlistPath)
         .inputOptions(videoInputOpts);
@@ -126,8 +123,8 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
     currentCommand = command
       .on('start', (commandLine) => {
-        console.log('FFmpeg Engine Started:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Mode Loop: ${shouldLoop ? 'Infinite (Polyfill)' : 'Single Run'}` });
+        console.log('FFmpeg Engine Started');
+        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Started. Mode: ${shouldLoop ? 'True Infinite Loop' : 'Single Play'}` });
       })
       .on('progress', (progress) => {
         if (global.io) {
@@ -138,18 +135,23 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         }
       })
       .on('stderr', (stderrLine) => {
-        if (stderrLine.includes('bitrate=') || stderrLine.includes('Error') || stderrLine.includes('Conversion failed')) {
+        // Filter log spam
+        if (stderrLine.includes('frame=') || stderrLine.includes('fps=')) return;
+        if (stderrLine.includes('Error') || stderrLine.includes('fail')) {
             if (global.io) global.io.emit('log', { type: 'debug', message: stderrLine });
         }
       })
       .on('error', (err) => {
+        // Abaikan error SIGKILL (saat user stop manual)
+        if (err.message.includes('SIGKILL')) return;
+        
         console.error("FFmpeg Error:", err.message);
         if (global.io) global.io.emit('log', { type: 'error', message: `Engine Failure: ${err.message}` });
         currentCommand = null;
         reject(err);
       })
       .on('end', () => {
-        if (global.io) global.io.emit('log', { type: 'end', message: 'Playlist Selesai.' });
+        if (global.io) global.io.emit('log', { type: 'end', message: 'Stream Selesai.' });
         currentCommand = null;
         resolve();
       });
