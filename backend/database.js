@@ -45,27 +45,31 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
-      // 3. Force Seed Plans
-      db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (1, 'Free Trial', 500, 'audio', 1)");
-      db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (2, 'Radio Station', 5120, 'audio', 1)");
-      db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (3, 'Content Creator', 10240, 'video,audio', 2)");
+      // 3. Pastikan Master Data Plans Tersedia (ID Tetap)
+      const plans = [
+        [1, 'Free Trial', 500, 'audio', 1],
+        [2, 'Radio Station', 5120, 'audio', 1],
+        [3, 'Content Creator', 10240, 'video,audio', 2]
+      ];
+      plans.forEach(p => {
+        db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (?, ?, ?, ?, ?)", p);
+      });
 
-      // 4. Force Seed Admin & Plan Correction
+      // 4. Seeding Admin yang Aman
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
-      // Gunakan REPLACE untuk Admin agar jika sudah ada tetap di-update ke Plan 3 & Password default jika diperlukan teknisi
-      db.run(`INSERT OR REPLACE INTO users (id, username, password_hash, role, plan_id) 
-              VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, 'admin', 3)`, 
-              [adminUser, adminUser, hash], (err) => {
+      // Gunakan INSERT OR IGNORE agar jika admin sudah ada, password lamanya tidak berubah
+      db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 3)`, [adminUser, hash], (err) => {
         if (err) {
           console.error("DB Error Seeding Admin:", err);
-          reject(err);
         } else {
-          console.log("DB: Admin Secured & Plan Synced.");
-          resolve();
+          // Pastikan admin yang sudah ada tetap memiliki Role Admin dan Plan yang benar
+          db.run(`UPDATE users SET role = 'admin', plan_id = 3 WHERE username = ?`, [adminUser]);
+          console.log("DB: Admin Check Completed (Role & Plan Synced).");
         }
+        resolve();
       });
     });
   });
