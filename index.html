@@ -22,7 +22,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
-    <!-- Auth View (Tetap Sama) -->
+    <!-- Auth View -->
     <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6">
         <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
             <div class="text-center">
@@ -132,7 +132,7 @@
                 <div id="media-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
 
-            <!-- Tab: Settings (Tetap Sama) -->
+            <!-- Tab: Settings -->
             <div id="tab-settings" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">Stream Settings</h2>
                 <div class="bg-slate-800 p-8 rounded-3xl border border-slate-700 max-w-2xl shadow-xl">
@@ -155,7 +155,7 @@
                 </div>
             </div>
 
-            <!-- Tab: Users (Tetap Sama) -->
+            <!-- Tab: Users -->
             <div id="tab-users" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">User & Plan Management</h2>
                 <div class="bg-slate-800 rounded-3xl overflow-hidden border border-slate-700 shadow-xl">
@@ -178,21 +178,16 @@
     <script>
         const socket = io();
         let currentUser = null;
-        let authMode = 'login';
         let selectedMedia = new Set();
 
-        // Socket Events
         socket.on('log', (data) => {
             const consoleEl = document.getElementById('logConsole');
             const p = document.createElement('p');
-            
-            if (data.type === 'debug' && !data.message.includes('bitrate=')) return; // Filter spam log
-
+            if (data.type === 'debug' && !data.message.includes('bitrate=')) return;
             p.className = data.type === 'error' ? 'text-rose-500 font-bold' : (data.type === 'start' ? 'text-emerald-400 font-bold' : 'text-slate-400');
             p.textContent = `[${new Date().toLocaleTimeString()}] ${data.message}`;
             consoleEl.appendChild(p);
             consoleEl.scrollTop = consoleEl.scrollHeight;
-
             if (data.type === 'start') setLiveStatus(true, data.message);
             if (data.type === 'end' || data.type === 'error' || data.message.includes('dihentikan')) setLiveStatus(false);
         });
@@ -203,7 +198,6 @@
             const stopBtn = document.getElementById('btn-stop-stream');
             const infoMsg = document.getElementById('stream-status-msg');
             const largeInd = document.getElementById('live-indicator-large');
-
             if (isLive) {
                 indicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
                 text.textContent = "LIVE";
@@ -238,26 +232,39 @@
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
-            
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             const totalMB = currentUser.max_storage_mb;
             const percent = (usedMB / totalMB) * 100;
-            
             document.getElementById('storage-text').textContent = `${usedMB} / ${totalMB} MB`;
             const bar = document.getElementById('storage-bar');
             bar.style.width = percent + '%';
             bar.className = `h-full transition-all duration-500 ${percent > 90 ? 'bg-rose-500' : (percent > 70 ? 'bg-amber-500' : 'bg-indigo-500')}`;
-
             const feats = document.getElementById('plan-features');
             feats.innerHTML = `
                 <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> Max Streams: ${currentUser.max_active_streams}</li>
                 <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> Allowed: ${currentUser.allowed_types.toUpperCase()}</li>
                 <li class="flex items-center gap-2"><i class="fas fa-cloud text-indigo-400"></i> SaaS Cloud Storage</li>
             `;
-
             if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
             fetchMedia();
             fetchSettings();
+        }
+
+        async function fetchUsers() {
+            if (currentUser.role !== 'admin') return;
+            const res = await fetch('/api/users');
+            const data = await res.json();
+            const body = document.getElementById('user-table-body');
+            body.innerHTML = data.map(u => `
+                <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
+                    <td class="p-4 font-bold text-white">${u.username} <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 ml-1">${u.role}</span></td>
+                    <td class="p-4 text-indigo-400">${u.plan_name}</td>
+                    <td class="p-4 text-slate-400">${(u.storage_used/1024/1024).toFixed(1)} MB</td>
+                    <td class="p-4 text-right">
+                        <button onclick="alert('Feature Manage User soon!')" class="text-xs font-bold text-slate-500 hover:text-white">MANAGE</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         async function fetchMedia() {
@@ -265,13 +272,9 @@
             const data = await res.json();
             const list = document.getElementById('media-list');
             const coverSelect = document.getElementById('setting-cover');
-            
             coverSelect.innerHTML = '<option value="">Default Black</option>';
-            
             list.innerHTML = data.map(v => {
-                if (v.type === 'image') {
-                    coverSelect.innerHTML += `<option value="${v.id}">${v.filename}</option>`;
-                }
+                if (v.type === 'image') coverSelect.innerHTML += `<option value="${v.id}">${v.filename}</option>`;
                 return `
                 <label class="relative cursor-pointer">
                     <input type="checkbox" class="media-checkbox hidden" onchange="toggleSelect(${v.id}, '${v.type}')" ${v.type==='image' ? 'disabled' : ''}>
@@ -286,12 +289,6 @@
                             </div>
                             <button onclick="deleteMedia(event, ${v.id})" class="text-slate-600 hover:text-rose-500 z-10"><i class="fas fa-trash"></i></button>
                         </div>
-                        ${v.type !== 'image' ? `
-                        <div class="flex items-center justify-between text-[10px] text-slate-500">
-                           <span>Klik card untuk pilih ke Playlist</span>
-                           <i class="fas fa-check-circle opacity-0 group-[.media-checkbox:checked+&]:opacity-100 text-indigo-500"></i>
-                        </div>
-                        ` : ''}
                     </div>
                 </label>
                 `;
@@ -299,21 +296,16 @@
         }
 
         function toggleSelect(id, type) {
-            if (selectedMedia.has(id)) selectedMedia.delete(id);
-            else selectedMedia.add(id);
-            
+            if (selectedMedia.has(id)) selectedMedia.delete(id); else selectedMedia.add(id);
             const btn = document.getElementById('btn-start-playlist');
-            if (selectedMedia.size > 0) btn.classList.remove('hidden');
-            else btn.classList.add('hidden');
+            if (selectedMedia.size > 0) btn.classList.remove('hidden'); else btn.classList.add('hidden');
         }
 
         async function startPlaylist() {
             const rtmpUrl = document.getElementById('setting-rtmp').value;
             if (!rtmpUrl) { alert("Atur RTMP URL di menu Settings dulu!"); switchTab('settings'); return; }
-            
             const ids = Array.from(selectedMedia);
             const coverImageId = document.getElementById('setting-cover').value;
-            
             try {
                 const res = await fetch('/api/playlist/start', {
                     method: 'POST',
@@ -321,11 +313,7 @@
                     body: JSON.stringify({ ids, rtmpUrl, coverImageId, loop: true })
                 });
                 const data = await res.json();
-                if (!data.success) alert(data.error);
-                else {
-                    selectedMedia.clear();
-                    switchTab('overview');
-                }
+                if (!data.success) alert(data.error); else { selectedMedia.clear(); switchTab('overview'); }
             } catch (e) { alert("Gagal memulai stream."); }
         }
 
@@ -334,14 +322,10 @@
             try {
                 const res = await fetch('/api/stream/stop', { method: 'POST' });
                 const data = await res.json();
-                if (data.success) {
-                    setLiveStatus(false);
-                    alert("Stream dihentikan.");
-                }
+                if (data.success) { setLiveStatus(false); alert("Stream dihentikan."); }
             } catch (e) { alert("Error menghentikan stream."); }
         }
 
-        // Functions lainnya (handleAuth, handleLogout, saveSettings, handleUpload) tetap sama dengan versi sebelumnya agar feature SaaS tidak hilang.
         async function handleAuth(e) {
             e.preventDefault();
             const username = document.getElementById('login-user').value;
@@ -353,6 +337,12 @@
             });
             const data = await res.json();
             if (data.success) location.reload(); else alert(data.error);
+        }
+
+        async function fetchSettings() {
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+            document.getElementById('setting-rtmp').value = data.rtmp_url || '';
         }
 
         async function saveSettings(e) {
