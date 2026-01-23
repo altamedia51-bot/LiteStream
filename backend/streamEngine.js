@@ -5,7 +5,7 @@ const path = require('path');
 let currentCommand = null;
 
 /**
- * Starts a stream using FFmpeg.
+ * Starts a stream using FFmpeg with stabilization for low-resource VPS.
  */
 const startStream = (inputPath, rtmpUrl, options = {}) => {
   if (currentCommand) {
@@ -17,42 +17,49 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
   const shouldLoop = options.loop === true;
 
   return new Promise((resolve, reject) => {
-    console.log(`Starting stream: ${inputPath} -> ${rtmpUrl} (Loop: ${shouldLoop})`);
+    console.log(`Starting stable stream: ${inputPath} -> ${rtmpUrl} (Loop: ${shouldLoop})`);
     
     let command = ffmpeg();
 
+    // STABILIZATION: Tambah thread_queue_size untuk mencegah "Thread message queue blocking"
+    // Ini sangat penting di VPS dengan CPU rendah agar input tidak 'telat' dibaca.
+
     if (isAudio) {
-      // KASUS B: Audio + Image
       const imagePath = options.coverImagePath || path.join(__dirname, 'default_cover.jpg');
       
-      // Input Gambar (Looping selamanya untuk visual)
-      command.input(imagePath).inputOptions(['-loop 1']);
-      
-      // Input Audio (Looping jika diminta)
+      command
+        .input(imagePath)
+        .inputOptions(['-loop 1', '-thread_queue_size 1024'])
+        
       if (shouldLoop) {
-        command.input(inputPath).inputOptions(['-stream_loop -1', '-re']);
+        command.input(inputPath).inputOptions(['-stream_loop -1', '-re', '-thread_queue_size 1024']);
       } else {
-        command.input(inputPath).inputOptions(['-re']);
+        command.input(inputPath).inputOptions(['-re', '-thread_queue_size 1024']);
       }
 
       command.outputOptions([
         '-c:v libx264',
         '-preset ultrafast', 
         '-tune stillimage',  
-        '-r 2',              // Hemat CPU: Hanya 2 frame per detik
+        '-r 10',             // Naikkan ke 10 FPS (lebih stabil untuk standar RTMP daripada 2 FPS)
+        '-g 20',             // Keyframe setiap 2 detik (10 fps * 2) agar server tujuan tidak 'loading'
         '-c:a aac',
         '-b:a 128k',
+        '-ar 44100',
         '-pix_fmt yuv420p',
-        '-shortest',         // Berhenti jika audio selesai (jika tidak loop)
+        // CBR SETTINGS (Mencegah lonjakan data yang bikin buffering)
+        '-maxrate 1500k',
+        '-bufsize 3000k', 
+        '-shortest',
         '-f flv',
         '-flvflags no_duration_filesize'
       ]);
     } else {
-      // KASUS A: Video
+      // VIDEO MODE
       if (shouldLoop) {
-        command.input(inputPath).inputOptions(['-stream_loop -1', '-re']);
+        command.input(inputPath).inputOptions(['-stream_loop -1', '-re', '-thread_queue_size 1024']);
       } else {
-        command.input(inputPath).inputOptions(['-re']);
+        command.input(inputPath).inputOptions(['-re', '-thread_queue_size 1024']);
       }
 
       command.outputOptions([
@@ -65,10 +72,11 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
 
     currentCommand = command
       .on('start', (commandLine) => {
-        console.log('FFmpeg Spawned:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Dimulai ${shouldLoop ? '(Looping Aktif)' : ''}` });
+        console.log('FFmpeg Stable Spawned:', commandLine);
+        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Stabil Dimulai ${shouldLoop ? '(Looping Aktif)' : ''}` });
       })
       .on('stderr', (stderrLine) => {
+        // Filter log agar tidak membebani socket
         if (stderrLine.includes('bitrate=') || stderrLine.includes('frame=')) {
           if (global.io) global.io.emit('log', { type: 'debug', message: stderrLine });
         }
@@ -92,7 +100,11 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
 
 const stopStream = () => {
   if (currentCommand) {
-    currentCommand.kill('SIGKILL');
+    try {
+        currentCommand.kill('SIGKILL');
+    } catch (e) {
+        console.error("Kill error", e);
+    }
     currentCommand = null;
     if (global.io) global.io.emit('log', { type: 'info', message: 'Streaming dihentikan manual.' });
     return true;
