@@ -41,6 +41,12 @@
         
         .pulse-live { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); animation: pulse 2s infinite; }
         @keyframes pulse { 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+
+        /* Toast Animation */
+        .toast-enter { transform: translateY(20px); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-out; }
+        .toast-exit { transform: translateY(0); opacity: 1; }
+        .toast-exit-active { transform: translateY(20px); opacity: 0; transition: all 0.3s ease-in; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -169,6 +175,26 @@
         </div>
     </div>
 
+    <!-- CUSTOM CONFIRM MODAL (New) -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative transform transition-all scale-100">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-2xl text-rose-500"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">Konfirmasi Tindakan</h3>
+                <p id="confirm-message" class="text-sm text-slate-400">Apakah Anda yakin?</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm transition-colors">Batal</button>
+                <button id="btn-confirm-action" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-rose-600/20">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER (New) -->
+    <div id="toast-container" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[120] flex flex-col gap-2 w-full max-w-xs pointer-events-none"></div>
+
     <!-- DASHBOARD VIEW -->
     <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
@@ -177,10 +203,8 @@
                 <h1 class="font-bold text-xl tracking-tight">LiteStream</h1>
             </div>
             <nav class="space-y-2 flex-1">
-                <!-- UPDATED: Changed icon to fa-home -->
                 <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium active"><i class="fas fa-home"></i> Overview</button>
                 <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-folder"></i> Media Library</button>
-                <!-- FIX: Exact same class structure as others for alignment -->
                 <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Admin Panel</button>
                 <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-sliders"></i> Settings</button>
                 <button onclick="switchTab('profile')" id="nav-profile" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-user-circle"></i> My Profile</button>
@@ -422,6 +446,7 @@
         let isLoginMode = true;
         let currentMediaTab = 'video';
         let adminPlansList = [];
+        let confirmCallback = null;
         
         // RTMP Constants
         const PLATFORMS = {
@@ -429,6 +454,53 @@
             facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/',
             twitch: 'rtmp://live.twitch.tv/app/'
         };
+
+        // --- UI HELPER FUNCTIONS (New) ---
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            
+            // Design based on type
+            const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            
+            el.className = `toast-enter ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold backdrop-blur-md`;
+            el.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+            
+            container.appendChild(el);
+            
+            // Animation In
+            requestAnimationFrame(() => {
+                el.classList.add('toast-enter-active');
+                el.classList.remove('toast-enter');
+            });
+            
+            // Remove after delay
+            setTimeout(() => {
+                el.classList.add('toast-exit-active');
+                el.addEventListener('transitionend', () => el.remove());
+            }, 3000);
+        }
+
+        function openConfirmModal(message, callback) {
+            document.getElementById('confirm-message').textContent = message;
+            document.getElementById('custom-confirm-modal').classList.remove('hidden');
+            confirmCallback = callback;
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('custom-confirm-modal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        // Attach event listener for the confirm button once
+        document.getElementById('btn-confirm-action').addEventListener('click', () => {
+            if (confirmCallback) confirmCallback();
+            closeConfirmModal();
+        });
+
+        // --- END UI HELPERS ---
 
         function setView(viewId) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
@@ -438,9 +510,7 @@
 
         async function checkAuth() {
             try {
-                // Fetch landing content first so it displays even if auth check fails
                 await loadLandingContent();
-                
                 const res = await fetch('/api/check-auth');
                 const data = await res.json();
                 if (data.authenticated) { 
@@ -460,9 +530,7 @@
             try {
                 const res = await fetch('/api/landing-content');
                 const data = await res.json();
-                
                 if (data.landing_title) document.getElementById('landing-title-display').innerHTML = data.landing_title;
-                // Allow HTML for description too
                 if (data.landing_desc) document.getElementById('landing-desc-display').innerHTML = data.landing_desc;
                 if (data.landing_btn_reg) document.getElementById('landing-btn-reg-display').textContent = data.landing_btn_reg;
                 if (data.landing_btn_login) document.getElementById('landing-btn-login-display').textContent = data.landing_btn_login;
@@ -472,14 +540,10 @@
         function showDashboard() {
             setView('main-app');
             document.getElementById('login-view').classList.add('hidden');
-            
-            // Populate Basic Info
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             document.getElementById('storage-text').textContent = `${usedMB} / ${currentUser.max_storage_mb} MB`;
             document.getElementById('storage-bar').style.width = Math.min((usedMB / currentUser.max_storage_mb * 100), 100) + '%';
-            
-            // Populate Profile Tab Info
             document.getElementById('profile-username-display').textContent = currentUser.username;
             document.getElementById('profile-username').value = currentUser.username;
             document.getElementById('profile-plan-display').textContent = currentUser.plan_name;
@@ -521,7 +585,6 @@
         function updateTabCounts() {
             const counts = { video: 0, audio: 0, image: 0 };
             allMedia.forEach(m => { if(counts[m.type] !== undefined) counts[m.type]++; });
-            
             document.getElementById('count-video').textContent = `(${counts.video})`;
             document.getElementById('count-audio').textContent = `(${counts.audio})`;
             document.getElementById('count-image').textContent = `(${counts.image})`;
@@ -562,18 +625,14 @@
         function showMediaDetails(id) {
             const media = allMedia.find(m => m.id === id);
             if (!media) return;
-
             document.getElementById('detail-filename').textContent = media.filename;
             document.getElementById('detail-size').textContent = formatBytes(media.size);
             document.getElementById('detail-type').textContent = media.type;
             document.getElementById('detail-date').textContent = new Date(media.created_at).toLocaleString();
-
-            // Icon logic
             const iconEl = document.getElementById('detail-icon');
             if (media.type === 'video') iconEl.className = 'fas fa-video text-2xl text-indigo-500';
             else if (media.type === 'audio') iconEl.className = 'fas fa-music text-2xl text-rose-500';
             else iconEl.className = 'fas fa-image text-2xl text-emerald-500';
-
             document.getElementById('media-detail-modal').classList.remove('hidden');
         }
 
@@ -597,7 +656,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ name, price_text: price, max_storage_mb: parseInt(storage), features_text: features, allowed_types: 'video,audio' })
             });
-            if ((await res.json()).success) { fetchAdminPlans(); alert("Updated!"); }
+            if ((await res.json()).success) { fetchAdminPlans(); showToast("Paket berhasil diupdate!"); }
         }
 
         function switchTab(tab) {
@@ -611,7 +670,7 @@
         async function fetchAdminPlans() {
             const res = await fetch('/api/plans');
             const plans = await res.json();
-            window.adminPlansList = plans; // Cache for user edit dropdown
+            window.adminPlansList = plans;
             document.getElementById('plan-table-body').innerHTML = plans.map(p => `
                 <tr class="border-b border-slate-800 hover:bg-slate-800/20">
                     <td class="p-5 font-bold">${p.name}</td>
@@ -635,16 +694,13 @@
                 </tr>`).join('');
         }
 
-        // --- USER EDIT FUNCTIONS ---
         function openUserEdit(userId, username, currentPlanId) {
             document.getElementById('edit-user-id').value = userId;
             document.getElementById('edit-user-name').value = username;
-            
             const select = document.getElementById('edit-user-plan');
             select.innerHTML = window.adminPlansList.map(p => 
                 `<option value="${p.id}" ${p.id == currentPlanId ? 'selected' : ''}>${p.name} (${p.max_storage_mb}MB)</option>`
             ).join('');
-            
             document.getElementById('user-edit-modal').classList.remove('hidden');
         }
 
@@ -656,20 +712,18 @@
             e.preventDefault();
             const userId = document.getElementById('edit-user-id').value;
             const planId = document.getElementById('edit-user-plan').value;
-            
             const res = await fetch(`/api/users/${userId}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ plan_id: planId })
             });
-            
             const data = await res.json();
             if(data.success) {
                 closeUserEdit();
                 fetchUsers();
-                alert("User Plan Updated!");
+                showToast("User Plan Updated!");
             } else {
-                alert(data.error || "Failed to update plan");
+                showToast(data.error || "Failed to update plan", 'error');
             }
         }
 
@@ -680,7 +734,7 @@
             const endpoint = isLoginMode ? '/api/login' : '/api/register';
             const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username, password }) });
             const data = await res.json();
-            if (data.success) location.reload(); else alert(data.error);
+            if (data.success) location.reload(); else showToast(data.error, 'error');
         }
 
         function showAuth(mode = 'login') {
@@ -698,9 +752,7 @@
             if(!input.files[0]) return; 
             const fd = new FormData(); 
             fd.append('video', input.files[0]); 
-            
-            // UI Feedback
-            const btn = input.previousElementSibling.querySelector('button:last-child'); // Tombol Upload
+            const btn = input.previousElementSibling.querySelector('button:last-child'); 
             const oldText = btn.textContent;
             btn.textContent = "Uploading...";
             btn.disabled = true;
@@ -711,36 +763,42 @@
             if(data.success) { 
                 await fetchMedia(); 
                 switchMediaTab(data.type);
+                showToast("File berhasil diupload!");
             } else { 
-                alert(data.error || "Gagal."); 
+                showToast(data.error || "Gagal upload.", 'error'); 
             }
-            
             btn.textContent = oldText;
             btn.disabled = false;
         }
 
-        async function deleteMedia(id) { if(!confirm("Hapus?")) return; await fetch(`/api/videos/${id}`, {method:'DELETE'}); fetchMedia(); }
+        function deleteMedia(id) { 
+            // Replaced native confirm() with Custom Modal
+            openConfirmModal("Apakah Anda yakin ingin menghapus file ini secara permanen?", async () => {
+                await fetch(`/api/videos/${id}`, {method:'DELETE'}); 
+                fetchMedia();
+                showToast("File dihapus.", 'success');
+            });
+        }
+
         async function startPlaylist() {
             const rtmpUrl = document.getElementById('setting-full-rtmp').value;
-            if(!rtmpUrl) return alert("Setting RTMP belum dikonfigurasi. Silakan ke tab Settings.");
+            if(!rtmpUrl) return showToast("RTMP URL belum disetting!", 'error');
             const res = await fetch('/api/playlist/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true }) });
             const d = await res.json();
-            if(d.error) alert(d.error); else alert(d.message);
+            if(d.error) showToast(d.error, 'error'); else showToast(d.message, 'success');
         }
-        async function stopStream() { await fetch('/api/stream/stop', { method: 'POST' }); }
+        async function stopStream() { 
+            await fetch('/api/stream/stop', { method: 'POST' }); 
+            showToast("Stream dimatikan.", 'success');
+        }
 
-        // --- NEW SETTINGS LOGIC ---
         async function fetchSettings() { 
             const res = await fetch('/api/settings'); 
             const d = await res.json(); 
-            
-            // Streaming Settings
             document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
             document.getElementById('setting-server-url').value = d.custom_server_url || '';
             document.getElementById('setting-key').value = d.stream_key || '';
             document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
-            
-            // Landing Settings (If elements exist)
             const landingTitle = document.getElementById('setting-landing-title');
             if (landingTitle) {
                 landingTitle.value = d.landing_title || '';
@@ -748,19 +806,13 @@
                 document.getElementById('setting-landing-btn-reg').value = d.landing_btn_reg || '';
                 document.getElementById('setting-landing-btn-login').value = d.landing_btn_login || '';
             }
-
             handlePlatformChange();
         }
 
         function handlePlatformChange() {
             const platform = document.getElementById('setting-platform').value;
             const customContainer = document.getElementById('server-url-container');
-            
-            if (platform === 'custom') {
-                customContainer.classList.remove('hidden');
-            } else {
-                customContainer.classList.add('hidden');
-            }
+            if (platform === 'custom') customContainer.classList.remove('hidden'); else customContainer.classList.add('hidden');
         }
 
         function toggleKeyVisibility() {
@@ -779,25 +831,19 @@
 
         async function saveSettings(e) { 
             e.preventDefault(); 
-            
-            // Gather Streaming Data
             const platform = document.getElementById('setting-platform').value;
             const key = document.getElementById('setting-key').value.trim();
             let serverUrl = '';
 
-            if (platform === 'custom') {
-                serverUrl = document.getElementById('setting-server-url').value.trim();
-            } else {
-                serverUrl = PLATFORMS[platform];
-            }
+            if (platform === 'custom') serverUrl = document.getElementById('setting-server-url').value.trim();
+            else serverUrl = PLATFORMS[platform];
 
-            if (!serverUrl) return alert("Server URL wajib untuk Custom RTMP");
-            if (!key) return alert("Stream Key wajib diisi");
+            if (!serverUrl) return showToast("Server URL wajib untuk Custom RTMP", 'error');
+            if (!key) return showToast("Stream Key wajib diisi", 'error');
 
             if (serverUrl && !serverUrl.endsWith('/')) serverUrl += '/';
             const fullUrl = serverUrl + key;
 
-            // Gather Landing Data (if admin)
             const landingTitle = document.getElementById('setting-landing-title');
             let landingPayload = {};
             if (landingTitle) {
@@ -824,17 +870,15 @@
             }); 
             
             document.getElementById('setting-full-rtmp').value = fullUrl;
-            alert("Konfigurasi Tersimpan!"); 
+            showToast("Konfigurasi Tersimpan!"); 
         }
 
-        // --- PROFILE SETTINGS LOGIC ---
         async function saveProfile(e) {
             e.preventDefault();
             const username = document.getElementById('profile-username').value;
             const currentPassword = document.getElementById('profile-current-pass').value;
             const newPassword = document.getElementById('profile-new-pass').value;
-
-            if (!currentPassword) return alert("Password saat ini dibutuhkan untuk menyimpan perubahan.");
+            if (!currentPassword) return showToast("Password saat ini dibutuhkan.", 'error');
 
             const res = await fetch('/api/profile', {
                 method: 'PUT',
@@ -844,12 +888,12 @@
 
             const data = await res.json();
             if (data.success) {
-                alert(data.message);
+                showToast(data.message);
                 document.getElementById('profile-current-pass').value = '';
                 document.getElementById('profile-new-pass').value = '';
                 document.getElementById('profile-username-display').textContent = username;
             } else {
-                alert(data.error);
+                showToast(data.error, 'error');
             }
         }
 
