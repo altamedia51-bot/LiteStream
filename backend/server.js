@@ -28,24 +28,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Global IO
+// Global IO untuk streamEngine
 global.io = io;
 
 /**
- * STRATEGI DEPLOYMENT:
- * Karena kita menggunakan React tanpa build step (ESM), 
- * kita menyajikan file .tsx dan index.html langsung dari root.
+ * SERVING FILES:
+ * Kita menyajikan file dari root folder agar index.html dan index.tsx bisa diakses langsung.
  */
-app.use(express.static(path.join(__dirname, '../'))); 
+app.use(express.static(path.join(__dirname, '../')));
 app.use('/uploads', express.static(uploadDir));
 
 // API Routes
 app.use('/api', routes);
 
-// Handle SPA: Semua request non-API diarahkan ke index.html
+// Handle SPA: Semua request non-API diarahkan ke index.html di root
 app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../index.html'));
+  if (!req.path.startsWith('/api') && !req.path.includes('.')) {
+    res.sendFile(path.resolve(__dirname, '../index.html'));
   }
 });
 
@@ -55,7 +54,7 @@ initDB()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`---------------------------------------------------`);
-      console.log(`LiteStream VPS Engine Running on Port ${PORT}`);
+      console.log(`LiteStream VPS Engine: http://localhost:${PORT}`);
       console.log(`---------------------------------------------------`);
     });
   })
@@ -64,5 +63,6 @@ initDB()
   });
 
 io.on('connection', (socket) => {
-  socket.emit('log', { type: 'info', message: 'System connected to VPS' });
+  console.log('Client connected');
+  socket.emit('log', { type: 'info', message: 'Dashboard connected to VPS Engine' });
 });
