@@ -5,11 +5,10 @@ const path = require('path');
 let currentCommand = null;
 
 /**
- * Starts a stream using FFmpeg with stabilization for low-resource VPS.
+ * Memulai streaming dengan optimasi CBR (Constant Bitrate) untuk mencegah loading/buffering.
  */
 const startStream = (inputPath, rtmpUrl, options = {}) => {
   if (currentCommand) {
-    console.log("Stopping existing stream first...");
     stopStream();
   }
 
@@ -17,45 +16,46 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
   const shouldLoop = options.loop === true;
 
   return new Promise((resolve, reject) => {
-    console.log(`Starting stable stream: ${inputPath} -> ${rtmpUrl} (Loop: ${shouldLoop})`);
-    
     let command = ffmpeg();
 
-    // STABILIZATION: Tambah thread_queue_size untuk mencegah "Thread message queue blocking"
-    // Ini sangat penting di VPS dengan CPU rendah agar input tidak 'telat' dibaca.
-
+    // Input Configuration
     if (isAudio) {
       const imagePath = options.coverImagePath || path.join(__dirname, 'default_cover.jpg');
       
-      command
-        .input(imagePath)
-        .inputOptions(['-loop 1', '-thread_queue_size 1024'])
-        
+      // Input Gambar (Looping untuk visual)
+      command.input(imagePath).inputOptions(['-loop 1', '-thread_queue_size 1024']);
+      
+      // Input Audio
       if (shouldLoop) {
         command.input(inputPath).inputOptions(['-stream_loop -1', '-re', '-thread_queue_size 1024']);
       } else {
         command.input(inputPath).inputOptions(['-re', '-thread_queue_size 1024']);
       }
 
+      // Output Settings untuk Audio + Image (Butuh Re-encoding Video)
       command.outputOptions([
         '-c:v libx264',
-        '-preset ultrafast', 
-        '-tune stillimage',  
-        '-r 10',             // Naikkan ke 10 FPS (lebih stabil untuk standar RTMP daripada 2 FPS)
-        '-g 20',             // Keyframe setiap 2 detik (10 fps * 2) agar server tujuan tidak 'loading'
+        '-preset ultrafast', // Sangat penting untuk VPS 1 Core
+        '-tune stillimage',
+        '-pix_fmt yuv420p',
+        '-r 15',             // 15 FPS lebih disukai YouTube daripada 2/10 FPS
+        '-g 30',             // Keyframe setiap 2 detik (15fps * 2)
+        
+        // CBR SETTINGS (Solusi untuk "Low Bitrate" Warning)
+        '-b:v 2000k',        // Set video bitrate ke 2000k agar stabil
+        '-minrate 2000k',
+        '-maxrate 2000k',
+        '-bufsize 4000k',    // Buffer 2x dari bitrate
+        
         '-c:a aac',
         '-b:a 128k',
         '-ar 44100',
-        '-pix_fmt yuv420p',
-        // CBR SETTINGS (Mencegah lonjakan data yang bikin buffering)
-        '-maxrate 1500k',
-        '-bufsize 3000k', 
-        '-shortest',
+        '-shortest',         // Berhenti jika salah satu input habis (berguna jika tidak loop)
         '-f flv',
         '-flvflags no_duration_filesize'
       ]);
     } else {
-      // VIDEO MODE
+      // VIDEO MODE (Copy codec agar hemat CPU)
       if (shouldLoop) {
         command.input(inputPath).inputOptions(['-stream_loop -1', '-re', '-thread_queue_size 1024']);
       } else {
@@ -72,12 +72,12 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
 
     currentCommand = command
       .on('start', (commandLine) => {
-        console.log('FFmpeg Stable Spawned:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Stabil Dimulai ${shouldLoop ? '(Looping Aktif)' : ''}` });
+        console.log('FFmpeg Spawned:', commandLine);
+        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Aktif (Loop: ${shouldLoop}) - Bitrate: 2000kbps` });
       })
       .on('stderr', (stderrLine) => {
-        // Filter log agar tidak membebani socket
-        if (stderrLine.includes('bitrate=') || stderrLine.includes('frame=')) {
+        // Hanya kirim stats bitrate ke dashboard agar tidak lag
+        if (stderrLine.includes('bitrate=')) {
           if (global.io) global.io.emit('log', { type: 'debug', message: stderrLine });
         }
       })
@@ -88,8 +88,7 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
         reject(err);
       })
       .on('end', () => {
-        console.log('Stream finished');
-        if (global.io) global.io.emit('log', { type: 'end', message: 'Streaming telah selesai.' });
+        if (global.io) global.io.emit('log', { type: 'end', message: 'Streaming selesai.' });
         currentCommand = null;
         resolve();
       });
@@ -101,19 +100,15 @@ const startStream = (inputPath, rtmpUrl, options = {}) => {
 const stopStream = () => {
   if (currentCommand) {
     try {
-        currentCommand.kill('SIGKILL');
-    } catch (e) {
-        console.error("Kill error", e);
-    }
+      currentCommand.kill('SIGKILL');
+    } catch (e) { console.error(e); }
     currentCommand = null;
-    if (global.io) global.io.emit('log', { type: 'info', message: 'Streaming dihentikan manual.' });
+    if (global.io) global.io.emit('log', { type: 'info', message: 'Stream dihentikan.' });
     return true;
   }
   return false;
 };
 
-const isStreaming = () => {
-  return !!currentCommand;
-};
+const isStreaming = () => !!currentCommand;
 
 module.exports = { startStream, stopStream, isStreaming };
