@@ -12,7 +12,8 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
   const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
-  const shouldLoop = options.loop === true;
+  // Ubah ke loose boolean check agar lebih aman
+  const shouldLoop = !!options.loop;
   
   // FIX: Gunakan path absolute agar FFmpeg tidak bingung mencari file
   const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
@@ -32,8 +33,6 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       ].join(',');
 
       // 1. INPUT 0: VISUAL (Image/Color)
-      // FIX: Flag '-re' dipindah ke sini (Visual Input). 
-      // Ini memaksa gambar dibaca secara real-time sebagai "Clock Master".
       let imageInput = options.coverImagePath;
       if (!imageInput || !fs.existsSync(imageInput)) {
         command.input('color=c=black:s=1280x720:r=24')
@@ -44,12 +43,14 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       }
 
       // 2. INPUT 1: AUDIO (Playlist)
-      // Note: '-re' DIHAPUS dari sini untuk mencegah buffer underrun saat ganti lagu
-      command.input(playlistPath).inputOptions([
-        '-f concat',
-        '-safe 0',
-        shouldLoop ? '-stream_loop -1' : ''
-      ].filter(Boolean));
+      // FIX ORDER: -stream_loop harus didefinisikan SEBELUM input file dan SEBELUM format concat
+      const audioInputOptions = [];
+      if (shouldLoop) {
+          audioInputOptions.push('-stream_loop', '-1');
+      }
+      audioInputOptions.push('-f', 'concat', '-safe', '0');
+      
+      command.input(playlistPath).inputOptions(audioInputOptions);
 
       // OUTPUT OPTIONS
       const outputOpts = [
@@ -64,7 +65,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-keyint_min 48',
         '-sc_threshold 0',
         
-        // FIX BITRATE YOUTUBE: Force Constant Bitrate (CBR)
+        // FIX BITRATE YOUTUBE
         '-b:v 3000k',
         '-minrate 3000k', 
         '-maxrate 3000k',
@@ -75,15 +76,18 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-b:a 128k',
         '-ar 44100',
         
-        '-fflags +genpts', 
+        // FIX LOOP GAP: Resample audio agar timestamp tetap sinkron saat loop
+        '-af aresample=async=1',
+        
+        '-fflags +genpts+igndts', 
         '-max_muxing_queue_size 9999',
+        '-ignore_unknown',
         
         '-f flv',
         '-flvflags no_duration_filesize'
       ];
 
       // CRITICAL FIX: Hanya gunakan -shortest jika TIDAK looping.
-      // Jika looping, stream audio secara teknis 'infinite', jadi jangan distop oleh shortest.
       if (!shouldLoop) {
         outputOpts.push('-shortest');
       }
@@ -92,14 +96,13 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
     } else {
       // --- MODE VIDEO (Direct Stream Copy) ---
+      // Fix order for video loop as well
+      const videoInputOpts = ['-f', 'concat', '-safe', '0', '-re'];
+      if (shouldLoop) videoInputOpts.unshift('-stream_loop', '-1');
+
       command
         .input(playlistPath)
-        .inputOptions([
-          '-f concat',
-          '-safe 0',
-          shouldLoop ? '-stream_loop -1' : '',
-          '-re'
-        ].filter(Boolean));
+        .inputOptions(videoInputOpts);
 
       command.outputOptions([
         '-c copy',
@@ -111,7 +114,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
     currentCommand = command
       .on('start', (commandLine) => {
         console.log('FFmpeg Engine Started:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Engine: ${isAllAudio ? 'Audio-Visual Muxer' : 'Direct Copy'}` });
+        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Loop: ${shouldLoop}` });
       })
       .on('progress', (progress) => {
         if (global.io) {
@@ -122,10 +125,10 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         }
       })
       .on('stderr', (stderrLine) => {
+        // Filter some harmless looping warnings
+        if (stderrLine.includes('DTS') || stderrLine.includes('non-monotonous')) return;
+
         if (stderrLine.includes('bitrate=') || stderrLine.includes('Error') || stderrLine.includes('Conversion failed')) {
-            if (stderrLine.includes('bitrate=   0.0kbits/s')) {
-                console.warn("WARNING: Bitrate 0 detected!");
-            }
             if (global.io) global.io.emit('log', { type: 'debug', message: stderrLine });
         }
       })
