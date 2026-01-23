@@ -76,16 +76,19 @@ router.delete('/videos/:id', async (req, res) => {
 
 // Stream Controls
 router.post('/stream/start', async (req, res) => {
-  const { videoId, rtmpUrl, coverImageId } = req.body;
+  const { videoId, rtmpUrl, coverImageId, loop } = req.body;
   
   db.get("SELECT path, type FROM videos WHERE id = ?", [videoId], (err, video) => {
     if (err || !video) return res.status(404).json({ error: "Media not found" });
     
     const getTargetAndStart = (coverPath = null) => {
       db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", async (err, setting) => {
-        const target = rtmpUrl || (setting ? setting.value : process.env.DEFAULT_RTMP);
+        const target = rtmpUrl || (setting ? setting.value : '');
         try {
-          startStream(video.path, target, { coverImagePath: coverPath }).catch(e => console.error(e));
+          startStream(video.path, target, { 
+            coverImagePath: coverPath,
+            loop: loop === true 
+          }).catch(e => console.error(e));
           res.json({ success: true, message: "Stream initiated" });
         } catch (e) {
           res.status(500).json({ error: e.message });

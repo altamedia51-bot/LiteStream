@@ -121,9 +121,13 @@
                 <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Background Image</label>
                 <select id="coverSelect" class="w-full bg-slate-900 p-3 rounded-xl text-sm border border-slate-700"></select>
             </div>
-            <div class="mb-6">
+            <div class="mb-4">
                 <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Target RTMP</label>
                 <input type="text" id="targetRtmp" class="w-full bg-slate-900 p-3 rounded-xl text-sm border border-slate-700 text-indigo-400 font-mono">
+            </div>
+            <div class="mb-6 flex items-center gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+                <input type="checkbox" id="loopCheck" class="w-5 h-5 rounded accent-indigo-600">
+                <label for="loopCheck" class="text-sm font-bold text-slate-300">Ulangi Terus (Looping 24/7)</label>
             </div>
             <div class="flex gap-3">
                 <button onclick="closeModal()" class="flex-1 p-3 rounded-xl bg-slate-700 font-bold">Batal</button>
@@ -203,6 +207,11 @@
             document.getElementById('modal').classList.remove('hidden');
             const cs = document.getElementById('coverOpt');
             const select = document.getElementById('coverSelect');
+            const loopCheck = document.getElementById('loopCheck');
+            
+            // Default loop aktif untuk audio (radio streaming style)
+            loopCheck.checked = (type === 'audio');
+
             if(type === 'audio') {
                 cs.classList.remove('hidden');
                 const imgs = allMedia.filter(m => m.type === 'image');
@@ -214,10 +223,12 @@
             document.getElementById('goLiveBtn').onclick = async () => {
                 const rtmp = document.getElementById('targetRtmp').value;
                 const cover = select.value;
+                const isLoop = loopCheck.checked;
+                
                 await fetch('/api/stream/start', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ videoId: id, rtmpUrl: rtmp, coverImageId: cover })
+                    body: JSON.stringify({ videoId: id, rtmpUrl: rtmp, coverImageId: cover, loop: isLoop })
                 });
                 closeModal(); switchTab('dashboard');
             };
