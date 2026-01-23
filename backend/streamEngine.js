@@ -5,20 +5,15 @@ const fs = require('fs');
 
 let currentCommand = null;
 
-/**
- * Memulai streaming. Mendukung single file atau array of paths (Playlist).
- */
 const startStream = (inputPaths, rtmpUrl, options = {}) => {
   if (currentCommand) {
     stopStream();
   }
 
-  // Normalisasi input ke array
   const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
   const shouldLoop = options.loop === true;
   
-  // Buat file playlist untuk concat demuxer (Sangat ringan untuk VPS)
   const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
   const playlistContent = files.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
   fs.writeFileSync(playlistPath, playlistContent);
@@ -27,17 +22,22 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
     let command = ffmpeg();
 
     if (isAllAudio) {
-      // MODE AUDIO PLAYLIST + BACKGROUND IMAGE
-      const imagePath = options.coverImagePath || path.join(__dirname, 'default_cover.jpg');
+      // MODE AUDIO PLAYLIST + BACKGROUND
+      let imageInput = options.coverImagePath;
       
-      command
-        .input(imagePath).inputOptions(['-loop 1'])
-        .input(playlistPath).inputOptions([
-          '-f concat',
-          '-safe 0',
-          shouldLoop ? '-stream_loop -1' : '',
-          '-re'
-        ].filter(Boolean));
+      // Jika imagePath tidak ada, gunakan solid black background generator dari ffmpeg
+      if (!imageInput || !fs.existsSync(imageInput)) {
+        command.input('color=c=black:s=1280x720:r=15').inputOptions(['-f lavfi']);
+      } else {
+        command.input(imageInput).inputOptions(['-loop 1']);
+      }
+
+      command.input(playlistPath).inputOptions([
+        '-f concat',
+        '-safe 0',
+        shouldLoop ? '-stream_loop -1' : '',
+        '-re'
+      ].filter(Boolean));
 
       command.outputOptions([
         '-c:v libx264',
@@ -47,9 +47,6 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-r 15',
         '-g 30',
         '-b:v 2000k',
-        '-minrate 2000k',
-        '-maxrate 2000k',
-        '-bufsize 4000k',
         '-c:a aac',
         '-b:a 128k',
         '-ar 44100',
@@ -58,7 +55,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-flvflags no_duration_filesize'
       ]);
     } else {
-      // MODE VIDEO PLAYLIST (Copy Codec - Zero CPU Load)
+      // MODE VIDEO PLAYLIST (Copy Codec)
       command
         .input(playlistPath)
         .inputOptions([
@@ -69,7 +66,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         ].filter(Boolean));
 
       command.outputOptions([
-        '-c copy', // Sangat penting untuk VPS 1GB RAM
+        '-c copy',
         '-f flv',
         '-flvflags no_duration_filesize'
       ]);
@@ -77,8 +74,8 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
     currentCommand = command
       .on('start', (commandLine) => {
-        console.log('FFmpeg Command:', commandLine);
-        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist dimulai (${files.length} file).` });
+        console.log('FFmpeg Engine Started:', commandLine);
+        if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file.` });
       })
       .on('stderr', (stderrLine) => {
         if (stderrLine.includes('bitrate=')) {
@@ -86,12 +83,13 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         }
       })
       .on('error', (err) => {
-        if (global.io) global.io.emit('log', { type: 'error', message: `Stream Error: ${err.message}` });
+        console.error("FFmpeg Error:", err.message);
+        if (global.io) global.io.emit('log', { type: 'error', message: `Engine Failure: ${err.message}` });
         currentCommand = null;
         reject(err);
       })
       .on('end', () => {
-        if (global.io) global.io.emit('log', { type: 'end', message: 'Streaming Playlist selesai.' });
+        if (global.io) global.io.emit('log', { type: 'end', message: 'Playlist Selesai.' });
         currentCommand = null;
         resolve();
       });
@@ -104,10 +102,9 @@ const stopStream = () => {
   if (currentCommand) {
     try {
       currentCommand.kill('SIGKILL');
-      console.log("FFmpeg process killed manually.");
-    } catch (e) { console.error("Error killing FFmpeg:", e); }
+    } catch (e) {}
     currentCommand = null;
-    if (global.io) global.io.emit('log', { type: 'info', message: 'Streaming telah dihentikan oleh pengguna.' });
+    if (global.io) global.io.emit('log', { type: 'info', message: 'Stream dihentikan.' });
     return true;
   }
   return false;
