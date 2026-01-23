@@ -9,12 +9,12 @@
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .console-log::-webkit-scrollbar { width: 6px; }
-        .console-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .console-log::-webkit-scrollbar { width: 4px; }
+        .console-log::-webkit-scrollbar-thumb { background: #334155; }
     </style>
 <script type="importmap">
 {
@@ -28,345 +28,219 @@
 }
 </script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-    <div class="flex flex-col md:flex-row min-h-screen">
-        <!-- Sidebar -->
-        <aside class="w-full md:w-64 bg-slate-800 border-r border-slate-700 p-6 flex-shrink-0">
-            <div class="flex items-center gap-3 mb-10">
-                <div class="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
-                    <i class="fas fa-tower-broadcast text-white text-xl"></i>
+<body class="bg-slate-900 text-slate-100 min-h-screen overflow-hidden flex flex-col md:flex-row">
+    
+    <!-- Sidebar -->
+    <aside class="w-full md:w-64 bg-slate-800 border-r border-slate-700 p-6 flex-shrink-0">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="bg-indigo-600 p-2 rounded-xl shadow-lg"><i class="fas fa-tower-broadcast text-white"></i></div>
+            <h1 class="font-bold text-xl">LiteStream</h1>
+        </div>
+        <nav class="space-y-2">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-indigo-600 text-white font-bold">
+                <i class="fas fa-home w-5"></i> Dashboard
+            </button>
+            <button onclick="switchTab('library')" id="nav-library" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-700">
+                <i class="fas fa-video w-5"></i> Media Library
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-700">
+                <i class="fas fa-cog w-5"></i> Settings
+            </button>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-8 overflow-y-auto">
+        <!-- Dashboard -->
+        <section id="dashboard" class="tab-content active space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Overview</h2>
+                <div id="liveBadge" class="hidden items-center gap-2 text-xs font-bold text-rose-500 bg-rose-500/10 px-4 py-2 rounded-full border border-rose-500/20 animate-pulse">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
                 </div>
-                <h1 class="font-bold text-xl tracking-tight">LiteStream</h1>
             </div>
 
-            <nav class="space-y-2">
-                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-indigo-600 text-white font-semibold">
-                    <i class="fas fa-chart-line w-5"></i> Dashboard
-                </button>
-                <button onclick="switchTab('library')" id="nav-library" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-700/50 hover:text-slate-200">
-                    <i class="fas fa-photo-video w-5"></i> Media Library
-                </button>
-                <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-700/50 hover:text-slate-200">
-                    <i class="fas fa-cog w-5"></i> Settings
-                </button>
-            </nav>
-
-            <div class="mt-20">
-                <div class="bg-slate-900/50 border border-slate-700 rounded-2xl p-4">
-                    <p class="text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-widest">Server Resource</p>
-                    <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between text-[10px] text-slate-400 mb-1">
-                                <span>CPU</span> <span id="cpuUsage">0%</span>
-                            </div>
-                            <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div class="h-full bg-indigo-500 w-[5%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-[10px] text-slate-400 mb-1">
-                                <span>RAM</span> <span id="ramUsage">0MB</span>
-                            </div>
-                            <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div class="h-full bg-emerald-500 w-[12%]"></div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
+                    <p class="text-xs font-bold text-slate-500 uppercase mb-1">Status</p>
+                    <div class="text-2xl font-bold" id="statusText">IDLE</div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
+                    <p class="text-xs font-bold text-slate-500 uppercase mb-1">Files</p>
+                    <div class="text-2xl font-bold" id="fileCount">0</div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
+                    <p class="text-xs font-bold text-slate-500 uppercase mb-1">Engine</p>
+                    <div class="text-2xl font-bold text-emerald-500">Real-time</div>
                 </div>
             </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-8 overflow-y-auto">
-            <!-- Dashboard Tab -->
-            <section id="dashboard" class="tab-content active space-y-8 animate-in fade-in duration-500">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h2 class="text-2xl font-bold">System Overview</h2>
-                        <p class="text-slate-400 text-sm">Monitoring streaming real-time.</p>
-                    </div>
-                    <div id="liveStatus" class="hidden items-center gap-2 text-xs font-bold text-rose-500 bg-rose-500/10 px-4 py-2 rounded-full border border-rose-500/20 animate-pulse">
-                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE NOW
-                    </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+                <div class="bg-slate-700/50 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-sm">Console Logs</h3>
+                    <button onclick="stopStream()" class="text-xs bg-rose-600 hover:bg-rose-700 px-3 py-1 rounded-lg font-bold">Stop Stream</button>
                 </div>
+                <div id="console" class="console-log bg-black p-6 font-mono text-[10px] h-96 overflow-y-auto space-y-1 text-slate-400">
+                    <p class="italic">[Menunggu data...]</p>
+                </div>
+            </div>
+        </section>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                        <p class="text-xs font-bold text-slate-500 uppercase mb-2">Stream State</p>
-                        <div class="text-2xl font-bold" id="statusText">IDLE</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                        <p class="text-xs font-bold text-slate-500 uppercase mb-2">Files Stored</p>
-                        <div class="text-2xl font-bold" id="fileCount">0</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                        <p class="text-xs font-bold text-slate-500 uppercase mb-2">Engine</p>
-                        <div class="text-2xl font-bold text-emerald-400">Ultrafast</div>
-                    </div>
-                </div>
+        <!-- Library -->
+        <section id="library" class="tab-content space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Media Library</h2>
+                <button onclick="document.getElementById('fileIn').click()" class="bg-indigo-600 px-5 py-2 rounded-xl font-bold text-sm">Upload File</button>
+                <input type="file" id="fileIn" class="hidden" onchange="uploadFile(this)">
+            </div>
+            <div id="upProgress" class="hidden bg-slate-800 p-4 rounded-xl border border-indigo-500/30">
+                <div class="flex justify-between text-xs mb-2"><span>Uploading...</span><span id="upPct">0%</span></div>
+                <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden"><div id="upBar" class="h-full bg-indigo-500 w-0"></div></div>
+            </div>
+            <div id="mediaList" class="grid grid-cols-1 gap-3"></div>
+        </section>
 
-                <!-- Log Console -->
-                <div class="bg-slate-800 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl">
-                    <div class="bg-slate-700/30 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
-                        <h3 class="font-bold text-sm flex items-center gap-2"><i class="fas fa-terminal text-indigo-400"></i> Server Logs</h3>
-                        <div class="flex gap-2">
-                             <button onclick="stopStream()" class="text-[10px] bg-rose-600 hover:bg-rose-700 px-3 py-1 rounded-lg font-bold">STOP STREAM</button>
-                             <button onclick="document.getElementById('console').innerHTML=''" class="text-[10px] text-slate-400">CLEAR</button>
-                        </div>
-                    </div>
-                    <div id="console" class="console-log bg-slate-950 p-6 font-mono text-[11px] h-80 overflow-y-auto space-y-1 text-slate-300">
-                        <p class="text-slate-600 italic">[Menunggu event server...]</p>
-                    </div>
+        <!-- Settings -->
+        <section id="settings" class="tab-content space-y-6">
+            <h2 class="text-2xl font-bold">Settings</h2>
+            <div class="max-w-xl bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500 uppercase">Default RTMP URL</label>
+                    <input type="text" id="rtmpUrl" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl outline-none text-indigo-400 font-mono text-sm">
                 </div>
-            </section>
+                <button onclick="saveSettings()" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold text-sm w-full">Save Settings</button>
+            </div>
+        </section>
+    </main>
 
-            <!-- Library Tab -->
-            <section id="library" class="tab-content space-y-8">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h2 class="text-2xl font-bold">Media Library</h2>
-                        <p class="text-slate-400 text-sm">Upload video (mp4) atau audio (mp3).</p>
-                    </div>
-                    <button onclick="document.getElementById('uploadInput').click()" class="bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-xl shadow-indigo-600/20 transition-all">
-                        <i class="fas fa-upload"></i> Upload Media
-                    </button>
-                    <input type="file" id="uploadInput" class="hidden" onchange="handleUpload(this)">
-                </div>
-
-                <div id="uploadProgress" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4">
-                    <div class="flex justify-between text-xs mb-2">
-                        <span id="uploadName">Uploading...</span>
-                        <span id="uploadPct">0%</span>
-                    </div>
-                    <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                        <div id="uploadBar" class="h-full bg-indigo-500" style="width: 0%"></div>
-                    </div>
-                </div>
-
-                <div id="mediaList" class="grid grid-cols-1 gap-4">
-                    <!-- Media Items Loaded Here -->
-                </div>
-            </section>
-
-            <!-- Settings Tab -->
-            <section id="settings" class="tab-content space-y-8">
-                <div>
-                    <h2 class="text-2xl font-bold">Settings</h2>
-                    <p class="text-slate-400 text-sm">Konfigurasi endpoint RTMP tujuan.</p>
-                </div>
-                <div class="max-w-2xl bg-slate-800 border border-slate-700 rounded-3xl p-8 space-y-6">
-                    <div class="space-y-2">
-                        <label class="text-xs font-bold text-slate-500 uppercase">Default RTMP URL</label>
-                        <input type="text" id="rtmpInput" placeholder="rtmp://a.rtmp.youtube.com/live2/xxxx" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono text-indigo-400">
-                    </div>
-                    <button onclick="saveSettings()" class="bg-indigo-600 hover:bg-indigo-700 px-10 py-4 rounded-2xl font-bold shadow-xl shadow-indigo-600/30">Simpan Perubahan</button>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- Modal Stream -->
-    <div id="streamModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-6">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl">
-            <h3 class="text-2xl font-bold mb-6">Mulai Streaming</h3>
-            <div class="space-y-6">
-                <div id="audioCoverSection" class="hidden space-y-2">
-                    <label class="text-xs font-bold text-slate-500 uppercase">Pilih Background Image</label>
-                    <select id="coverSelect" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 outline-none text-sm"></select>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-xs font-bold text-slate-500 uppercase">RTMP URL</label>
-                    <input type="text" id="targetRtmp" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 outline-none text-sm font-mono">
-                </div>
-                <div class="flex gap-4 pt-4">
-                    <button onclick="closeModal()" class="flex-1 px-6 py-4 border border-slate-700 rounded-2xl font-bold hover:bg-slate-700 transition-all">Batal</button>
-                    <button id="btnGoLive" class="flex-1 px-6 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold shadow-xl shadow-indigo-600/30">GO LIVE</button>
-                </div>
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-50">
+        <div class="bg-slate-800 p-8 rounded-3xl w-full max-w-md border border-slate-700">
+            <h3 class="text-xl font-bold mb-4">Mulai Stream</h3>
+            <div id="coverOpt" class="hidden mb-4">
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Background Image</label>
+                <select id="coverSelect" class="w-full bg-slate-900 p-3 rounded-xl text-sm border border-slate-700"></select>
+            </div>
+            <div class="mb-6">
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Target RTMP</label>
+                <input type="text" id="targetRtmp" class="w-full bg-slate-900 p-3 rounded-xl text-sm border border-slate-700 text-indigo-400 font-mono">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 p-3 rounded-xl bg-slate-700 font-bold">Batal</button>
+                <button id="goLiveBtn" class="flex-1 p-3 rounded-xl bg-indigo-600 font-bold">GO LIVE</button>
             </div>
         </div>
     </div>
 
     <script>
         const socket = io();
-        let currentMediaId = null;
         let allMedia = [];
 
-        // Socket Events
-        socket.on('log', (data) => {
-            const consoleEl = document.getElementById('console');
+        socket.on('log', (d) => {
+            const c = document.getElementById('console');
             const p = document.createElement('p');
-            const time = new Date().toLocaleTimeString();
-            
-            if (data.type === 'error') p.className = 'text-rose-400';
-            else if (data.type === 'start') {
-                p.className = 'text-emerald-400 font-bold';
-                document.getElementById('liveStatus').classList.remove('hidden');
+            if (d.type === 'start') {
+                document.getElementById('liveBadge').classList.remove('hidden');
                 document.getElementById('statusText').innerText = 'STREAMING';
-                document.getElementById('statusText').className = 'text-2xl font-bold text-emerald-400';
-            } else if (data.type === 'end') {
-                p.className = 'text-amber-400';
-                document.getElementById('liveStatus').classList.add('hidden');
-                document.getElementById('statusText').innerText = 'IDLE';
-                document.getElementById('statusText').className = 'text-2xl font-bold';
+                document.getElementById('statusText').classList.add('text-emerald-500');
             }
-
-            p.innerHTML = `<span class="opacity-30 mr-2">[${time}]</span> ${data.message || 'Event'}`;
-            consoleEl.appendChild(p);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
+            if (d.type === 'end') {
+                document.getElementById('liveBadge').classList.add('hidden');
+                document.getElementById('statusText').innerText = 'IDLE';
+                document.getElementById('statusText').classList.remove('text-emerald-500');
+            }
+            p.innerText = `[${new Date().toLocaleTimeString()}] ${d.message || d.text || JSON.stringify(d)}`;
+            c.appendChild(p);
+            c.scrollTop = c.scrollHeight;
         });
 
-        // Tab Switching
         function switchTab(id) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.replace('bg-indigo-600', 'text-slate-400'));
             document.getElementById(id).classList.add('active');
-            
-            document.querySelectorAll('nav button').forEach(el => {
-                el.classList.remove('bg-indigo-600', 'text-white', 'font-semibold');
-                el.classList.add('text-slate-400');
-            });
-            document.getElementById('nav-' + id).classList.add('bg-indigo-600', 'text-white', 'font-semibold');
-            document.getElementById('nav-' + id).classList.remove('text-slate-400');
-
-            if (id === 'library') loadLibrary();
-            if (id === 'settings') loadSettings();
+            document.getElementById('nav-'+id).classList.replace('text-slate-400', 'bg-indigo-600');
+            if(id === 'library') loadLibrary();
+            if(id === 'settings') loadSettings();
         }
 
-        // Library Management
         async function loadLibrary() {
-            const res = await fetch('/api/videos');
-            allMedia = await res.json();
+            const r = await fetch('/api/videos');
+            allMedia = await r.json();
             document.getElementById('fileCount').innerText = allMedia.length;
             const container = document.getElementById('mediaList');
-            
-            if (allMedia.length === 0) {
-                container.innerHTML = `<div class="text-center py-20 border-2 border-dashed border-slate-800 rounded-3xl text-slate-600">Library kosong. Silakan upload file.</div>`;
-                return;
-            }
-
-            container.innerHTML = allMedia.map(item => `
-                <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl flex items-center justify-between group">
-                    <div class="flex items-center gap-4">
-                        <div class="p-4 rounded-xl ${item.type === 'audio' ? 'bg-amber-500/10 text-amber-500' : 'bg-indigo-500/10 text-indigo-500'}">
-                            <i class="fas ${item.type === 'audio' ? 'fa-music' : item.type === 'image' ? 'fa-image' : 'fa-video'}"></i>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-sm">${item.filename}</h4>
-                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">${item.type} • ${(item.size / (1024*1024)).toFixed(1)}MB</p>
-                        </div>
+            container.innerHTML = allMedia.map(m => `
+                <div class="bg-slate-800 p-4 rounded-xl flex justify-between items-center border border-slate-700">
+                    <div>
+                        <p class="font-bold text-sm">${m.filename}</p>
+                        <p class="text-[10px] uppercase font-bold text-slate-500">${m.type} • ${(m.size/1024/1024).toFixed(1)} MB</p>
                     </div>
                     <div class="flex gap-2">
-                        ${(item.type === 'video' || item.type === 'audio') ? `
-                            <button onclick="openStream('${item.id}', '${item.type}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20">LIVE</button>
-                        ` : ''}
-                        <button onclick="deleteMedia('${item.id}')" class="bg-slate-700 hover:bg-rose-500 p-2.5 rounded-xl transition-all"><i class="fas fa-trash-alt"></i></button>
+                        ${m.type !== 'image' ? `<button onclick="prepStream(${m.id}, '${m.type}')" class="bg-indigo-600 p-2 rounded-lg text-xs font-bold">LIVE</button>` : ''}
+                        <button onclick="delFile(${m.id})" class="bg-slate-700 p-2 rounded-lg text-xs"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
             `).join('');
         }
 
-        async function handleUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('video', file);
-
-            document.getElementById('uploadProgress').classList.remove('hidden');
-            document.getElementById('uploadName').innerText = file.name;
-
+        async function uploadFile(input) {
+            const f = input.files[0]; if(!f) return;
+            const fd = new FormData(); fd.append('video', f);
+            const pr = document.getElementById('upProgress'); pr.classList.remove('hidden');
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/videos/upload', true);
             xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const pct = Math.round((e.loaded / e.total) * 100);
-                    document.getElementById('uploadBar').style.width = pct + '%';
-                    document.getElementById('uploadPct').innerText = pct + '%';
-                }
+                const pct = Math.round((e.loaded/e.total)*100);
+                document.getElementById('upBar').style.width = pct+'%';
+                document.getElementById('upPct').innerText = pct+'%';
             };
-            xhr.onload = () => {
-                document.getElementById('uploadProgress').classList.add('hidden');
-                loadLibrary();
-                input.value = '';
-            };
-            xhr.send(formData);
+            xhr.onload = () => { pr.classList.add('hidden'); loadLibrary(); input.value=''; };
+            xhr.send(fd);
         }
 
-        async function deleteMedia(id) {
-            if (!confirm("Hapus file ini?")) return;
-            await fetch('/api/videos/' + id, { method: 'DELETE' });
-            loadLibrary();
-        }
+        async function delFile(id) { if(confirm("Hapus?")) { await fetch('/api/videos/'+id, {method:'DELETE'}); loadLibrary(); } }
 
-        // Stream Control
-        function openStream(id, type) {
-            currentMediaId = id;
-            document.getElementById('streamModal').classList.remove('hidden');
-            
-            const coverSection = document.getElementById('audioCoverSection');
+        function prepStream(id, type) {
+            document.getElementById('modal').classList.remove('hidden');
+            const cs = document.getElementById('coverOpt');
             const select = document.getElementById('coverSelect');
-            if (type === 'audio') {
-                coverSection.classList.remove('hidden');
+            if(type === 'audio') {
+                cs.classList.remove('hidden');
                 const imgs = allMedia.filter(m => m.type === 'image');
-                select.innerHTML = '<option value="">-- Layar Hitam --</option>' + 
-                    imgs.map(img => `<option value="${img.id}">${img.filename}</option>`).join('');
-            } else {
-                coverSection.classList.add('hidden');
-            }
-
-            fetch('/api/settings').then(r => r.json()).then(data => {
-                document.getElementById('targetRtmp').value = data.rtmp_url || '';
-            });
-
-            document.getElementById('btnGoLive').onclick = async () => {
+                select.innerHTML = '<option value="">-- Layar Hitam --</option>' + imgs.map(i => `<option value="${i.id}">${i.filename}</option>`).join('');
+            } else cs.classList.add('hidden');
+            
+            fetch('/api/settings').then(r => r.json()).then(d => document.getElementById('targetRtmp').value = d.rtmp_url);
+            
+            document.getElementById('goLiveBtn').onclick = async () => {
                 const rtmp = document.getElementById('targetRtmp').value;
-                const coverId = document.getElementById('coverSelect').value;
-                const res = await fetch('/api/stream/start', {
+                const cover = select.value;
+                await fetch('/api/stream/start', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ videoId: id, rtmpUrl: rtmp, coverImageId: coverId })
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ videoId: id, rtmpUrl: rtmp, coverImageId: cover })
                 });
-                const data = await res.json();
-                if (data.success) {
-                    closeModal();
-                    switchTab('dashboard');
-                } else alert("Gagal: " + data.error);
+                closeModal(); switchTab('dashboard');
             };
         }
 
-        function closeModal() { document.getElementById('streamModal').classList.add('hidden'); }
-
-        async function stopStream() {
-            if (!confirm("Hentikan stream?")) return;
-            await fetch('/api/stream/stop', { method: 'POST' });
-        }
-
-        // Settings
-        async function loadSettings() {
-            const res = await fetch('/api/settings');
-            const data = await res.json();
-            document.getElementById('rtmpInput').value = data.rtmp_url || '';
-        }
-
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        async function stopStream() { await fetch('/api/stream/stop', {method:'POST'}); }
+        async function loadSettings() { const r = await fetch('/api/settings'); const d = await r.json(); document.getElementById('rtmpUrl').value = d.rtmp_url; }
         async function saveSettings() {
-            const rtmp = document.getElementById('rtmpInput').value;
-            await fetch('/api/settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ rtmp_url: rtmp })
-            });
-            alert("Tersimpan!");
+            const val = document.getElementById('rtmpUrl').value;
+            await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({rtmp_url:val}) });
+            alert("Tersimpan");
         }
 
         window.onload = () => {
-            fetch('/api/stream/status').then(r => r.json()).then(data => {
-                if (data.active) {
-                    document.getElementById('liveStatus').classList.remove('hidden');
+            fetch('/api/stream/status').then(r => r.json()).then(d => {
+                if(d.active) {
+                    document.getElementById('liveBadge').classList.remove('hidden');
                     document.getElementById('statusText').innerText = 'STREAMING';
-                    document.getElementById('statusText').className = 'text-2xl font-bold text-emerald-400';
                 }
             });
             loadLibrary();
-        };
+        }
     </script>
 </body>
 </html>
