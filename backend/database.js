@@ -47,13 +47,12 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
-      // 3. Seeding Master Data Plans (Sesuai Permintaan User)
-      // Format: [ID, Nama, StorageMB, AllowedTypes, Streams, Price, Features]
+      // 3. Seeding Master Data Plans (Kategori Baru: Video, Radio, Sultan)
       const plans = [
         [1, 'Paket Basic (Pemula)', 2048, 'video,audio', 1, 'Rp 50.000', 'Max 720p, 12 Jam/hari, Auto Reconnect'],
         [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target'],
-        [3, 'Paket Radio 24/7', 5120, 'audio', 1, 'Rp 75.000', 'Khusus Radio MP3, Shuffle Playlist, Visualisasi Cover'],
-        [4, 'Paket Sultan (Private)', 25600, 'video,audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Full Admin Access']
+        [3, 'Paket Radio 24/7', 5120, 'audio', 1, 'Rp 75.000', 'Khusus Radio MP3, Visualisasi Cover, Shuffle Playlist'],
+        [4, 'Paket Sultan (Private)', 25600, 'video,audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Setup Dibantu Full']
       ];
       
       plans.forEach(p => {
@@ -61,13 +60,14 @@ const initDB = () => {
                 VALUES (?, ?, ?, ?, ?, ?, ?)`, p);
       });
 
-      // 4. Seeding Admin (Tetap Menggunakan Paket Sultan/ID 4)
+      // 4. Seeding Admin
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
       db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
         if (!err) {
+          // Selalu pastikan admin lama pun memiliki role admin dan plan sultan
           db.run(`UPDATE users SET role = 'admin', plan_id = 4 WHERE username = ?`, [adminUser]);
           console.log("DB: Admin Check Completed.");
         }
