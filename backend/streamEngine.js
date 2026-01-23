@@ -23,15 +23,24 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
     if (isAllAudio) {
       // --- MODE AUDIO (RADIO/PODCAST) ---
-      // Konfigurasi ini dioptimalkan untuk menjaga koneksi RTMP tetap hidup (Keep-Alive)
-      // meskipun gambar visualnya statis.
+      
+      // Filter Complex: Memaksa gambar input menjadi 720p (1280x720)
+      // Ini PENTING untuk mencegah error "width not divisible by 2" pada libx264
+      // jika user mengupload gambar dengan dimensi ganjil (misal 505x505).
+      const videoFilter = [
+        'scale=1280:720:force_original_aspect_ratio=decrease',
+        'pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black',
+        'format=yuv420p' // Memastikan format pixel didukung player
+      ].join(',');
 
       // 1. INPUT 0: VISUAL (Image/Color)
       let imageInput = options.coverImagePath;
       if (!imageInput || !fs.existsSync(imageInput)) {
         command.input('color=c=black:s=1280x720:r=24').inputOptions(['-f lavfi']);
       } else {
-        command.input(imageInput).inputOptions(['-loop 1']);
+        // -loop 1: Loop gambar selamanya
+        // -framerate 2: Set fps input rendah untuk hemat CPU sebelum encoding
+        command.input(imageInput).inputOptions(['-loop 1', '-framerate 2']); 
       }
 
       // 2. INPUT 1: AUDIO (Playlist)
@@ -44,30 +53,30 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
       // OUTPUT OPTIONS
       command.outputOptions([
-        // Mapping Eksplisit: Mencegah FFmpeg salah pilih stream
         '-map 0:v', 
         '-map 1:a',
 
+        // Terapkan Filter Video
+        `-vf ${videoFilter}`,
+
         '-c:v libx264',
         '-preset ultrafast', // Hemat CPU VPS
-        // '-tune stillimage' DIHAPUS: Menyebabkan bitrate drop ke 0 dan disconnect
-        '-pix_fmt yuv420p',
         
-        '-r 24',           // FPS Standar YouTube/FB
-        '-g 48',           // Keyframe tiap 2 detik (24*2). Wajib untuk stabilitas.
+        '-r 24',           // Output FPS 24 (Standar Stabil)
+        '-g 48',           // Keyframe tiap 2 detik
         '-keyint_min 48',
-        '-sc_threshold 0', // Matikan deteksi scene agar bitrate rata
+        '-sc_threshold 0',
         
-        '-b:v 2500k',      // Bitrate video konstan (CBR)
+        '-b:v 2500k',      // Video Bitrate
         '-maxrate 2500k',
         '-bufsize 5000k',
         
-        '-c:a aac',
-        '-b:a 128k',
-        '-ar 44100',       // Sample rate standar
+        '-c:a aac',        // Audio Codec
+        '-b:a 128k',       // Audio Bitrate
+        '-ar 44100',       // Sample Rate
         
-        '-shortest',       // Stream mati jika playlist audio habis (walau gambar looping)
-        '-max_muxing_queue_size 9999', // Mencegah crash "buffer overflow"
+        '-shortest',       // Stop stream jika audio habis
+        '-max_muxing_queue_size 9999',
         
         '-f flv',
         '-flvflags no_duration_filesize'
@@ -75,7 +84,6 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
     } else {
       // --- MODE VIDEO (Direct Stream Copy) ---
-      // Paling ringan CPU karena tidak ada encoding ulang
       command
         .input(playlistPath)
         .inputOptions([
@@ -98,9 +106,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Engine: ${isAllAudio ? 'Audio-Visual Muxer' : 'Direct Copy'}` });
       })
       .on('stderr', (stderrLine) => {
-        // Filter log spam, hanya tampilkan info penting/error
         if (stderrLine.includes('bitrate=') || stderrLine.includes('Error') || stderrLine.includes('Conversion failed')) {
-            // Deteksi bitrate drop
             if (stderrLine.includes('bitrate=   0.0kbits/s')) {
                 console.warn("WARNING: Bitrate 0 detected!");
             }
