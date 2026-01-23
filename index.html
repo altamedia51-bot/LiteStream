@@ -20,41 +20,45 @@
             background-color: var(--bg); 
             color: #f8fafc;
             scroll-behavior: smooth;
+            margin: 0;
+            padding: 0;
         }
 
+        /* Nav & Utility */
         .nav-link.active { color: white; background: rgba(99, 102, 241, 0.2); border-radius: 12px; }
         .nav-link.active i { color: #818cf8; }
-
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 
+        /* Content Management */
         .tab-content { display: none; opacity: 0; transform: translateY(10px); transition: all 0.3s ease; }
         .tab-content.active { display: block; opacity: 1; transform: translateY(0); }
 
+        /* Animations */
         .pulse-live { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); animation: pulse 2s infinite; }
         @keyframes pulse {
             70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
+        /* Visual Style */
         .pricing-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .pricing-card:hover { transform: translateY(-10px); }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
         .hero-bg { background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%); }
         
-        /* State management helper */
-        .view-section { display: none; }
-        .view-section.active { display: block; }
-        #main-app.active { display: flex; }
+        /* VISIBILITY LOGIC: Kunci utama agar tidak tumpang tindih */
+        .view-section { display: none !important; }
+        .view-section.active-view { display: block !important; }
+        #main-app.active-view { display: flex !important; }
     </style>
 </head>
 <body class="min-h-screen">
 
-    <!-- LANDING PAGE VIEW -->
-    <div id="landing-view" class="view-section relative overflow-hidden">
+    <!-- 1. LANDING PAGE VIEW -->
+    <div id="landing-view" class="view-section active-view relative overflow-hidden">
         <div class="absolute inset-0 hero-bg -z-10"></div>
         
-        <!-- Navbar -->
         <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-6 lg:px-20 flex justify-between items-center glass border-b border-slate-800">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -69,7 +73,6 @@
             <button onclick="showAuth()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl transition-all">Dashboard</button>
         </nav>
 
-        <!-- Hero Section -->
         <section class="pt-40 pb-16 px-6 lg:px-20 text-center max-w-5xl mx-auto">
             <h1 class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">
                 Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span>
@@ -83,14 +86,13 @@
             </div>
         </section>
 
-        <!-- Pricing Section -->
         <section id="pricing" class="py-24 px-6 lg:px-20">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4">Pilih Paket Streaming</h2>
                 <p class="text-slate-500">Upgrade kapasitas sesuai kebutuhan konten Anda.</p>
             </div>
             <div id="pricing-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-                <!-- Data Paket akan dimuat di sini -->
+                <!-- Data Paket dimuat via fetchPlans() -->
             </div>
         </section>
 
@@ -99,7 +101,7 @@
         </footer>
     </div>
 
-    <!-- AUTH VIEW (MODAL) -->
+    <!-- 2. LOGIN/REGISTER MODAL (Overlay) -->
     <div id="login-view" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl relative">
             <button onclick="hideAuth()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
@@ -122,8 +124,9 @@
         </div>
     </div>
 
-    <!-- DASHBOARD VIEW -->
-    <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
+    <!-- 3. DASHBOARD VIEW (APP) -->
+    <div id="main-app" class="view-section flex-col md:flex-row min-h-screen">
+        <!-- Sidebar -->
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
             <div class="flex items-center gap-3 mb-12">
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center"><i class="fas fa-bolt text-white"></i></div>
@@ -140,6 +143,7 @@
             </div>
         </aside>
 
+        <!-- Main Content -->
         <main class="flex-1 p-4 md:p-10 max-w-6xl mx-auto w-full">
             <header class="flex justify-between items-center mb-6">
                 <div>
@@ -152,7 +156,7 @@
                 </div>
             </header>
 
-            <!-- Profil & Storage Card -->
+            <!-- Status Card -->
             <div class="bg-slate-800 border border-slate-700/50 rounded-3xl p-6 mb-6 shadow-xl overflow-hidden">
                 <div class="flex flex-col md:flex-row gap-6 items-center">
                     <div class="text-center md:text-left min-w-[200px]">
@@ -171,27 +175,26 @@
                 </div>
             </div>
 
-            <!-- Tab: Overview -->
+            <!-- TABS -->
             <div id="tab-overview" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1">
                         <div class="bg-slate-800/50 border border-slate-700/50 p-6 rounded-3xl h-full">
                             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-5">Broadcast Control</h4>
-                            <div id="live-card" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl mb-5 pulse-live">
-                                <span class="text-emerald-400 font-bold text-sm">LIVE TRANSMISSION</span>
+                            <div id="live-card" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl mb-5 pulse-live text-center">
+                                <span class="text-emerald-400 font-bold text-[10px] tracking-widest">LIVE TRANSMISSION</span>
                             </div>
                             <div id="idle-msg" class="text-sm text-slate-400 mb-5 italic text-center py-4">Server Stand-by.</div>
                             <button onclick="stopStream()" id="btn-stop-stream" class="hidden w-full py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold text-sm">STOP STREAMING</button>
                         </div>
                     </div>
-                    <div class="lg:col-span-2 bg-slate-950 rounded-3xl border border-slate-800 h-[400px] overflow-hidden flex flex-col">
+                    <div class="lg:col-span-2 bg-slate-950 rounded-3xl border border-slate-800 h-[400px] overflow-hidden flex flex-col shadow-2xl">
                         <div class="p-3 border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold text-slate-500">LOGS CONSOLE</div>
                         <div id="logConsole" class="flex-1 p-5 font-mono text-[10px] overflow-y-auto space-y-1"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Tab: Library -->
             <div id="tab-library" class="tab-content space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Media Library</h2>
@@ -204,7 +207,6 @@
                 <div id="media-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
 
-            <!-- Tab: Settings -->
             <div id="tab-settings" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">Settings</h2>
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
@@ -216,7 +218,6 @@
                 </div>
             </div>
 
-            <!-- Tab: Admin Panel -->
             <div id="tab-users" class="tab-content space-y-12">
                 <section>
                     <h2 class="text-2xl font-bold mb-6">User Management</h2>
@@ -229,7 +230,6 @@
                         </table>
                     </div>
                 </section>
-
                 <section>
                     <h2 class="text-2xl font-bold mb-6">Pricing Plans</h2>
                     <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-x-auto">
@@ -249,39 +249,18 @@
         const socket = io();
         let currentUser = null;
         let selectedMedia = new Set();
-        let allMedia = [];
         let isLoginMode = true;
 
-        // Unified View Switching Logic
+        // VISIBILITY CONTROLLER
         function setView(viewId) {
-            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            // Sembunyikan semua view utama
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
+            // Tampilkan yang diinginkan
             const target = document.getElementById(viewId);
-            if (target) target.classList.add('active');
-        }
-
-        async function fetchPlans() {
-            try {
-                const res = await fetch('/api/plans-public');
-                const plans = await res.json();
-                const grid = document.getElementById('pricing-grid');
-                if (!grid) return;
-
-                grid.innerHTML = plans.map(p => {
-                    const features = p.features_text ? p.features_text.split(',').map(f => f.trim()) : [];
-                    const isSultan = p.id === 4;
-                    return `
-                    <div class="pricing-card glass p-8 rounded-[3rem] border border-slate-800 ${isSultan ? 'ring-2 ring-indigo-500/30' : ''}">
-                        <h4 class="text-lg font-bold mb-1">${p.name}</h4>
-                        <div class="text-2xl font-black text-indigo-400 mb-6">${p.price_text}</div>
-                        <ul class="space-y-4 mb-10 text-xs text-slate-400 min-h-[140px]">
-                            <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_storage_mb / 1024 >= 1 ? (p.max_storage_mb/1024).toFixed(0) + 'GB' : p.max_storage_mb + 'MB'} Storage</li>
-                            ${features.map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f}</li>`).join('')}
-                        </ul>
-                        <button onclick="showAuth('register')" class="w-full py-4 rounded-2xl font-bold text-xs ${isSultan ? 'bg-indigo-600' : 'bg-slate-800 border border-slate-700'} hover:scale-105 transition-all">Pilih Paket</button>
-                    </div>
-                    `;
-                }).join('');
-            } catch (e) { console.error("Plans failed", e); }
+            if (target) {
+                target.classList.add('active-view');
+                console.log(`View switched to: ${viewId}`);
+            }
         }
 
         async function checkAuth() {
@@ -309,7 +288,7 @@
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             const totalMB = currentUser.max_storage_mb;
             document.getElementById('storage-text').textContent = `${usedMB} / ${totalMB} MB`;
-            document.getElementById('storage-bar').style.width = (usedMB / totalMB * 100) + '%';
+            document.getElementById('storage-bar').style.width = Math.min((usedMB / totalMB * 100), 100) + '%';
             
             if (currentUser.role === 'admin') {
                 document.getElementById('nav-users').classList.remove('hidden');
@@ -321,9 +300,48 @@
             fetchSettings();
         }
 
+        async function fetchPlans() {
+            try {
+                const res = await fetch('/api/plans-public');
+                const plans = await res.json();
+                const grid = document.getElementById('pricing-grid');
+                if (!grid) return;
+
+                grid.innerHTML = plans.map(p => {
+                    const features = p.features_text ? p.features_text.split(',').map(f => f.trim()) : [];
+                    const isSultan = p.id === 4;
+                    return `
+                    <div class="pricing-card glass p-8 rounded-[3rem] border border-slate-800 flex flex-col ${isSultan ? 'ring-2 ring-indigo-500/50 shadow-indigo-500/10' : ''}">
+                        <h4 class="text-lg font-bold mb-1">${p.name}</h4>
+                        <div class="text-2xl font-black text-indigo-400 mb-6">${p.price_text}</div>
+                        <ul class="space-y-4 mb-10 text-xs text-slate-400 flex-1">
+                            <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_storage_mb / 1024 >= 1 ? (p.max_storage_mb/1024).toFixed(0) + 'GB' : p.max_storage_mb + 'MB'} Storage</li>
+                            ${features.map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f}</li>`).join('')}
+                        </ul>
+                        <button onclick="showAuth('register')" class="w-full py-4 rounded-2xl font-bold text-xs ${isSultan ? 'bg-indigo-600' : 'bg-slate-800 border border-slate-700'} hover:scale-105 transition-all">Pilih Paket</button>
+                    </div>
+                    `;
+                }).join('');
+            } catch (e) { console.error("Plans load failed", e); }
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const username = document.getElementById('login-user').value;
+            const password = document.getElementById('login-pass').value;
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (data.success) { location.reload(); } else alert(data.error);
+        }
+
         async function fetchMedia() {
             const res = await fetch('/api/videos');
-            allMedia = await res.json();
+            const allMedia = await res.json();
             const list = document.getElementById('media-list');
             list.innerHTML = allMedia.map(v => `
                 <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4">
@@ -339,20 +357,6 @@
             const btn = document.getElementById('btn-start-playlist');
             document.getElementById('selected-count').textContent = selectedMedia.size;
             btn.classList.toggle('hidden', selectedMedia.size === 0);
-        }
-
-        async function handleAuth(e) {
-            e.preventDefault();
-            const username = document.getElementById('login-user').value;
-            const password = document.getElementById('login-pass').value;
-            const endpoint = isLoginMode ? '/api/login' : '/api/register';
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (data.success) { location.reload(); } else alert(data.error);
         }
 
         async function fetchAdminPlans() {
@@ -371,31 +375,20 @@
         }
 
         async function editPlan(id, oldName, oldPrice, oldStorage, oldFeatures) {
-            // Kita gunakan prompt, tapi berikan default value agar user tidak mengetik dari nol
-            const name = prompt("Nama Paket:", oldName);
-            if (name === null) return;
-            const price = prompt("Harga (Contoh: Rp 50.000):", oldPrice);
-            if (price === null) return;
-            const storage = prompt("Kuota Storage (MB):", oldStorage);
-            if (storage === null) return;
-            const features = prompt("Fitur (Pisahkan koma):", oldFeatures);
-            if (features === null) return;
+            const name = prompt("Nama Paket:", oldName) || oldName;
+            const price = prompt("Harga (Contoh: Rp 50.000):", oldPrice) || oldPrice;
+            const storage = prompt("Kuota Storage (MB):", oldStorage) || oldStorage;
+            const features = prompt("Fitur (Pisahkan koma):", oldFeatures) || oldFeatures;
             
             const res = await fetch(`/api/plans/${id}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
-                    name, 
-                    price_text: price, 
-                    max_storage_mb: parseInt(storage), 
-                    features_text: features, 
-                    allowed_types: oldFeatures.toLowerCase().includes('audio') && !oldFeatures.toLowerCase().includes('video') ? 'audio' : 'video,audio' 
+                    name, price_text: price, max_storage_mb: parseInt(storage), features_text: features, 
+                    allowed_types: features.toLowerCase().includes('audio') && !features.toLowerCase().includes('video') ? 'audio' : 'video,audio' 
                 })
             });
-            if ((await res.json()).success) { 
-                fetchAdminPlans(); 
-                alert("Paket Berhasil Diupdate!"); 
-            }
+            if ((await res.json()).success) { fetchAdminPlans(); alert("Paket Berhasil Diupdate!"); }
         }
 
         async function fetchUsers() {
@@ -403,7 +396,7 @@
             const users = await res.json();
             document.getElementById('user-table-body').innerHTML = users.map(u => `
                 <tr class="border-b border-slate-800">
-                    <td class="p-5 font-bold">${u.username} ${u.role === 'admin' ? '<span class="text-[8px] bg-indigo-600 px-1 rounded">ADMIN</span>' : ''}</td>
+                    <td class="p-5 font-bold">${u.username} ${u.role === 'admin' ? '<span class="text-[8px] bg-indigo-600 px-1 rounded ml-2">ADMIN</span>' : ''}</td>
                     <td class="p-5 text-slate-400">${u.plan_name}</td>
                     <td class="p-5 text-xs font-mono">${(u.storage_used / (1024*1024)).toFixed(1)} MB</td>
                 </tr>
@@ -454,20 +447,8 @@
             if (!input.files[0]) return;
             const formData = new FormData();
             formData.append('video', input.files[0]);
-            
-            const btn = input.previousElementSibling;
-            const oldText = btn.textContent;
-            btn.textContent = "Uploading...";
-            btn.disabled = true;
-
-            try {
-                const res = await fetch('/api/videos/upload', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) { fetchMedia(); } else alert(data.error);
-            } catch (e) { alert("Upload failed."); }
-            
-            btn.textContent = oldText;
-            btn.disabled = false;
+            const res = await fetch('/api/videos/upload', { method: 'POST', body: formData });
+            if ((await res.json()).success) { fetchMedia(); } else alert("Upload gagal atau storage penuh.");
         }
 
         async function deleteMedia(id) {
@@ -479,7 +460,6 @@
         async function startPlaylist() {
             const rtmpUrl = document.getElementById('setting-rtmp').value;
             if (!rtmpUrl) return alert("RTMP URL belum diisi di Settings!");
-            
             const res = await fetch('/api/playlist/start', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
