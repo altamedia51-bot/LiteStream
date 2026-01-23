@@ -65,7 +65,21 @@ router.put('/plans/:id', isAdmin, (req, res) => {
   );
 });
 
-router.get('/users', isAdmin, (req, res) => db.all("SELECT u.id, u.username, u.role, u.storage_used, p.name as plan_name FROM users u JOIN plans p ON u.plan_id = p.id", (err, rows) => res.json(rows)));
+// Admin User Management
+router.get('/users', isAdmin, (req, res) => {
+    // Added u.plan_id to selection
+    db.all("SELECT u.id, u.username, u.role, u.storage_used, u.plan_id, p.name as plan_name FROM users u JOIN plans p ON u.plan_id = p.id", (err, rows) => res.json(rows));
+});
+
+router.put('/users/:id', isAdmin, (req, res) => {
+    const { plan_id } = req.body;
+    if (!plan_id) return res.status(400).json({ error: "Plan ID required" });
+    
+    db.run("UPDATE users SET plan_id = ? WHERE id = ?", [plan_id, req.params.id], function(err) {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json({ success: true });
+    });
+});
 
 router.get('/videos', async (req, res) => res.json(await getVideos(req.session.user.id)));
 

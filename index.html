@@ -143,6 +143,31 @@
         </div>
     </div>
 
+    <!-- USER EDIT MODAL -->
+    <div id="user-edit-modal" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+            <button onclick="closeUserEdit()" class="absolute top-4 right-4 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
+            <h3 class="text-xl font-bold text-white mb-6">Edit User Plan</h3>
+            <form onsubmit="saveUserPlan(event)" class="space-y-4">
+                <input type="hidden" id="edit-user-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Username</label>
+                    <input type="text" id="edit-user-name" disabled class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3 text-slate-500 font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Assign Plan</label>
+                    <div class="relative">
+                        <select id="edit-user-plan" class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3 text-white appearance-none outline-none focus:ring-2 ring-indigo-500/50">
+                            <!-- Options populated by JS -->
+                        </select>
+                        <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400"><i class="fas fa-chevron-down"></i></div>
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white hover:bg-indigo-500 shadow-lg mt-2">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
     <!-- DASHBOARD VIEW -->
     <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
@@ -334,7 +359,7 @@
                     <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-x-auto">
                         <table class="w-full text-left">
                             <thead class="bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
-                                <tr><th class="p-5">Username</th><th class="p-5">Plan</th><th class="p-5">Storage Used</th></tr>
+                                <tr><th class="p-5">Username</th><th class="p-5">Plan</th><th class="p-5">Storage Used</th><th class="p-5">Actions</th></tr>
                             </thead>
                             <tbody id="user-table-body" class="text-sm"></tbody>
                         </table>
@@ -362,6 +387,7 @@
         let allMedia = [];
         let isLoginMode = true;
         let currentMediaTab = 'video';
+        let adminPlansList = [];
         
         // RTMP Constants
         const PLATFORMS = {
@@ -532,6 +558,7 @@
         async function fetchAdminPlans() {
             const res = await fetch('/api/plans');
             const plans = await res.json();
+            window.adminPlansList = plans; // Cache for user edit dropdown
             document.getElementById('plan-table-body').innerHTML = plans.map(p => `
                 <tr class="border-b border-slate-800 hover:bg-slate-800/20">
                     <td class="p-5 font-bold">${p.name}</td>
@@ -549,7 +576,48 @@
                     <td class="p-5 font-bold">${u.username} ${u.role==='admin'?'<span class="text-[8px] bg-indigo-600 px-1 rounded ml-2">ADMIN</span>':''}</td>
                     <td class="p-5 text-slate-400">${u.plan_name}</td>
                     <td class="p-5 text-xs font-mono">${(u.storage_used/(1024*1024)).toFixed(1)} MB</td>
+                    <td class="p-5">
+                        <button onclick="openUserEdit(${u.id}, '${u.username}', ${u.plan_id})" class="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg transition-colors">Edit Plan</button>
+                    </td>
                 </tr>`).join('');
+        }
+
+        // --- USER EDIT FUNCTIONS ---
+        function openUserEdit(userId, username, currentPlanId) {
+            document.getElementById('edit-user-id').value = userId;
+            document.getElementById('edit-user-name').value = username;
+            
+            const select = document.getElementById('edit-user-plan');
+            select.innerHTML = window.adminPlansList.map(p => 
+                `<option value="${p.id}" ${p.id == currentPlanId ? 'selected' : ''}>${p.name} (${p.max_storage_mb}MB)</option>`
+            ).join('');
+            
+            document.getElementById('user-edit-modal').classList.remove('hidden');
+        }
+
+        function closeUserEdit() {
+            document.getElementById('user-edit-modal').classList.add('hidden');
+        }
+
+        async function saveUserPlan(e) {
+            e.preventDefault();
+            const userId = document.getElementById('edit-user-id').value;
+            const planId = document.getElementById('edit-user-plan').value;
+            
+            const res = await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ plan_id: planId })
+            });
+            
+            const data = await res.json();
+            if(data.success) {
+                closeUserEdit();
+                fetchUsers();
+                alert("User Plan Updated!");
+            } else {
+                alert(data.error || "Failed to update plan");
+            }
         }
 
         async function handleAuth(e) {
