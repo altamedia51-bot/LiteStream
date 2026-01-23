@@ -52,7 +52,7 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       ].filter(Boolean));
 
       // OUTPUT OPTIONS
-      command.outputOptions([
+      const outputOpts = [
         '-map 0:v', 
         '-map 1:a',
         `-vf ${videoFilter}`,
@@ -65,8 +65,6 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-sc_threshold 0',
         
         // FIX BITRATE YOUTUBE: Force Constant Bitrate (CBR)
-        // Kita paksa bitrate minimal 3000k agar YouTube tidak mendeteksi "Low Bitrate"
-        // pada gambar statis.
         '-b:v 3000k',
         '-minrate 3000k', 
         '-maxrate 3000k',
@@ -78,12 +76,19 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
         '-ar 44100',
         
         '-fflags +genpts', 
-        '-shortest',
         '-max_muxing_queue_size 9999',
         
         '-f flv',
         '-flvflags no_duration_filesize'
-      ]);
+      ];
+
+      // CRITICAL FIX: Hanya gunakan -shortest jika TIDAK looping.
+      // Jika looping, stream audio secara teknis 'infinite', jadi jangan distop oleh shortest.
+      if (!shouldLoop) {
+        outputOpts.push('-shortest');
+      }
+
+      command.outputOptions(outputOpts);
 
     } else {
       // --- MODE VIDEO (Direct Stream Copy) ---
