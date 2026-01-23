@@ -18,12 +18,14 @@ const initDB = () => {
         name TEXT UNIQUE, 
         max_storage_mb INTEGER, 
         allowed_types TEXT, 
-        max_active_streams INTEGER
+        max_active_streams INTEGER,
+        price_text TEXT,
+        features_text TEXT
       )`);
 
       // 3. MIGRASI: Tambahkan kolom baru jika belum ada (Menghindari SQLITE_ERROR)
       db.all("PRAGMA table_info(plans)", (err, columns) => {
-        if (err) return;
+        if (err || !columns) return;
         const hasPrice = columns.some(c => c.name === 'price_text');
         const hasFeatures = columns.some(c => c.name === 'features_text');
         
@@ -59,7 +61,7 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
-      // 4. Seeding Master Data Plans (Paket Video, Radio, Sultan)
+      // 4. Seeding Master Data Plans
       const plans = [
         [1, 'Paket Basic (Pemula)', 2048, 'video,audio', 1, 'Rp 50.000', 'Max 720p, 12 Jam/hari, Auto Reconnect'],
         [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target'],
@@ -68,10 +70,9 @@ const initDB = () => {
       ];
       
       plans.forEach(p => {
+        // Hanya insert jika belum ada id tersebut agar manual edit tidak hilang
         db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`, p, (err) => {
-                  // Jika INSERT gagal karena kolom belum ada saat race condition, biarkan saja
-                });
+                VALUES (?, ?, ?, ?, ?, ?, ?)`, p);
       });
 
       // 5. Seeding Admin
@@ -79,10 +80,12 @@ const initDB = () => {
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
-      db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
-        if (!err) {
-          db.run(`UPDATE users SET role = 'admin', plan_id = 4 WHERE username = ?`, [adminUser]);
-          console.log("DB: Admin Check Completed.");
+      // Cek apakah admin sudah ada
+      db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
+        if (!row) {
+          db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
+            if (!err) console.log("DB: Initial Admin Created (admin/admin123)");
+          });
         }
         resolve();
       });

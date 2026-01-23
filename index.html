@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LiteStream - Multi-Platform Streaming Server</title>
     
-    <!-- Favicon: SVG Data URI (Bolt Icon) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath d='M13 10V3L4 14h7v7l9-11h-7z'/%3E%3C/svg%3E">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,9 +25,6 @@
         .nav-link.active { color: white; background: rgba(99, 102, 241, 0.2); border-radius: 12px; }
         .nav-link.active i { color: #818cf8; }
 
-        .sub-tab { border-bottom: 2px solid transparent; transition: all 0.3s ease; }
-        .sub-tab.active { border-color: #6366f1; color: #818cf8; }
-
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 
@@ -41,17 +37,21 @@
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
-        /* Pricing Card Animation */
         .pricing-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .pricing-card:hover { transform: translateY(-10px); }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
         .hero-bg { background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%); }
+        
+        /* State management helper */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        #main-app.active { display: flex; }
     </style>
 </head>
 <body class="min-h-screen">
 
     <!-- LANDING PAGE VIEW -->
-    <div id="landing-view" class="hidden relative overflow-hidden">
+    <div id="landing-view" class="view-section relative overflow-hidden">
         <div class="absolute inset-0 hero-bg -z-10"></div>
         
         <!-- Navbar -->
@@ -99,7 +99,7 @@
         </footer>
     </div>
 
-    <!-- AUTH VIEW -->
+    <!-- AUTH VIEW (MODAL) -->
     <div id="login-view" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl relative">
             <button onclick="hideAuth()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
@@ -123,7 +123,7 @@
     </div>
 
     <!-- DASHBOARD VIEW -->
-    <div id="main-app" class="hidden flex flex-col md:flex-row min-h-screen">
+    <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
             <div class="flex items-center gap-3 mb-12">
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center"><i class="fas fa-bolt text-white"></i></div>
@@ -141,8 +141,11 @@
         </aside>
 
         <main class="flex-1 p-4 md:p-10 max-w-6xl mx-auto w-full">
-            <header class="md:hidden flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold flex items-center gap-2">LiteStream</h2>
+            <header class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold md:hidden">LiteStream</h2>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest hidden md:block">Streaming Dashboard</p>
+                </div>
                 <div class="px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 flex items-center gap-2">
                     <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
                     <span id="status-label" class="text-[10px] font-bold text-slate-400 uppercase">Offline</span>
@@ -152,9 +155,9 @@
             <!-- Profil & Storage Card -->
             <div class="bg-slate-800 border border-slate-700/50 rounded-3xl p-6 mb-6 shadow-xl overflow-hidden">
                 <div class="flex flex-col md:flex-row gap-6 items-center">
-                    <div class="text-center md:text-left">
+                    <div class="text-center md:text-left min-w-[200px]">
                         <p class="text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest mb-1">Your Current Plan</p>
-                        <h3 id="plan-name-display" class="text-2xl font-bold text-white">...</h3>
+                        <h3 id="plan-name-display" class="text-xl font-bold text-white truncate">...</h3>
                     </div>
                     <div class="flex-1 w-full space-y-2">
                         <div class="flex justify-between text-xs">
@@ -172,7 +175,7 @@
             <div id="tab-overview" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1">
-                        <div class="bg-slate-800/50 border border-slate-700/50 p-6 rounded-3xl">
+                        <div class="bg-slate-800/50 border border-slate-700/50 p-6 rounded-3xl h-full">
                             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-5">Broadcast Control</h4>
                             <div id="live-card" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl mb-5 pulse-live">
                                 <span class="text-emerald-400 font-bold text-sm">LIVE TRANSMISSION</span>
@@ -181,7 +184,7 @@
                             <button onclick="stopStream()" id="btn-stop-stream" class="hidden w-full py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold text-sm">STOP STREAMING</button>
                         </div>
                     </div>
-                    <div class="lg:col-span-2 bg-slate-950 rounded-3xl border border-slate-800 h-[350px] overflow-hidden flex flex-col">
+                    <div class="lg:col-span-2 bg-slate-950 rounded-3xl border border-slate-800 h-[400px] overflow-hidden flex flex-col">
                         <div class="p-3 border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold text-slate-500">LOGS CONSOLE</div>
                         <div id="logConsole" class="flex-1 p-5 font-mono text-[10px] overflow-y-auto space-y-1"></div>
                     </div>
@@ -194,7 +197,7 @@
                     <h2 class="text-2xl font-bold">Media Library</h2>
                     <div class="flex gap-2">
                         <button id="btn-start-playlist" onclick="startPlaylist()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold text-sm">START (<span id="selected-count">0</span>)</button>
-                        <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm">Upload</button>
+                        <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-500">Upload Media</button>
                     </div>
                     <input type="file" id="file-up" class="hidden" onchange="handleUpload(this)">
                 </div>
@@ -207,17 +210,17 @@
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
                     <form onsubmit="saveSettings(event)" class="space-y-4">
                         <label class="block text-xs font-bold text-slate-400 uppercase">Stream Target (RTMP URL)</label>
-                        <input type="text" id="setting-rtmp" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none">
-                        <button type="submit" class="bg-indigo-600 px-10 py-4 rounded-2xl font-bold">Save Settings</button>
+                        <input type="text" id="setting-rtmp" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="rtmp://a.rtmp.youtube.com/live2/xxxx-xxxx">
+                        <button type="submit" class="bg-indigo-600 px-10 py-4 rounded-2xl font-bold hover:bg-indigo-500">Save Configuration</button>
                     </form>
                 </div>
             </div>
 
-            <!-- Tab: Admin Panel (Users & Plans) -->
+            <!-- Tab: Admin Panel -->
             <div id="tab-users" class="tab-content space-y-12">
                 <section>
-                    <h2 class="text-2xl font-bold mb-6">Users & Usage</h2>
-                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                    <h2 class="text-2xl font-bold mb-6">User Management</h2>
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-x-auto">
                         <table class="w-full text-left">
                             <thead class="bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
                                 <tr><th class="p-5">Username</th><th class="p-5">Plan</th><th class="p-5">Storage Used</th></tr>
@@ -228,11 +231,11 @@
                 </section>
 
                 <section>
-                    <h2 class="text-2xl font-bold mb-6">Manage Plans (Pricing)</h2>
-                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                    <h2 class="text-2xl font-bold mb-6">Pricing Plans</h2>
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-x-auto">
                         <table class="w-full text-left">
                             <thead class="bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
-                                <tr><th class="p-5">Plan Name</th><th class="p-5">Price</th><th class="p-5">MB</th><th class="p-5 text-right">Actions</th></tr>
+                                <tr><th class="p-5">Plan Name</th><th class="p-5">Price</th><th class="p-5">Storage (MB)</th><th class="p-5 text-right">Actions</th></tr>
                             </thead>
                             <tbody id="plan-table-body" class="text-sm"></tbody>
                         </table>
@@ -248,6 +251,13 @@
         let selectedMedia = new Set();
         let allMedia = [];
         let isLoginMode = true;
+
+        // Unified View Switching Logic
+        function setView(viewId) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            const target = document.getElementById(viewId);
+            if (target) target.classList.add('active');
+        }
 
         async function fetchPlans() {
             try {
@@ -282,28 +292,33 @@
                     currentUser = data.user; 
                     showDashboard(); 
                 } else { 
-                    document.getElementById('landing-view').classList.remove('hidden');
+                    setView('landing-view');
                     fetchPlans();
                 }
             } catch (e) { 
-                document.getElementById('landing-view').classList.remove('hidden');
+                setView('landing-view');
                 fetchPlans();
             }
         }
 
         function showDashboard() {
-            document.getElementById('landing-view').classList.add('hidden');
+            setView('main-app');
             document.getElementById('login-view').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
-            document.getElementById('main-app').style.display = 'flex';
             
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             const totalMB = currentUser.max_storage_mb;
             document.getElementById('storage-text').textContent = `${usedMB} / ${totalMB} MB`;
             document.getElementById('storage-bar').style.width = (usedMB / totalMB * 100) + '%';
-            if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
-            fetchMedia(); fetchSettings();
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('nav-users').classList.remove('hidden');
+            } else {
+                document.getElementById('nav-users').classList.add('hidden');
+            }
+            
+            fetchMedia(); 
+            fetchSettings();
         }
 
         async function fetchMedia() {
@@ -312,9 +327,9 @@
             const list = document.getElementById('media-list');
             list.innerHTML = allMedia.map(v => `
                 <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4">
-                    <input type="checkbox" onchange="toggleSelect(${v.id})" class="w-5 h-5 rounded-lg border-slate-700 bg-slate-900">
+                    <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 rounded-lg border-slate-700 bg-slate-900 accent-indigo-500">
                     <div class="flex-1 truncate text-sm font-bold">${v.filename}</div>
-                    <button onclick="deleteMedia(${v.id})" class="text-rose-500 p-2"><i class="fas fa-trash"></i></button>
+                    <button onclick="deleteMedia(${v.id})" class="text-rose-500 p-2 hover:bg-rose-500/10 rounded-xl transition-all"><i class="fas fa-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -344,31 +359,55 @@
             const res = await fetch('/api/plans');
             const plans = await res.json();
             document.getElementById('plan-table-body').innerHTML = plans.map(p => `
-                <tr class="border-b border-slate-800">
+                <tr class="border-b border-slate-800 hover:bg-slate-800/20">
                     <td class="p-5 font-bold">${p.name}</td>
                     <td class="p-5 text-indigo-400 font-bold">${p.price_text}</td>
                     <td class="p-5">${p.max_storage_mb} MB</td>
                     <td class="p-5 text-right">
-                        <button onclick="editPlan(${p.id}, '${p.name}', '${p.price_text}', ${p.max_storage_mb}, '${p.features_text}')" class="text-xs font-bold text-indigo-400 hover:underline">EDIT PACK</button>
+                        <button onclick="editPlan(${p.id}, '${p.name}', '${p.price_text}', ${p.max_storage_mb}, '${p.features_text || ''}')" class="text-xs font-bold text-indigo-400 hover:underline px-4 py-2 bg-indigo-500/10 rounded-lg">EDIT</button>
                     </td>
                 </tr>
             `).join('');
         }
 
         async function editPlan(id, oldName, oldPrice, oldStorage, oldFeatures) {
+            // Kita gunakan prompt, tapi berikan default value agar user tidak mengetik dari nol
             const name = prompt("Nama Paket:", oldName);
+            if (name === null) return;
             const price = prompt("Harga (Contoh: Rp 50.000):", oldPrice);
+            if (price === null) return;
             const storage = prompt("Kuota Storage (MB):", oldStorage);
+            if (storage === null) return;
             const features = prompt("Fitur (Pisahkan koma):", oldFeatures);
+            if (features === null) return;
             
-            if (name && price && storage) {
-                const res = await fetch(`/api/plans/${id}`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name, price_text: price, max_storage_mb: parseInt(storage), features_text: features, allowed_types: 'video,audio' })
-                });
-                if ((await res.json()).success) { fetchAdminPlans(); alert("Paket Berhasil Diupdate!"); }
+            const res = await fetch(`/api/plans/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    name, 
+                    price_text: price, 
+                    max_storage_mb: parseInt(storage), 
+                    features_text: features, 
+                    allowed_types: oldFeatures.toLowerCase().includes('audio') && !oldFeatures.toLowerCase().includes('video') ? 'audio' : 'video,audio' 
+                })
+            });
+            if ((await res.json()).success) { 
+                fetchAdminPlans(); 
+                alert("Paket Berhasil Diupdate!"); 
             }
+        }
+
+        async function fetchUsers() {
+            const res = await fetch('/api/users');
+            const users = await res.json();
+            document.getElementById('user-table-body').innerHTML = users.map(u => `
+                <tr class="border-b border-slate-800">
+                    <td class="p-5 font-bold">${u.username} ${u.role === 'admin' ? '<span class="text-[8px] bg-indigo-600 px-1 rounded">ADMIN</span>' : ''}</td>
+                    <td class="p-5 text-slate-400">${u.plan_name}</td>
+                    <td class="p-5 text-xs font-mono">${(u.storage_used / (1024*1024)).toFixed(1)} MB</td>
+                </tr>
+            `).join('');
         }
 
         function switchTab(tab) {
@@ -389,13 +428,92 @@
         function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
         function toggleAuthMode() { isLoginMode = !isLoginMode; showAuth(isLoginMode ? 'login' : 'register'); }
 
+        async function handleLogout() {
+            await fetch('/api/logout', { method: 'POST' });
+            location.reload();
+        }
+
+        async function fetchSettings() {
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+            document.getElementById('setting-rtmp').value = data.rtmp_url;
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const rtmp_url = document.getElementById('setting-rtmp').value;
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ rtmp_url })
+            });
+            alert("Settings saved!");
+        }
+
+        async function handleUpload(input) {
+            if (!input.files[0]) return;
+            const formData = new FormData();
+            formData.append('video', input.files[0]);
+            
+            const btn = input.previousElementSibling;
+            const oldText = btn.textContent;
+            btn.textContent = "Uploading...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/videos/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) { fetchMedia(); } else alert(data.error);
+            } catch (e) { alert("Upload failed."); }
+            
+            btn.textContent = oldText;
+            btn.disabled = false;
+        }
+
+        async function deleteMedia(id) {
+            if (!confirm("Hapus file ini?")) return;
+            await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+            fetchMedia();
+        }
+
+        async function startPlaylist() {
+            const rtmpUrl = document.getElementById('setting-rtmp').value;
+            if (!rtmpUrl) return alert("RTMP URL belum diisi di Settings!");
+            
+            const res = await fetch('/api/playlist/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true })
+            });
+            const data = await res.json();
+            if (data.success) alert(data.message); else alert(data.error);
+        }
+
+        async function stopStream() {
+            await fetch('/api/stream/stop', { method: 'POST' });
+        }
+
         socket.on('log', (data) => {
             const consoleEl = document.getElementById('logConsole');
             const p = document.createElement('p');
-            p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
+            p.className = data.type === 'error' ? 'text-rose-400' : (data.type === 'start' ? 'text-indigo-400 font-bold' : 'text-slate-400');
             p.textContent = `> ${data.message}`;
             consoleEl.appendChild(p);
             consoleEl.scrollTop = consoleEl.scrollHeight;
+
+            if (data.type === 'start') {
+                document.getElementById('live-card').classList.remove('hidden');
+                document.getElementById('idle-msg').classList.add('hidden');
+                document.getElementById('btn-stop-stream').classList.remove('hidden');
+                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50";
+                document.getElementById('status-label').textContent = "Live";
+            } else if (data.type === 'end' || data.type === 'info') {
+                document.getElementById('live-card').classList.add('hidden');
+                document.getElementById('idle-msg').classList.remove('hidden');
+                document.getElementById('btn-stop-stream').classList.add('hidden');
+                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-slate-500";
+                document.getElementById('status-label').textContent = "Offline";
+            }
         });
 
         window.onload = checkAuth;
