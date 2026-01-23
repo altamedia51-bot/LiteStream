@@ -99,6 +99,50 @@
         </div>
     </div>
 
+    <!-- MEDIA DETAIL MODAL -->
+    <div id="media-detail-modal" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-fade-in">
+            <button onclick="closeMediaDetails()" class="absolute top-4 right-4 text-slate-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-800 transition-colors"><i class="fas fa-times"></i></button>
+            
+            <div class="flex items-center gap-4 mb-6">
+                <div id="detail-icon-bg" class="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+                    <i id="detail-icon" class="fas fa-file text-2xl text-indigo-500"></i>
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <h3 class="text-lg font-bold text-white mb-1">File Details</h3>
+                    <p class="text-xs text-slate-400">Metadata Information</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">FILENAME</p>
+                    <p id="detail-filename" class="text-sm text-white break-all font-medium">...</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">FILE SIZE</p>
+                        <p id="detail-size" class="text-sm text-indigo-400 font-bold">...</p>
+                    </div>
+                    <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">TYPE</p>
+                        <p id="detail-type" class="text-sm text-white capitalize">...</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">UPLOADED AT</p>
+                    <p id="detail-date" class="text-sm text-slate-300">...</p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeMediaDetails()" class="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold text-xs transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- DASHBOARD VIEW -->
     <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
@@ -145,7 +189,19 @@
                     <div class="lg:col-span-1">
                         <div class="bg-slate-800/50 border border-slate-700/50 p-6 rounded-3xl h-full">
                             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-5">Broadcast Control</h4>
-                            <div id="live-card" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl mb-5 pulse-live text-center"><span class="text-emerald-400 font-bold text-[10px] tracking-widest">LIVE TRANSMISSION</span></div>
+                            <div id="live-card" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl mb-5 pulse-live text-center">
+                                <div class="mb-4"><span class="text-emerald-400 font-bold text-[10px] tracking-widest">LIVE TRANSMISSION</span></div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="bg-slate-900/50 rounded-xl p-2 border border-emerald-500/10">
+                                        <p class="text-[8px] text-emerald-500/70 font-bold uppercase mb-1">DURATION</p>
+                                        <p id="stat-duration" class="text-sm font-mono font-bold text-white">00:00:00</p>
+                                    </div>
+                                    <div class="bg-slate-900/50 rounded-xl p-2 border border-emerald-500/10">
+                                        <p class="text-[8px] text-emerald-500/70 font-bold uppercase mb-1">BITRATE</p>
+                                        <p id="stat-bitrate" class="text-sm font-mono font-bold text-white">0 kbps</p>
+                                    </div>
+                                </div>
+                            </div>
                             <div id="idle-msg" class="text-sm text-slate-400 mb-5 italic text-center py-4">Server Stand-by.</div>
                             <button onclick="stopStream()" id="btn-stop-stream" class="hidden w-full py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold text-sm">STOP STREAMING</button>
                         </div>
@@ -314,12 +370,43 @@
                 return;
             }
             list.innerHTML = filtered.map(v => `
-                <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group">
+                <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group hover:bg-slate-800/60 transition-colors">
                     <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 rounded-lg border-slate-700 bg-slate-900 accent-indigo-500">
-                    <div class="flex-1 truncate text-xs font-bold text-slate-300">${v.filename}</div>
+                    <div onclick="showMediaDetails(${v.id})" class="flex-1 truncate text-xs font-bold text-slate-300 cursor-pointer hover:text-indigo-400 transition-colors" title="Click for details">${v.filename}</div>
                     <button onclick="deleteMedia(${v.id})" class="text-rose-500 opacity-0 group-hover:opacity-100 p-2 hover:bg-rose-500/10 rounded-xl transition-all"><i class="fas fa-trash"></i></button>
                 </div>
             `).join('');
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        function showMediaDetails(id) {
+            const media = allMedia.find(m => m.id === id);
+            if (!media) return;
+
+            document.getElementById('detail-filename').textContent = media.filename;
+            document.getElementById('detail-size').textContent = formatBytes(media.size);
+            document.getElementById('detail-type').textContent = media.type;
+            document.getElementById('detail-date').textContent = new Date(media.created_at).toLocaleString();
+
+            // Icon logic
+            const iconEl = document.getElementById('detail-icon');
+            if (media.type === 'video') iconEl.className = 'fas fa-video text-2xl text-indigo-500';
+            else if (media.type === 'audio') iconEl.className = 'fas fa-music text-2xl text-rose-500';
+            else iconEl.className = 'fas fa-image text-2xl text-emerald-500';
+
+            document.getElementById('media-detail-modal').classList.remove('hidden');
+        }
+
+        function closeMediaDetails() {
+            document.getElementById('media-detail-modal').classList.add('hidden');
         }
 
         function toggleSelect(id) {
@@ -449,7 +536,18 @@
                 document.getElementById('btn-stop-stream').classList.add('hidden');
                 document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-slate-500";
                 document.getElementById('status-label').textContent = "Offline";
+                // Reset stats
+                if(document.getElementById('stat-duration')) document.getElementById('stat-duration').textContent = '00:00:00';
+                if(document.getElementById('stat-bitrate')) document.getElementById('stat-bitrate').textContent = '0 kbps';
             }
+        });
+
+        // Listen for real-time stats
+        socket.on('stats', (data) => {
+            const durEl = document.getElementById('stat-duration');
+            const bitEl = document.getElementById('stat-bitrate');
+            if(durEl) durEl.textContent = data.duration.split('.')[0]; // hapus milidetik
+            if(bitEl) bitEl.textContent = data.bitrate;
         });
 
         window.onload = checkAuth;

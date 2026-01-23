@@ -14,8 +14,9 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
   const shouldLoop = options.loop === true;
   
+  // FIX: Gunakan path absolute agar FFmpeg tidak bingung mencari file
   const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
-  const playlistContent = files.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
+  const playlistContent = files.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join('\n');
   fs.writeFileSync(playlistPath, playlistContent);
 
   return new Promise((resolve, reject) => {
@@ -24,58 +25,60 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
     if (isAllAudio) {
       // --- MODE AUDIO (RADIO/PODCAST) ---
       
-      // Filter Complex: Memaksa gambar input menjadi 720p (1280x720)
-      // Ini PENTING untuk mencegah error "width not divisible by 2" pada libx264
-      // jika user mengupload gambar dengan dimensi ganjil (misal 505x505).
       const videoFilter = [
         'scale=1280:720:force_original_aspect_ratio=decrease',
         'pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black',
-        'format=yuv420p' // Memastikan format pixel didukung player
+        'format=yuv420p'
       ].join(',');
 
       // 1. INPUT 0: VISUAL (Image/Color)
+      // FIX: Flag '-re' dipindah ke sini (Visual Input). 
+      // Ini memaksa gambar dibaca secara real-time sebagai "Clock Master".
       let imageInput = options.coverImagePath;
       if (!imageInput || !fs.existsSync(imageInput)) {
-        command.input('color=c=black:s=1280x720:r=24').inputOptions(['-f lavfi']);
+        command.input('color=c=black:s=1280x720:r=24')
+               .inputOptions(['-f lavfi', '-re']);
       } else {
-        // -loop 1: Loop gambar selamanya
-        // -framerate 2: Set fps input rendah untuk hemat CPU sebelum encoding
-        command.input(imageInput).inputOptions(['-loop 1', '-framerate 2']); 
+        command.input(imageInput)
+               .inputOptions(['-loop 1', '-framerate 2', '-re']); 
       }
 
       // 2. INPUT 1: AUDIO (Playlist)
+      // Note: '-re' DIHAPUS dari sini untuk mencegah buffer underrun saat ganti lagu
       command.input(playlistPath).inputOptions([
         '-f concat',
         '-safe 0',
-        shouldLoop ? '-stream_loop -1' : '',
-        '-re'
+        shouldLoop ? '-stream_loop -1' : ''
       ].filter(Boolean));
 
       // OUTPUT OPTIONS
       command.outputOptions([
         '-map 0:v', 
         '-map 1:a',
-
-        // Terapkan Filter Video
         `-vf ${videoFilter}`,
-
         '-c:v libx264',
-        '-preset ultrafast', // Hemat CPU VPS
+        '-preset ultrafast',
         
-        '-r 24',           // Output FPS 24 (Standar Stabil)
-        '-g 48',           // Keyframe tiap 2 detik
+        '-r 24',
+        '-g 48',
         '-keyint_min 48',
         '-sc_threshold 0',
         
-        '-b:v 2500k',      // Video Bitrate
-        '-maxrate 2500k',
-        '-bufsize 5000k',
+        // FIX BITRATE YOUTUBE: Force Constant Bitrate (CBR)
+        // Kita paksa bitrate minimal 3000k agar YouTube tidak mendeteksi "Low Bitrate"
+        // pada gambar statis.
+        '-b:v 3000k',
+        '-minrate 3000k', 
+        '-maxrate 3000k',
+        '-bufsize 6000k',
+        '-nal-hrd cbr',
         
-        '-c:a aac',        // Audio Codec
-        '-b:a 128k',       // Audio Bitrate
-        '-ar 44100',       // Sample Rate
+        '-c:a aac',
+        '-b:a 128k',
+        '-ar 44100',
         
-        '-shortest',       // Stop stream jika audio habis
+        '-fflags +genpts', 
+        '-shortest',
         '-max_muxing_queue_size 9999',
         
         '-f flv',
@@ -104,6 +107,14 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       .on('start', (commandLine) => {
         console.log('FFmpeg Engine Started:', commandLine);
         if (global.io) global.io.emit('log', { type: 'start', message: `Playlist Aktif: ${files.length} file. Engine: ${isAllAudio ? 'Audio-Visual Muxer' : 'Direct Copy'}` });
+      })
+      .on('progress', (progress) => {
+        if (global.io) {
+            global.io.emit('stats', { 
+                duration: progress.timemark, 
+                bitrate: progress.currentKbps ? Math.round(progress.currentKbps) + ' kbps' : 'N/A' 
+            });
+        }
       })
       .on('stderr', (stderrLine) => {
         if (stderrLine.includes('bitrate=') || stderrLine.includes('Error') || stderrLine.includes('Conversion failed')) {
