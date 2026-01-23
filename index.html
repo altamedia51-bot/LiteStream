@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LiteStream SaaS</title>
+    <title>LiteStream - Multi-Platform Streaming Server</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,13 +16,12 @@
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background-color: var(--bg); 
             color: #f8fafc;
-            -webkit-tap-highlight-color: transparent;
+            scroll-behavior: smooth;
         }
 
         .nav-link.active { color: white; background: rgba(99, 102, 241, 0.2); border-radius: 12px; }
         .nav-link.active i { color: #818cf8; }
 
-        /* Sub-tab styling */
         .sub-tab { border-bottom: 2px solid transparent; transition: all 0.3s ease; }
         .sub-tab.active { border-color: #6366f1; color: #818cf8; }
 
@@ -38,19 +37,85 @@
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
-        #logConsole { 
-            background: rgba(2, 6, 23, 0.8);
-            backdrop-filter: blur(10px);
-        }
-
-        .mobile-nav { box-shadow: 0 -4px 20px rgba(0,0,0,0.5); }
+        /* Landing Page Specific Styles */
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .text-gradient { background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-bg { background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%); }
     </style>
 </head>
-<body class="min-h-screen pb-20 md:pb-0">
+<body class="min-h-screen">
 
-    <!-- Auth View -->
-    <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl">
+    <!-- LANDING PAGE VIEW -->
+    <div id="landing-view" class="hidden relative overflow-hidden">
+        <div class="absolute inset-0 hero-bg -z-10"></div>
+        
+        <!-- Navbar -->
+        <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-6 lg:px-20 flex justify-between items-center glass border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i class="fas fa-bolt text-white"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight">LiteStream</span>
+            </div>
+            <div class="hidden md:flex gap-8 text-sm font-semibold text-slate-400">
+                <a href="#features" class="hover:text-white transition-colors">Features</a>
+                <a href="#tech" class="hover:text-white transition-colors">Technology</a>
+            </div>
+            <button onclick="showAuth()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl transition-all active:scale-95">Get Started</button>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="pt-40 pb-20 px-6 lg:px-20 text-center max-w-5xl mx-auto">
+            <div class="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-extrabold uppercase tracking-[0.2em] mb-6 animate-bounce">
+                New: AI Bitrate Optimizer
+            </div>
+            <h1 class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">
+                Broadcast Anywhere <br> from <span class="text-gradient">Any VPS.</span>
+            </h1>
+            <p class="text-lg text-slate-400 max-w-2xl mx-auto mb-12">
+                Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM. Streaming RTMP ke Youtube, Twitch, dan Tiktok tanpa lag.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Free Trial</button>
+                <button onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold transition-all border border-slate-700">Login ke Dashboard</button>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section id="features" class="py-20 px-6 lg:px-20 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="glass p-10 rounded-[3rem] hover:border-indigo-500/30 transition-all group">
+                <div class="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-microchip text-indigo-400 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-4">Ultra-Low Specs</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">Berjalan mulus di 1 Core CPU & 1GB RAM menggunakan teknologi FFmpeg Copy-Codec.</p>
+            </div>
+            <div class="glass p-10 rounded-[3rem] hover:border-indigo-500/30 transition-all group">
+                <div class="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-music text-amber-400 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-4">Radio Engine</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">Ubah MP3 menjadi live stream video 24/7 dengan background gambar kustom secara otomatis.</p>
+            </div>
+            <div class="glass p-10 rounded-[3rem] hover:border-indigo-500/30 transition-all group">
+                <div class="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <i class="fas fa-layer-group text-emerald-400 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-4">Multi-Platform</h3>
+                <h3 class="text-xl font-bold mb-4"></h3>
+                <p class="text-slate-400 text-sm leading-relaxed">Satu server untuk banyak target. Streaming ke Youtube, Twitch, Facebook, hingga Tiktok.</p>
+            </div>
+        </section>
+
+        <footer class="py-10 text-center border-t border-slate-800 text-slate-500 text-xs">
+            &copy; 2024 LiteStream Engine. All Rights Reserved.
+        </footer>
+    </div>
+
+    <!-- AUTH VIEW (Login/Register Modal) -->
+    <div id="login-view" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl relative">
+            <button onclick="hideAuth()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
             <div class="text-center">
                 <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/20">
                     <i class="fas fa-bolt text-2xl text-white"></i>
@@ -73,9 +138,8 @@
         </div>
     </div>
 
-    <!-- Main Content Container -->
-    <div id="main-app" class="flex flex-col md:flex-row min-h-screen">
-        
+    <!-- MAIN APP DASHBOARD -->
+    <div id="main-app" class="hidden flex flex-col md:flex-row min-h-screen">
         <!-- Sidebar -->
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
             <div class="flex items-center gap-3 mb-12">
@@ -94,7 +158,7 @@
         </aside>
 
         <main class="flex-1 p-4 md:p-10 max-w-6xl mx-auto w-full">
-            <!-- Mobile Header -->
+            <!-- Mobile Header (Hanya muncul saat login) -->
             <header class="md:hidden flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <span class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><i class="fas fa-bolt text-xs text-white"></i></span> LiteStream
@@ -124,7 +188,10 @@
                 </div>
             </div>
 
-            <!-- TAB: OVERVIEW -->
+            <!-- Dashboard Content Tabs (Existing logic) -->
+            <!-- ... TAB OVERVIEW, LIBRARY, SETTINGS, USERS ... -->
+            <!-- (Konten Dashboard tetap sama seperti versi sebelumnya) -->
+            
             <div id="tab-overview" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1">
@@ -153,7 +220,6 @@
                 </div>
             </div>
 
-            <!-- TAB: LIBRARY -->
             <div id="tab-library" class="tab-content space-y-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <h2 class="text-2xl font-bold">Media Library</h2>
@@ -165,19 +231,15 @@
                         <input type="file" id="file-up" class="hidden" onchange="handleUpload(this)">
                     </div>
                 </div>
-
-                <!-- SUB-TABS (Kategori Media) -->
                 <div class="flex border-b border-slate-800 gap-6">
                     <button onclick="filterMedia('all')" id="sub-all" class="sub-tab active px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all">All</button>
                     <button onclick="filterMedia('video')" id="sub-video" class="sub-tab px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all">Videos</button>
                     <button onclick="filterMedia('audio')" id="sub-audio" class="sub-tab px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all">Audios (MP3)</button>
                     <button onclick="filterMedia('image')" id="sub-image" class="sub-tab px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all">Covers (JPG)</button>
                 </div>
-
                 <div id="media-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
 
-            <!-- TAB: SETTINGS -->
             <div id="tab-settings" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">Configuration</h2>
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
@@ -195,7 +257,6 @@
                 </div>
             </div>
 
-            <!-- TAB: USERS -->
             <div id="tab-users" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">Admin Panel</h2>
                 <div class="bg-slate-800/50 border border-slate-700/50 rounded-3xl overflow-hidden shadow-xl overflow-x-auto">
@@ -209,7 +270,7 @@
             </div>
         </main>
 
-        <!-- Mobile Nav -->
+        <!-- Mobile Nav Bar -->
         <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-slate-800 mobile-nav px-6 py-3 flex justify-between items-center z-50">
             <button onclick="switchTab('overview')" id="mob-nav-overview" class="flex flex-col items-center gap-1 text-slate-400 active"><i class="fas fa-grid-2 text-xl"></i><span class="text-[9px] font-bold uppercase">Status</span></button>
             <button onclick="switchTab('library')" id="mob-nav-library" class="flex flex-col items-center gap-1 text-slate-400"><i class="fas fa-folder text-xl"></i><span class="text-[9px] font-bold uppercase">Media</span></button>
@@ -225,11 +286,27 @@
         let currentFilter = 'all';
         let isLoginMode = true;
 
+        // View Visibility Logic
+        function showAuth(mode = 'login') {
+            isLoginMode = mode === 'login';
+            updateAuthUI();
+            document.getElementById('login-view').classList.remove('hidden');
+        }
+
+        function hideAuth() {
+            document.getElementById('login-view').classList.add('hidden');
+        }
+
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
+            updateAuthUI();
+        }
+
+        function updateAuthUI() {
             document.getElementById('auth-title').textContent = isLoginMode ? "LiteStream" : "Buat Akun";
             document.getElementById('auth-btn').textContent = isLoginMode ? "MASUK DASHBOARD" : "DAFTAR SEKARANG";
             document.getElementById('toggle-btn').textContent = isLoginMode ? "Daftar Sekarang" : "Login Saja";
+            document.getElementById('toggle-text').textContent = isLoginMode ? "Belum punya akun?" : "Sudah punya akun?";
         }
 
         socket.on('log', (data) => {
@@ -245,26 +322,37 @@
         });
 
         function updateLiveUI(isLive, msg = "") {
-            document.getElementById('status-dot').className = isLive ? "w-2 h-2 rounded-full bg-emerald-500 pulse-live" : "w-2 h-2 rounded-full bg-slate-500";
-            document.getElementById('status-label').textContent = isLive ? "LIVE" : "OFFLINE";
-            document.getElementById('live-card').classList.toggle('hidden', !isLive);
-            document.getElementById('idle-msg').classList.toggle('hidden', isLive);
-            document.getElementById('btn-stop-stream').classList.toggle('hidden', !isLive);
-            if (isLive) document.getElementById('stream-status-msg').textContent = msg;
+            const dot = document.getElementById('status-dot');
+            const label = document.getElementById('status-label');
+            if (dot) dot.className = isLive ? "w-2 h-2 rounded-full bg-emerald-500 pulse-live" : "w-2 h-2 rounded-full bg-slate-500";
+            if (label) label.textContent = isLive ? "LIVE" : "OFFLINE";
+            document.getElementById('live-card')?.classList.toggle('hidden', !isLive);
+            document.getElementById('idle-msg')?.classList.toggle('hidden', isLive);
+            document.getElementById('btn-stop-stream')?.classList.toggle('hidden', !isLive);
+            if (isLive && document.getElementById('stream-status-msg')) document.getElementById('stream-status-msg').textContent = msg;
         }
 
         async function checkAuth() {
             try {
                 const res = await fetch('/api/check-auth');
                 const data = await res.json();
-                if (data.authenticated) { currentUser = data.user; showDashboard(); } 
-                else { document.getElementById('login-view').classList.remove('hidden'); }
-            } catch (e) { document.getElementById('login-view').classList.remove('hidden'); }
+                if (data.authenticated) { 
+                    currentUser = data.user; 
+                    showDashboard(); 
+                } else { 
+                    document.getElementById('landing-view').classList.remove('hidden');
+                }
+            } catch (e) { 
+                document.getElementById('landing-view').classList.remove('hidden');
+            }
         }
 
         function showDashboard() {
+            document.getElementById('landing-view').classList.add('hidden');
             document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
             document.getElementById('main-app').style.display = 'flex';
+            
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             const totalMB = currentUser.max_storage_mb;
@@ -274,7 +362,6 @@
             fetchMedia(); fetchSettings();
         }
 
-        // Logic Baru: Filter Media per Kategori
         function filterMedia(type) {
             currentFilter = type;
             document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.remove('active'));
@@ -285,19 +372,19 @@
         async function fetchMedia() {
             const res = await fetch('/api/videos');
             allMedia = await res.json();
-            
-            // Update Cover Select di Tab Settings
             const coverSelect = document.getElementById('setting-cover');
-            coverSelect.innerHTML = '<option value="">Default (Solid Black)</option>';
-            allMedia.filter(v => v.type === 'image').forEach(v => {
-                coverSelect.innerHTML += `<option value="${v.id}">${v.filename}</option>`;
-            });
-
+            if (coverSelect) {
+                coverSelect.innerHTML = '<option value="">Default (Solid Black)</option>';
+                allMedia.filter(v => v.type === 'image').forEach(v => {
+                    coverSelect.innerHTML += `<option value="${v.id}">${v.filename}</option>`;
+                });
+            }
             renderMediaList();
         }
 
         function renderMediaList() {
             const list = document.getElementById('media-list');
+            if (!list) return;
             const filtered = currentFilter === 'all' ? allMedia : allMedia.filter(v => v.type === currentFilter);
             
             if (filtered.length === 0) {
@@ -306,7 +393,6 @@
                 list.innerHTML = filtered.map(v => {
                     const icon = v.type === 'audio' ? 'fa-music text-amber-500' : (v.type === 'image' ? 'fa-image text-emerald-400' : 'fa-video text-indigo-400');
                     const isSelected = selectedMedia.has(v.id);
-                    
                     return `
                     <div class="relative">
                         <input type="checkbox" id="check-${v.id}" class="peer hidden" onchange="toggleSelect(${v.id})" ${v.type==='image' ? 'disabled' : ''} ${isSelected ? 'checked' : ''}>
@@ -340,8 +426,8 @@
         function updatePlaylistBtn() {
             const btn = document.getElementById('btn-start-playlist');
             const count = document.getElementById('selected-count');
-            count.textContent = selectedMedia.size;
-            btn.classList.toggle('hidden', selectedMedia.size === 0);
+            if (count) count.textContent = selectedMedia.size;
+            if (btn) btn.classList.toggle('hidden', selectedMedia.size === 0);
         }
 
         async function startPlaylist() {
@@ -385,13 +471,17 @@
                 body: JSON.stringify({ username, password })
             });
             const data = await res.json();
-            if (data.success) { if (isLoginMode) location.reload(); else toggleAuthMode(); } else alert(data.error);
+            if (data.success) { 
+                if (isLoginMode) location.reload(); 
+                else { alert("Registrasi Berhasil! Silakan Login."); toggleAuthMode(); }
+            } else alert(data.error);
         }
 
         async function fetchSettings() {
             const res = await fetch('/api/settings');
             const data = await res.json();
-            document.getElementById('setting-rtmp').value = data.rtmp_url || '';
+            const el = document.getElementById('setting-rtmp');
+            if (el) el.value = data.rtmp_url || '';
         }
 
         async function saveSettings(e) {
@@ -412,7 +502,7 @@
             e.preventDefault(); e.stopPropagation();
             if (confirm('Hapus file?')) { 
                 await fetch('/api/videos/' + id, { method: 'DELETE' }); 
-                selectedMedia.delete(id); // Hapus dari seleksi jika file dihapus
+                selectedMedia.delete(id);
                 checkAuth(); 
             }
         }
@@ -420,7 +510,8 @@
         async function fetchUsers() {
             const res = await fetch('/api/users');
             const data = await res.json();
-            document.getElementById('user-table-body').innerHTML = data.map(u => `
+            const body = document.getElementById('user-table-body');
+            if (body) body.innerHTML = data.map(u => `
                 <tr class="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
                     <td class="p-5"><div>${u.username}</div><div class="text-[10px] text-slate-500">${u.role}</div></td>
                     <td class="p-5 text-indigo-400">${u.plan_name}</td>
@@ -431,6 +522,7 @@
         }
 
         async function handleLogout() { if (confirm("Logout?")) { await fetch('/api/logout', {method: 'POST'}); location.reload(); } }
+        
         window.onload = checkAuth;
     </script>
 </body>
