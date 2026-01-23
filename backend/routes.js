@@ -4,6 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs'); // Added for password hashing
 const { getVideos, saveVideo, deleteVideo, db } = require('./database');
 const { startStream, stopStream, isStreaming } = require('./streamEngine');
 
@@ -170,6 +171,53 @@ router.post('/settings', (req, res) => {
     stmt.finalize();
     
     res.json({ success: true });
+});
+
+// --- PROFILE SETTINGS ---
+router.put('/profile', async (req, res) => {
+    const { username, currentPassword, newPassword } = req.body;
+    const userId = req.session.user.id;
+
+    db.get("SELECT * FROM users WHERE id = ?", [userId], async (err, user) => {
+        if (err || !user) return res.status(404).json({ error: "User not found" });
+
+        // 1. Validasi Password Lama
+        const match = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!match) return res.status(400).json({ error: "Password saat ini salah." });
+
+        // 2. Cek Username (Jika berubah)
+        if (username !== user.username) {
+            const exists = await new Promise(r => db.get("SELECT id FROM users WHERE username = ?", [username], (e, row) => r(row)));
+            if (exists) return res.status(400).json({ error: "Username sudah digunakan." });
+        }
+
+        // 3. Update Database
+        try {
+            let query = "UPDATE users SET username = ?";
+            let params = [username];
+
+            if (newPassword && newPassword.length >= 6) {
+                const newHash = await bcrypt.hash(newPassword, 10);
+                query += ", password_hash = ?";
+                params.push(newHash);
+            }
+
+            query += " WHERE id = ?";
+            params.push(userId);
+
+            db.run(query, params, (err) => {
+                if (err) return res.status(500).json({ error: err.message });
+                
+                // Update Session
+                req.session.user.username = username;
+                req.session.save();
+
+                res.json({ success: true, message: "Profil berhasil diperbarui." });
+            });
+        } catch (e) {
+            res.status(500).json({ error: "Server Error" });
+        }
+    });
 });
 
 module.exports = router;

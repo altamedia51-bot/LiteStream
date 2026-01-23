@@ -155,6 +155,7 @@
                 <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-folder"></i> Media Library</button>
                 <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Admin Panel</button>
                 <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-sliders"></i> Settings</button>
+                <button onclick="switchTab('profile')" id="nav-profile" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-user-circle"></i> My Profile</button>
             </nav>
             <div class="pt-6 border-t border-slate-800 mt-6">
                 <button onclick="handleLogout()" class="w-full flex items-center gap-4 px-5 py-4 text-rose-400 font-bold hover:bg-rose-500/10 rounded-2xl transition-all"><i class="fas fa-sign-out-alt"></i> Logout</button>
@@ -281,6 +282,51 @@
                 </div>
             </div>
 
+            <!-- TAB CONTENT: PROFILE (NEW) -->
+            <div id="tab-profile" class="tab-content space-y-6">
+                <h2 class="text-2xl font-bold">My Profile</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Account Info Card -->
+                    <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 h-fit">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl text-white font-bold"><i class="fas fa-user"></i></div>
+                            <div>
+                                <h3 id="profile-username-display" class="text-xl font-bold text-white">...</h3>
+                                <p id="profile-plan-display" class="text-sm text-indigo-400 font-medium">...</p>
+                            </div>
+                        </div>
+                        <hr class="border-slate-700 mb-6">
+                        <form onsubmit="saveProfile(event)" class="space-y-5">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Username</label>
+                                <input type="text" id="profile-username" required class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none focus:ring-2 ring-indigo-500/50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Current Password</label>
+                                <input type="password" id="profile-current-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Required to save changes">
+                            </div>
+                            
+                            <div class="pt-2">
+                                <label class="block text-xs font-bold text-emerald-400 uppercase mb-2">New Password (Optional)</label>
+                                <input type="password" id="profile-new-pass" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Leave empty to keep current">
+                            </div>
+                            
+                            <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white hover:bg-indigo-500 shadow-lg mt-4">Update Profile</button>
+                        </form>
+                    </div>
+
+                    <!-- Security Info / Tips -->
+                    <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800 h-fit">
+                        <h4 class="font-bold text-white mb-4">Account Security</h4>
+                        <ul class="space-y-3 text-sm text-slate-400">
+                            <li class="flex gap-3"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> Use a strong password with mixed characters.</li>
+                            <li class="flex gap-3"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> Don't share your login credentials.</li>
+                            <li class="flex gap-3"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> Changing username will require re-login.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <!-- TAB CONTENT: ADMIN -->
             <div id="tab-users" class="tab-content space-y-12">
                 <section>
@@ -350,11 +396,18 @@
         function showDashboard() {
             setView('main-app');
             document.getElementById('login-view').classList.add('hidden');
+            
+            // Populate Basic Info
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             document.getElementById('storage-text').textContent = `${usedMB} / ${currentUser.max_storage_mb} MB`;
             document.getElementById('storage-bar').style.width = Math.min((usedMB / currentUser.max_storage_mb * 100), 100) + '%';
             
+            // Populate Profile Tab Info
+            document.getElementById('profile-username-display').textContent = currentUser.username;
+            document.getElementById('profile-username').value = currentUser.username;
+            document.getElementById('profile-plan-display').textContent = currentUser.plan_name;
+
             if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
             fetchMedia(); 
             fetchSettings();
@@ -631,6 +684,32 @@
             document.getElementById('setting-full-rtmp').value = fullUrl;
             
             alert("Konfigurasi Tersimpan!"); 
+        }
+
+        // --- PROFILE SETTINGS LOGIC ---
+        async function saveProfile(e) {
+            e.preventDefault();
+            const username = document.getElementById('profile-username').value;
+            const currentPassword = document.getElementById('profile-current-pass').value;
+            const newPassword = document.getElementById('profile-new-pass').value;
+
+            if (!currentPassword) return alert("Password saat ini dibutuhkan untuk menyimpan perubahan.");
+
+            const res = await fetch('/api/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, currentPassword, newPassword })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                document.getElementById('profile-current-pass').value = '';
+                document.getElementById('profile-new-pass').value = '';
+                document.getElementById('profile-username-display').textContent = username;
+            } else {
+                alert(data.error);
+            }
         }
 
         socket.on('log', (data) => {

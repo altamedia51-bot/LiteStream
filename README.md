@@ -39,3 +39,12 @@ sudo npm install pm2 -g
 - **Ultra-Low CPU**: Menggunakan mode `-c copy` untuk video.
 - **Audio-to-Video Engine**: Streaming MP3 dengan background gambar (preset ultrafast).
 - **SQLite Database**: Ringan & tanpa setup rumit.
+
+## Cara Update Aplikasi
+Untuk mengambil pembaruan terbaru dari repository dan merestart layanan:
+
+```bash
+cd litestream
+git pull origin main
+pm2 restart litestream
+```
