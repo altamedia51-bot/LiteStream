@@ -1,75 +1,61 @@
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const dbPath = path.join(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath);
 
 const initDB = () => {
   return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      // Table for uploaded media files
-      db.run(`
-        CREATE TABLE IF NOT EXISTS videos (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          filename TEXT NOT NULL,
-          path TEXT NOT NULL,
-          size INTEGER,
-          duration TEXT,
-          type TEXT DEFAULT 'video', -- 'video', 'audio', or 'image'
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+    db.serialize(async () => {
+      // Buat Tabel
+      db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT 'admin')`);
+      db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+      db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
 
-      // Table for stream configurations
-      db.run(`
-        CREATE TABLE IF NOT EXISTS stream_settings (
-          key TEXT PRIMARY KEY,
-          value TEXT
-        )
-      `);
-
-      // Seed default settings if empty
-      db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", (err, row) => {
-        if (!row) {
-          db.run("INSERT INTO stream_settings (key, value) VALUES ('rtmp_url', 'rtmp://a.rtmp.youtube.com/live2/your-key')");
+      // Seeding User Admin
+      const defaultUser = 'admin';
+      const defaultPass = 'admin123';
+      
+      db.get("SELECT * FROM users WHERE username = ?", [defaultUser], async (err, user) => {
+        if (err) return reject(err);
+        
+        const hash = await bcrypt.hash(defaultPass, 10);
+        
+        if (!user) {
+          console.log("DB: Seeding admin baru...");
+          db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [defaultUser, hash], (err) => {
+            if (err) reject(err);
+            else {
+              console.log("DB: Admin created: admin / admin123");
+              resolve();
+            }
+          });
+        } else {
+          // Validasi apakah password lama masih cocok dengan admin123
+          const isMatch = await bcrypt.compare(defaultPass, user.password_hash);
+          if (!isMatch) {
+            console.log("DB: Password mismatch terdeteksi, mereset password admin...");
+            db.run("UPDATE users SET password_hash = ? WHERE username = ?", [hash, defaultUser], (err) => {
+              if (err) reject(err);
+              else {
+                console.log("DB: Password admin telah direset ke admin123");
+                resolve();
+              }
+            });
+          } else {
+            console.log("DB: User admin sudah siap.");
+            resolve();
+          }
         }
-        resolve();
       });
     });
   });
 };
 
-const getVideos = () => {
-  return new Promise((resolve, reject) => {
-    db.all("SELECT * FROM videos ORDER BY created_at DESC", (err, rows) => {
-      if (err) reject(err);
-      resolve(rows);
-    });
-  });
-};
+const getVideos = () => new Promise((res, rej) => db.all("SELECT * FROM videos ORDER BY created_at DESC", (err, rows) => err ? rej(err) : res(rows)));
+const saveVideo = (data) => new Promise((res, rej) => db.run("INSERT INTO videos (filename, path, size, type) VALUES (?, ?, ?, ?)", [data.filename, data.path, data.size, data.type || 'video'], function(err) { err ? rej(err) : res(this.lastID); }));
+const deleteVideo = (id) => new Promise((res, rej) => db.run("DELETE FROM videos WHERE id = ?", [id], (err) => err ? rej(err) : res()));
 
-const saveVideo = (data) => {
-  return new Promise((resolve, reject) => {
-    const { filename, path, size, type } = data;
-    db.run(
-      "INSERT INTO videos (filename, path, size, type) VALUES (?, ?, ?, ?)",
-      [filename, path, size, type || 'video'],
-      function(err) {
-        if (err) reject(err);
-        resolve(this.lastID);
-      }
-    );
-  });
-};
-
-const deleteVideo = (id) => {
-  return new Promise((resolve, reject) => {
-    db.run("DELETE FROM videos WHERE id = ?", [id], (err) => {
-      if (err) reject(err);
-      resolve();
-    });
-  });
-};
-
-module.exports = { initDB, getVideos, saveVideo, deleteVideo, db };
+module.exports = { initDB, getVideos, saveVideo, deleteVideo, db, dbPath };

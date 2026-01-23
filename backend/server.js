@@ -6,52 +6,71 @@ const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
 const dotenv = require('dotenv');
-const { initDB } = require('./database');
-const routes = require('./routes');
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const bcrypt = require('bcryptjs');
+const { initDB, db } = require('./database');
 
 dotenv.config();
-
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*" }
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
-// Setup folder uploads
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Global IO
-global.io = io;
-
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routing API
-app.use('/api', routes);
+// Session Setup
+app.use(session({
+  store: new SQLiteStore({ db: 'sessions.sqlite', dir: __dirname }),
+  secret: 'litestream_vps_super_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
+}));
 
-// Static uploads
-app.use('/uploads', express.static(uploadDir));
+const isAuthenticated = (req, res, next) => {
+  if (req.session && req.session.user) return next();
+  res.status(401).json({ error: 'Unauthorized' });
+};
 
-// Sajikan index.html dari root folder
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../index.html'));
-});
-
-// Support static files dari root (misal socket.io.js)
-app.use(express.static(path.join(__dirname, '../')));
-
-const PORT = process.env.PORT || 3000;
-
-initDB().then(() => {
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`LiteStream Engine Aktif di Port: ${PORT}`);
+// Login Route
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
+    if (err) return res.status(500).json({ success: false, error: 'DB Error' });
+    
+    if (user && await bcrypt.compare(password, user.password_hash)) {
+      req.session.user = { id: user.id, username: user.username };
+      return req.session.save(() => res.json({ success: true }));
+    }
+    
+    res.status(401).json({ success: false, error: 'Login Gagal' });
   });
 });
 
-io.on('connection', (socket) => {
-  console.log('Client dashboard connected');
+app.get('/api/check-auth', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.user), user: req.session ? req.session.user : null });
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
+});
+
+// Load Routes
+const routes = require('./routes');
+app.use('/api', (req, res, next) => {
+  if (['/login', '/check-auth'].includes(req.path)) return next();
+  return isAuthenticated(req, res, next);
+}, routes);
+
+app.use('/uploads', isAuthenticated, express.static(path.join(__dirname, 'uploads')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
+app.use(express.static(path.join(__dirname, '../')));
+
+initDB().then(() => {
+  server.listen(3000, '0.0.0.0', () => {
+    console.log("SERVER RUNNING: Login with admin / admin123");
+  });
 });

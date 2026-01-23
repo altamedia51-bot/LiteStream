@@ -16,11 +16,44 @@
         .console-log::-webkit-scrollbar { width: 6px; }
         .console-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .nav-link.active { background: rgba(79, 70, 229, 0.1); color: #818cf8; border-right: 3px solid #6366f1; }
-        input[type="checkbox"]:checked + label { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
+        #main-app { display: none; }
+        #login-view { display: flex; }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
-    <div class="flex flex-col md:flex-row min-h-screen">
+
+    <!-- Login View -->
+    <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
+            <div class="text-center space-y-2">
+                <div class="bg-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/20">
+                    <i class="fas fa-lock text-white text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold tracking-tight">LiteStream Login</h2>
+                <p class="text-slate-500 text-sm">Masukkan kredensial VPS Anda</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Username</label>
+                    <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="admin">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Password</label>
+                    <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+                </div>
+                <div id="login-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-500/10 py-2 rounded-lg border border-rose-500/20"></div>
+                <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 transition-all">SIGN IN</button>
+            </form>
+            <div class="pt-4 border-t border-slate-700/50 text-center">
+                <button onclick="activateDemoMode()" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition-colors">
+                    <i class="fas fa-flask mr-1"></i> Bypass for AI Studio Preview (Demo Mode)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Layout -->
+    <div id="main-app" class="flex flex-col md:flex-row min-h-screen">
         <!-- Sidebar -->
         <aside class="w-full md:w-64 bg-slate-800 border-r border-slate-700 flex-shrink-0 flex flex-col">
             <div class="p-6">
@@ -42,15 +75,17 @@
                     </button>
                 </nav>
             </div>
-            <div class="mt-auto p-6 border-t border-slate-700">
-                <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-700/50 text-center">
-                    <h3 class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Server Mode</h3>
-                    <p class="text-[11px] text-emerald-400 font-bold">Radio Playlist Active</p>
+            <div class="mt-auto p-6 space-y-4">
+                <button onclick="handleLogout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all text-sm font-bold">
+                    <i class="fas fa-sign-out-alt w-5"></i> Logout
+                </button>
+                <div id="mode-badge" class="bg-slate-900/50 rounded-2xl p-4 border border-slate-700/50 text-center">
+                    <p class="text-[11px] text-emerald-400 font-bold">System Online</p>
                 </div>
             </div>
         </aside>
 
-        <!-- Main -->
+        <!-- Main Content -->
         <main class="flex-1 flex flex-col overflow-hidden">
             <header class="h-16 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md">
                 <h2 id="current-tab-title" class="text-lg font-bold text-slate-200 capitalize">Overview</h2>
@@ -58,7 +93,7 @@
                     <div id="live-badge" class="hidden items-center gap-2 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-full border border-rose-500/20 animate-pulse uppercase tracking-widest">
                         <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
                     </div>
-                    <div class="text-xs text-slate-500">Server: <span class="text-emerald-400 font-bold">Online</span></div>
+                    <div class="text-xs text-slate-500">Admin: <span id="user-display" class="text-indigo-400 font-bold">...</span></div>
                 </div>
             </header>
 
@@ -111,10 +146,7 @@
                         </div>
                         <input type="file" id="uploadInput" class="hidden" multiple onchange="handleUpload(this)">
                     </div>
-
-                    <div id="media-list" class="grid grid-cols-1 gap-3">
-                        <!-- Items injected -->
-                    </div>
+                    <div id="media-list" class="grid grid-cols-1 gap-3"></div>
                 </div>
 
                 <!-- Settings Content -->
@@ -132,41 +164,134 @@
         </main>
     </div>
 
-    <!-- Modal Go Live (Playlist) -->
+    <!-- Modals -->
     <div id="liveModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-6">
         <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-6 shadow-2xl">
             <h3 class="text-2xl font-bold">Stream Playlist Setup</h3>
-            <div id="playlist-preview" class="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-400 bg-slate-900/50 p-4 rounded-xl">
-                <!-- Selected list -->
-            </div>
-            
+            <div id="playlist-preview" class="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-400 bg-slate-900/50 p-4 rounded-xl"></div>
             <div id="audio-options" class="space-y-2">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Global Cover Image</label>
                 <select id="cover-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
-                    <option value="">-- No Image (Black Background) --</option>
+                    <option value="">-- No Image (Black) --</option>
                 </select>
             </div>
-
             <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <i class="fas fa-sync-alt text-indigo-400"></i>
                     <div>
                         <p class="text-sm font-bold">Loop Whole Playlist</p>
-                        <p class="text-[10px] text-slate-500">Ulangi terus dari awal lagu pertama</p>
                     </div>
                 </div>
                 <input type="checkbox" id="loop-checkbox" checked class="w-6 h-6 rounded accent-indigo-600" />
             </div>
-
             <div class="flex gap-4 pt-4">
                 <button onclick="closeModal()" class="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-sm">Batal</button>
-                <button onclick="startPlaylistStream()" class="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-600/30">MULAI RADIO</button>
+                <button onclick="startPlaylistStream()" class="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm">MULAI RADIO</button>
             </div>
         </div>
     </div>
 
     <script>
-        let socket = io();
+        let isDemoMode = false;
+        
+        // --- DEMO MODE HELPER ---
+        function activateDemoMode() {
+            isDemoMode = true;
+            localStorage.setItem('liteStream_demo', 'true');
+            showDashboard({ username: 'Demo_User' });
+            document.getElementById('mode-badge').innerHTML = '<p class="text-[11px] text-amber-400 font-bold">Preview Mode (No Backend)</p>';
+            addLog("Demo Mode aktif. Data yang Anda lihat adalah simulasi.");
+        }
+
+        function addLog(msg, type = 'info') {
+            const consoleEl = document.getElementById('logConsole');
+            const p = document.createElement('p');
+            const time = new Date().toLocaleTimeString();
+            p.innerHTML = `<span class="opacity-30 mr-2 text-[9px]">[${time}]</span> <span class="${type === 'error' ? 'text-rose-400' : ''}">${msg}</span>`;
+            consoleEl.appendChild(p);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // --- AUTH LOGIC ---
+        async function checkAuth() {
+            if (localStorage.getItem('liteStream_demo') === 'true') {
+                return activateDemoMode();
+            }
+            try {
+                const res = await fetch('/api/check-auth');
+                const data = await res.json();
+                if (data.authenticated) showDashboard(data.user);
+                else showLogin();
+            } catch(e) { 
+                console.warn("Backend not found, staying on login.");
+                showLogin(); 
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-user').value;
+            const pass = document.getElementById('login-pass').value;
+            const errorDiv = document.getElementById('login-error');
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: user, password: pass})
+                });
+                const data = await res.json();
+                if (data.success) location.reload();
+                else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch(e) {
+                errorDiv.textContent = "Backend tidak merespon. Gunakan Demo Mode untuk preview.";
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleLogout() {
+            localStorage.removeItem('liteStream_demo');
+            try { await fetch('/api/logout', {method: 'POST'}); } catch(e) {}
+            location.reload();
+        }
+
+        function showDashboard(user) {
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            document.getElementById('user-display').textContent = user.username;
+            if (!isDemoMode) initSocket();
+            fetchMedia();
+            if (isDemoMode) {
+                updateStreamUI(false);
+            } else {
+                fetch('/api/stream/status').then(r => r.json()).then(d => updateStreamUI(d.active, d.nowPlaying));
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('login-view').style.display = 'flex';
+            document.getElementById('main-app').style.display = 'none';
+        }
+
+        // --- DASHBOARD LOGIC ---
+        let socket;
+        function initSocket() {
+            try {
+                socket = io();
+                socket.on('log', (data) => {
+                    if (data.type === 'start') updateStreamUI(true, data.filename);
+                    else if (data.type === 'end') updateStreamUI(false);
+                    addLog(data.message || data.text || 'Processing...');
+                });
+                socket.on('queue-update', (data) => {
+                    document.getElementById('stat-queue-count').textContent = data.count + ' Items';
+                });
+            } catch(e) { console.error("Socket IO failed"); }
+        }
+
         let mediaData = [];
         let selectedIds = new Set();
 
@@ -180,37 +305,10 @@
             if(tab === 'settings') fetchSettings();
         }
 
-        socket.on('log', (data) => {
-            const consoleEl = document.getElementById('logConsole');
-            const p = document.createElement('p');
-            const time = new Date().toLocaleTimeString();
-            
-            if (data.type === 'start') {
-                updateStreamUI(true, data.filename);
-                p.className = 'text-emerald-400 font-bold';
-            } else if (data.type === 'end') {
-                updateStreamUI(false);
-                p.className = 'text-amber-400';
-            } else if (data.type === 'error') {
-                p.className = 'text-rose-400';
-            } else {
-                p.className = 'text-slate-500 opacity-60';
-            }
-
-            p.innerHTML = `<span class="opacity-30 mr-2 text-[9px]">[${time}]</span> ${data.message || data.text || 'Processing...'}`;
-            consoleEl.appendChild(p);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-        });
-
-        socket.on('queue-update', (data) => {
-            document.getElementById('stat-queue-count').textContent = data.count + ' Items';
-        });
-
         function updateStreamUI(isActive, filename) {
             const badge = document.getElementById('live-badge');
             const nowPlaying = document.getElementById('stat-now-playing');
             const stopBtn = document.getElementById('btn-stop-stream');
-
             if (isActive) {
                 badge.classList.remove('hidden');
                 nowPlaying.textContent = filename || 'Streaming...';
@@ -223,24 +321,31 @@
         }
 
         async function fetchMedia() {
-            const res = await fetch('/api/videos');
-            mediaData = await res.json();
-            renderMedia();
+            if (isDemoMode) {
+                mediaData = [
+                    { id: 1, filename: 'Lofi_HipHop_24_7.mp3', type: 'audio', size: 5423122 },
+                    { id: 2, filename: 'Chill_Background.mp4', type: 'video', size: 45231222 },
+                    { id: 3, filename: 'Night_City_Loop.png', type: 'image', size: 1223122 }
+                ];
+                return renderMedia();
+            }
+            try {
+                const res = await fetch('/api/videos');
+                if(res.status === 401) return showLogin();
+                mediaData = await res.json();
+                renderMedia();
+            } catch(e) { console.error("Media fetch failed"); }
         }
 
         function toggleSelection(id) {
             if (selectedIds.has(id)) selectedIds.delete(id);
             else selectedIds.add(id);
-            
             const btn = document.getElementById('btn-play-selected');
             const countSpan = document.getElementById('selected-count');
-            
             if (selectedIds.size > 0) {
                 btn.classList.remove('hidden');
                 countSpan.textContent = selectedIds.size;
-            } else {
-                btn.classList.add('hidden');
-            }
+            } else { btn.classList.add('hidden'); }
         }
 
         function renderMedia() {
@@ -274,51 +379,43 @@
         function openPlaylistModal() {
             const preview = document.getElementById('playlist-preview');
             const selectedMedia = mediaData.filter(m => selectedIds.has(m.id));
-            
-            preview.innerHTML = selectedMedia.map(m => `
-                <div class="flex justify-between border-b border-slate-800 py-1">
-                    <span>${m.filename}</span>
-                    <span class="text-indigo-400 uppercase font-bold">${m.type}</span>
-                </div>
-            `).join('');
-
+            preview.innerHTML = selectedMedia.map(m => `<div class="flex justify-between border-b border-slate-800 py-1"><span>${m.filename}</span><span class="text-indigo-400 uppercase font-bold">${m.type}</span></div>`).join('');
             const select = document.getElementById('cover-select');
-            select.innerHTML = '<option value="">-- No Image (Black) --</option>' + 
-                mediaData.filter(m => m.type === 'image').map(img => `<option value="${img.id}">${img.filename}</option>`).join('');
-            
+            select.innerHTML = '<option value="">-- No Image (Black) --</option>' + mediaData.filter(m => m.type === 'image').map(img => `<option value="${img.id}">${img.filename}</option>`).join('');
             document.getElementById('liveModal').classList.remove('hidden');
         }
 
-        function closeModal() {
-            document.getElementById('liveModal').classList.add('hidden');
-        }
+        function closeModal() { document.getElementById('liveModal').classList.add('hidden'); }
 
         async function startPlaylistStream() {
+            if (isDemoMode) {
+                closeModal();
+                updateStreamUI(true, "Simulasi_Stream.mp3");
+                addLog("Memulai simulasi streaming...");
+                return;
+            }
             const rtmpRes = await fetch('/api/settings');
             const rtmpData = await rtmpRes.json();
-            const rtmp = rtmpData.rtmp_url;
-
-            const coverId = document.getElementById('cover-select').value;
-            const loop = document.getElementById('loop-checkbox').checked;
-
             const res = await fetch('/api/playlist/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: Array.from(selectedIds), rtmpUrl: rtmp, coverImageId: coverId, loop: loop })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ ids: Array.from(selectedIds), rtmpUrl: rtmpData.rtmp_url, coverImageId: document.getElementById('cover-select').value, loop: document.getElementById('loop-checkbox').checked })
             });
-            
-            if ((await res.json()).success) {
-                closeModal();
-                switchTab('overview');
-            }
+            if ((await res.json()).success) { closeModal(); switchTab('overview'); }
         }
 
         async function stopStreaming() {
             if(!confirm('Hentikan semua antrean playlist?')) return;
+            if (isDemoMode) {
+                updateStreamUI(false);
+                addLog("Simulasi streaming dihentikan.");
+                return;
+            }
             await fetch('/api/stream/stop', { method: 'POST' });
         }
 
         async function handleUpload(input) {
+            if (isDemoMode) return alert("Upload dinonaktifkan di Mode Preview.");
             const files = Array.from(input.files);
             for(const file of files) {
                 const formData = new FormData();
@@ -329,16 +426,18 @@
         }
 
         async function fetchSettings() {
+            if (isDemoMode) return document.getElementById('rtmp-input').value = 'rtmp://demo.streaming.url/live';
             const res = await fetch('/api/settings');
             const data = await res.json();
             document.getElementById('rtmp-input').value = data.rtmp_url || '';
         }
 
         async function saveSettings() {
+            if (isDemoMode) return alert("Simulasi: Pengaturan disimpan.");
             const rtmp = document.getElementById('rtmp-input').value;
             await fetch('/api/settings', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ rtmp_url: rtmp })
             });
             alert('RTMP URL disimpan.');
@@ -346,14 +445,15 @@
 
         async function deleteMedia(id) {
             if(!confirm('Hapus file?')) return;
+            if (isDemoMode) {
+                mediaData = mediaData.filter(m => m.id !== id);
+                return renderMedia();
+            }
             await fetch('/api/videos/' + id, { method: 'DELETE' });
             fetchMedia();
         }
 
-        window.onload = () => {
-            fetchMedia();
-            fetch('/api/stream/status').then(r => r.json()).then(d => updateStreamUI(d.active, d.nowPlaying));
-        };
+        window.onload = checkAuth;
     </script>
 </body>
 </html>
