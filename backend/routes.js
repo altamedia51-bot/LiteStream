@@ -48,9 +48,15 @@ router.get('/plans-public', (req, res) => {
 router.get('/plans', isAdmin, (req, res) => db.all("SELECT * FROM plans", (err, rows) => res.json(rows)));
 
 router.put('/plans/:id', isAdmin, (req, res) => {
-  const { name, max_storage_mb, allowed_types } = req.body;
-  db.run("UPDATE plans SET name = ?, max_storage_mb = ?, allowed_types = ? WHERE id = ?", 
-    [name, max_storage_mb, allowed_types, req.params.id], 
+  const { name, max_storage_mb, allowed_types, price_text, features_text } = req.body;
+  db.run(`UPDATE plans SET 
+          name = ?, 
+          max_storage_mb = ?, 
+          allowed_types = ?, 
+          price_text = ?, 
+          features_text = ? 
+          WHERE id = ?`, 
+    [name, max_storage_mb, allowed_types, price_text, features_text, req.params.id], 
     function(err) {
       if (err) return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true });

@@ -18,7 +18,9 @@ const initDB = () => {
         name TEXT UNIQUE, 
         max_storage_mb INTEGER, 
         allowed_types TEXT, 
-        max_active_streams INTEGER
+        max_active_streams INTEGER,
+        price_text TEXT,
+        features_text TEXT
       )`);
 
       db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -45,29 +47,29 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
-      // 3. Pastikan Master Data Plans Tersedia (ID Tetap)
+      // 3. Seeding Master Data Plans (Sesuai Permintaan User)
+      // Format: [ID, Nama, StorageMB, AllowedTypes, Streams, Price, Features]
       const plans = [
-        [1, 'Free Trial', 500, 'audio', 1],
-        [2, 'Radio Station', 5120, 'audio', 1],
-        [3, 'Content Creator', 10240, 'video,audio', 2]
+        [1, 'Paket Basic (Pemula)', 2048, 'video,audio', 1, 'Rp 50.000', 'Max 720p, 12 Jam/hari, Auto Reconnect'],
+        [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target'],
+        [3, 'Paket Radio 24/7', 5120, 'audio', 1, 'Rp 75.000', 'Khusus Radio MP3, Shuffle Playlist, Visualisasi Cover'],
+        [4, 'Paket Sultan (Private)', 25600, 'video,audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Full Admin Access']
       ];
+      
       plans.forEach(p => {
-        db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (?, ?, ?, ?, ?)", p);
+        db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)`, p);
       });
 
-      // 4. Seeding Admin yang Aman
+      // 4. Seeding Admin (Tetap Menggunakan Paket Sultan/ID 4)
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
-      // Gunakan INSERT OR IGNORE agar jika admin sudah ada, password lamanya tidak berubah
-      db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 3)`, [adminUser, hash], (err) => {
-        if (err) {
-          console.error("DB Error Seeding Admin:", err);
-        } else {
-          // Pastikan admin yang sudah ada tetap memiliki Role Admin dan Plan yang benar
-          db.run(`UPDATE users SET role = 'admin', plan_id = 3 WHERE username = ?`, [adminUser]);
-          console.log("DB: Admin Check Completed (Role & Plan Synced).");
+      db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
+        if (!err) {
+          db.run(`UPDATE users SET role = 'admin', plan_id = 4 WHERE username = ?`, [adminUser]);
+          console.log("DB: Admin Check Completed.");
         }
         resolve();
       });
