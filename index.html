@@ -61,11 +61,12 @@
         </nav>
 
         <section class="pt-40 pb-16 px-6 lg:px-20 text-center max-w-5xl mx-auto">
-            <h1 class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span></h1>
-            <p class="text-lg text-slate-400 mb-12">Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM.</p>
+            <!-- Dynamic Landing Content -->
+            <h1 id="landing-title-display" class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span></h1>
+            <p id="landing-desc-display" class="text-lg text-slate-400 mb-12">Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <button onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
-                <button onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold border border-slate-700">Login Member</button>
+                <button id="landing-btn-reg-display" onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
+                <button id="landing-btn-login-display" onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold border border-slate-700">Login Member</button>
             </div>
         </section>
 
@@ -268,34 +269,65 @@
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
                     <form onsubmit="saveSettings(event)" class="space-y-6">
                         
-                        <!-- Platform Dropdown -->
-                        <div>
-                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Streaming Platform</label>
-                            <div class="relative">
-                                <select id="setting-platform" onchange="handlePlatformChange()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white appearance-none outline-none focus:ring-2 ring-indigo-500/50 font-bold cursor-pointer">
-                                    <option value="youtube">YouTube Live</option>
-                                    <option value="facebook">Facebook Live</option>
-                                    <option value="twitch">Twitch</option>
-                                    <option value="custom">Custom RTMP</option>
-                                </select>
-                                <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
-                                    <i class="fas fa-chevron-down"></i>
+                        <!-- Streaming Configuration -->
+                        <div class="border-b border-slate-700 pb-6 mb-6">
+                             <h3 class="text-lg font-bold text-white mb-4">Streaming Configuration</h3>
+                             
+                            <!-- Platform Dropdown -->
+                            <div class="mb-4">
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Streaming Platform</label>
+                                <div class="relative">
+                                    <select id="setting-platform" onchange="handlePlatformChange()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white appearance-none outline-none focus:ring-2 ring-indigo-500/50 font-bold cursor-pointer">
+                                        <option value="youtube">YouTube Live</option>
+                                        <option value="facebook">Facebook Live</option>
+                                        <option value="twitch">Twitch</option>
+                                        <option value="custom">Custom RTMP</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
+                                        <i class="fas fa-chevron-down"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Custom Server URL (Hidden by default) -->
+                            <div id="server-url-container" class="hidden mb-4">
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">RTMP Server URL</label>
+                                <input type="text" id="setting-server-url" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="e.g. rtmp://my.custom.server/live/">
+                            </div>
+
+                            <!-- Stream Key Input -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Stream Key</label>
+                                <div class="relative">
+                                    <input type="password" id="setting-key" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Paste your Stream Key here">
+                                    <button type="button" onclick="toggleKeyVisibility()" class="absolute inset-y-0 right-5 text-slate-400 hover:text-white"><i id="eye-icon" class="fas fa-eye"></i></button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Custom Server URL (Hidden by default) -->
-                        <div id="server-url-container" class="hidden">
-                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">RTMP Server URL</label>
-                            <input type="text" id="setting-server-url" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="e.g. rtmp://my.custom.server/live/">
-                        </div>
+                        <!-- Landing Page Configuration (Admin Only View - but we show it in settings) -->
+                        <div id="landing-config-section" class="border-b border-slate-700 pb-6 mb-6 hidden">
+                            <h3 class="text-lg font-bold text-white mb-4">Landing Page Content</h3>
+                            
+                            <div class="mb-4">
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hero Title (Allows HTML)</label>
+                                <textarea id="setting-landing-title" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50"></textarea>
+                            </div>
 
-                        <!-- Stream Key Input -->
-                        <div>
-                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Stream Key</label>
-                            <div class="relative">
-                                <input type="password" id="setting-key" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Paste your Stream Key here">
-                                <button type="button" onclick="toggleKeyVisibility()" class="absolute inset-y-0 right-5 text-slate-400 hover:text-white"><i id="eye-icon" class="fas fa-eye"></i></button>
+                            <div class="mb-4">
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hero Description</label>
+                                <input type="text" id="setting-landing-desc" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Register Button Text</label>
+                                    <input type="text" id="setting-landing-btn-reg" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Login Button Text</label>
+                                    <input type="text" id="setting-landing-btn-login" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
+                                </div>
                             </div>
                         </div>
 
@@ -404,6 +436,9 @@
 
         async function checkAuth() {
             try {
+                // Fetch landing content first so it displays even if auth check fails
+                await loadLandingContent();
+                
                 const res = await fetch('/api/check-auth');
                 const data = await res.json();
                 if (data.authenticated) { 
@@ -417,6 +452,18 @@
                 setView('landing-view');
                 fetchPlans();
             }
+        }
+
+        async function loadLandingContent() {
+            try {
+                const res = await fetch('/api/landing-content');
+                const data = await res.json();
+                
+                if (data.landing_title) document.getElementById('landing-title-display').innerHTML = data.landing_title;
+                if (data.landing_desc) document.getElementById('landing-desc-display').textContent = data.landing_desc;
+                if (data.landing_btn_reg) document.getElementById('landing-btn-reg-display').textContent = data.landing_btn_reg;
+                if (data.landing_btn_login) document.getElementById('landing-btn-login-display').textContent = data.landing_btn_login;
+            } catch (e) { console.error("Failed to load landing content", e); }
         }
 
         function showDashboard() {
@@ -434,7 +481,10 @@
             document.getElementById('profile-username').value = currentUser.username;
             document.getElementById('profile-plan-display').textContent = currentUser.plan_name;
 
-            if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
+            if (currentUser.role === 'admin') {
+                document.getElementById('nav-users').classList.remove('hidden');
+                document.getElementById('landing-config-section').classList.remove('hidden');
+            }
             fetchMedia(); 
             fetchSettings();
         }
@@ -681,11 +731,21 @@
             const res = await fetch('/api/settings'); 
             const d = await res.json(); 
             
+            // Streaming Settings
             document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
             document.getElementById('setting-server-url').value = d.custom_server_url || '';
             document.getElementById('setting-key').value = d.stream_key || '';
             document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
             
+            // Landing Settings (If elements exist)
+            const landingTitle = document.getElementById('setting-landing-title');
+            if (landingTitle) {
+                landingTitle.value = d.landing_title || '';
+                document.getElementById('setting-landing-desc').value = d.landing_desc || '';
+                document.getElementById('setting-landing-btn-reg').value = d.landing_btn_reg || '';
+                document.getElementById('setting-landing-btn-login').value = d.landing_btn_login || '';
+            }
+
             handlePlatformChange();
         }
 
@@ -717,6 +777,7 @@
         async function saveSettings(e) { 
             e.preventDefault(); 
             
+            // Gather Streaming Data
             const platform = document.getElementById('setting-platform').value;
             const key = document.getElementById('setting-key').value.trim();
             let serverUrl = '';
@@ -730,16 +791,27 @@
             if (!serverUrl) return alert("Server URL wajib untuk Custom RTMP");
             if (!key) return alert("Stream Key wajib diisi");
 
-            // Pastikan URL diakhiri slash jika bukan kosong
             if (serverUrl && !serverUrl.endsWith('/')) serverUrl += '/';
-
             const fullUrl = serverUrl + key;
+
+            // Gather Landing Data (if admin)
+            const landingTitle = document.getElementById('setting-landing-title');
+            let landingPayload = {};
+            if (landingTitle) {
+                landingPayload = {
+                    landing_title: landingTitle.value,
+                    landing_desc: document.getElementById('setting-landing-desc').value,
+                    landing_btn_reg: document.getElementById('setting-landing-btn-reg').value,
+                    landing_btn_login: document.getElementById('setting-landing-btn-login').value
+                };
+            }
 
             const payload = {
                 stream_platform: platform,
                 stream_key: key,
                 custom_server_url: platform === 'custom' ? serverUrl : '',
-                rtmp_url: fullUrl
+                rtmp_url: fullUrl,
+                ...landingPayload
             };
 
             await fetch('/api/settings', { 
@@ -748,9 +820,7 @@
                 body: JSON.stringify(payload) 
             }); 
             
-            // Update hidden full url field for immediate usage
             document.getElementById('setting-full-rtmp').value = fullUrl;
-            
             alert("Konfigurasi Tersimpan!"); 
         }
 

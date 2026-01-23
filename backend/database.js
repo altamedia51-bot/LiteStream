@@ -75,7 +75,19 @@ const initDB = () => {
                 VALUES (?, ?, ?, ?, ?, ?, ?)`, p);
       });
 
-      // 5. Seeding Admin
+      // 5. Seeding Default Settings (Landing Page Content)
+      const defaultSettings = [
+        ['landing_title', 'Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span>'],
+        ['landing_desc', 'Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM.'],
+        ['landing_btn_reg', 'Daftar Sekarang'],
+        ['landing_btn_login', 'Login Member']
+      ];
+
+      defaultSettings.forEach(s => {
+         db.run(`INSERT OR IGNORE INTO stream_settings (key, value) VALUES (?, ?)`, s);
+      });
+
+      // 6. Seeding Admin
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);

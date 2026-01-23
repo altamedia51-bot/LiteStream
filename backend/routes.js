@@ -45,6 +45,17 @@ router.get('/plans-public', (req, res) => {
   db.all("SELECT * FROM plans", (err, rows) => res.json(rows));
 });
 
+// NEW: Public Landing Content API
+router.get('/landing-content', (req, res) => {
+    const keys = ['landing_title', 'landing_desc', 'landing_btn_reg', 'landing_btn_login'];
+    const placeholders = keys.map(() => '?').join(',');
+    db.all(`SELECT key, value FROM stream_settings WHERE key IN (${placeholders})`, keys, (err, rows) => {
+        const settings = {};
+        if(rows) rows.forEach(r => settings[r.key] = r.value);
+        res.json(settings);
+    });
+});
+
 // Admin Managed Plans
 router.get('/plans', isAdmin, (req, res) => db.all("SELECT * FROM plans", (err, rows) => res.json(rows)));
 
@@ -166,7 +177,13 @@ router.post('/stream/stop', (req, res) => {
 
 // SETTINGS: GET multi keys
 router.get('/settings', (req, res) => {
-    db.all("SELECT key, value FROM stream_settings WHERE key IN ('rtmp_url', 'stream_platform', 'stream_key', 'custom_server_url')", (err, rows) => {
+    // Add landing page keys
+    const keys = [
+        'rtmp_url', 'stream_platform', 'stream_key', 'custom_server_url',
+        'landing_title', 'landing_desc', 'landing_btn_reg', 'landing_btn_login'
+    ];
+    const placeholders = keys.map(()=>'?').join(',');
+    db.all(`SELECT key, value FROM stream_settings WHERE key IN (${placeholders})`, keys, (err, rows) => {
         const settings = {};
         if(rows) rows.forEach(r => settings[r.key] = r.value);
         res.json(settings);
@@ -175,15 +192,18 @@ router.get('/settings', (req, res) => {
 
 // SETTINGS: POST multi keys
 router.post('/settings', (req, res) => {
-    const { rtmp_url, stream_platform, stream_key, custom_server_url } = req.body;
+    // Updated to handle arbitrary keys sent from frontend
+    const items = req.body; // Expecting object { key: value, key2: value2 }
     
     const stmt = db.prepare("INSERT OR REPLACE INTO stream_settings (key, value) VALUES (?, ?)");
-    stmt.run('rtmp_url', rtmp_url || '');
-    stmt.run('stream_platform', stream_platform || 'youtube');
-    stmt.run('stream_key', stream_key || '');
-    stmt.run('custom_server_url', custom_server_url || '');
-    stmt.finalize();
     
+    Object.keys(items).forEach(key => {
+        // Simple security: only allow strings
+        const val = items[key] ? String(items[key]) : '';
+        stmt.run(key, val);
+    });
+    
+    stmt.finalize();
     res.json({ success: true });
 });
 
