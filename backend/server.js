@@ -12,6 +12,14 @@ const bcrypt = require('bcryptjs');
 const { initDB, db } = require('./database');
 
 dotenv.config();
+
+// Pastikan folder uploads ada
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("Server: Folder 'uploads' created.");
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
@@ -38,41 +46,54 @@ const isAuthenticated = (req, res, next) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
+  console.log(`Auth Request: Attempting login for user '${username}'`);
+
+  // Query dengan LEFT JOIN untuk melihat apakah user ada tapi paketnya bermasalah
   const query = `
     SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
     FROM users u 
-    JOIN plans p ON u.plan_id = p.id 
+    LEFT JOIN plans p ON u.plan_id = p.id 
     WHERE u.username = ?`;
 
   db.get(query, [username], async (err, user) => {
     if (err) {
-      console.error("Login DB Error:", err);
-      return res.status(500).json({ success: false, error: 'Internal Server Error' });
+      console.error("Auth Error: DB Failure during login query", err);
+      return res.status(500).json({ success: false, error: 'Kesalahan sistem database' });
     }
 
     if (!user) {
-      console.warn(`Login Failed: User '${username}' not found or Plan missing.`);
-      return res.status(401).json({ success: false, error: 'User tidak ditemukan atau data paket bermasalah' });
+      console.warn(`Auth Warning: User '${username}' not found in DB.`);
+      return res.status(401).json({ success: false, error: 'Username tidak terdaftar' });
     }
 
-    if (await bcrypt.compare(password, user.password_hash)) {
-      req.session.user = { 
-        id: user.id, 
-        username: user.username, 
-        role: user.role,
-        plan_id: user.plan_id,
-        plan_name: user.plan_name,
-        max_storage_mb: user.max_storage_mb,
-        allowed_types: user.allowed_types
-      };
-      return req.session.save(() => {
-        console.log(`Login Success: ${username}`);
-        res.json({ success: true });
-      });
+    if (!user.plan_id || !user.plan_name) {
+      console.error(`Auth Error: User '${username}' exists but has no valid plan attached.`);
+      return res.status(500).json({ success: false, error: 'Data paket user tidak valid, hubungi teknisi' });
+    }
+
+    try {
+      const match = await bcrypt.compare(password, user.password_hash);
+      if (match) {
+        req.session.user = { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role,
+          plan_id: user.plan_id,
+          plan_name: user.plan_name,
+          max_storage_mb: user.max_storage_mb,
+          allowed_types: user.allowed_types
+        };
+        return req.session.save(() => {
+          console.log(`Auth Success: User '${username}' logged in successfully.`);
+          res.json({ success: true });
+        });
+      }
+    } catch (bcryptErr) {
+      console.error("Auth Error: Bcrypt comparison failed", bcryptErr);
     }
     
-    console.warn(`Login Failed: Wrong password for user '${username}'`);
-    res.status(401).json({ success: false, error: 'Username atau Password salah' });
+    console.warn(`Auth Warning: Invalid password for user '${username}'`);
+    res.status(401).json({ success: false, error: 'Password yang Anda masukkan salah' });
   });
 });
 
@@ -87,7 +108,7 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
-  // Refresh storage info dari DB setiap kali check auth
+  
   db.get("SELECT storage_used, plan_id FROM users WHERE id = ?", [req.session.user.id], (err, row) => {
     if (row) {
       db.get("SELECT name as plan_name, max_storage_mb, allowed_types FROM plans WHERE id = ?", [row.plan_id], (err, p) => {

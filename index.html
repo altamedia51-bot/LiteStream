@@ -15,6 +15,8 @@
         .tab-content.active { display: block; }
         .nav-link.active { background: rgba(79, 70, 229, 0.1); color: #818cf8; border-right: 3px solid #6366f1; }
         #main-app { display: none; }
+        #logConsole::-webkit-scrollbar { width: 4px; }
+        #logConsole::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
@@ -27,8 +29,8 @@
                 <p id="auth-subtitle" class="text-slate-500 text-sm">Kelola stream Anda dengan paket hemat</p>
             </div>
             <form id="login-form" onsubmit="handleAuth(event, 'login')" class="space-y-4">
-                <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white" placeholder="Username">
-                <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white" placeholder="Password">
+                <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white" placeholder="Username" value="admin">
+                <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white" placeholder="Password" value="admin123">
                 <button type="submit" id="login-btn" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold shadow-xl transition-all hover:bg-indigo-500">SIGN IN</button>
                 <p class="text-center text-xs text-slate-500">Belum punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Daftar Trial</a></p>
             </form>
@@ -46,12 +48,21 @@
                 <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400"><i class="fas fa-user-shield"></i> Users</button>
                 <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400"><i class="fas fa-cog"></i> Settings</button>
             </nav>
-            <button onclick="handleLogout()" class="mt-auto text-rose-400 text-sm font-bold flex items-center gap-2 px-4 py-3 hover:bg-rose-500/10 rounded-xl"><i class="fas fa-power-off"></i> Logout</button>
+            <div class="mt-auto space-y-4">
+                <div class="p-4 bg-slate-900/50 rounded-2xl border border-slate-700/50">
+                   <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Status Server</p>
+                   <div class="flex items-center gap-2">
+                       <span id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-600 animate-pulse"></span>
+                       <span id="status-text" class="text-xs font-bold text-slate-400">OFFLINE</span>
+                   </div>
+                </div>
+                <button onclick="handleLogout()" class="w-full text-rose-400 text-sm font-bold flex items-center gap-2 px-4 py-3 hover:bg-rose-500/10 rounded-xl transition-colors"><i class="fas fa-power-off"></i> Logout</button>
+            </div>
         </aside>
 
         <main class="flex-1 overflow-y-auto p-8">
-            <!-- Quota Widget (Always Visible Header) -->
-            <div id="quota-widget" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <!-- Quota Widget -->
+            <div id="quota-widget" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl">
                 <div class="space-y-1">
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paket Saat Ini</p>
                     <h3 id="plan-name-display" class="text-xl font-bold text-indigo-400">Loading...</h3>
@@ -65,35 +76,75 @@
                         <div id="storage-bar" class="h-full bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-                <button onclick="alert('Hubungi admin untuk upgrade!')" class="bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 px-6 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 hover:text-white transition-all">UPGRADE PLAN</button>
+                <button onclick="alert('Hubungi admin untuk upgrade!')" class="bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 px-6 py-2 rounded-xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all">UPGRADE PLAN</button>
             </div>
 
+            <!-- Tab: Overview -->
             <div id="tab-overview" class="tab-content active space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700">
-                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-4">Fitur Paket</h4>
-                        <ul id="plan-features" class="space-y-3 text-sm text-slate-300">
-                            <!-- Feature List -->
-                        </ul>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-1 space-y-6">
+                        <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-lg">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-4">Streaming Control</h4>
+                            <div id="stream-info-card" class="space-y-4">
+                                <p class="text-sm text-slate-400">Tidak ada aktivitas stream aktif.</p>
+                                <button onclick="stopStream()" id="btn-stop-stream" class="hidden w-full py-3 bg-rose-600 hover:bg-rose-500 rounded-xl font-bold text-sm shadow-lg transition-all">HENTIKAN STREAM</button>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-lg">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-4">Fitur Paket</h4>
+                            <ul id="plan-features" class="space-y-3 text-sm text-slate-300"></ul>
+                        </div>
                     </div>
-                    <div class="bg-slate-950 p-6 rounded-3xl border border-slate-700 h-64 overflow-y-auto font-mono text-[10px]" id="logConsole">
-                        <p class="text-slate-600">-- Menunggu aktivitas stream --</p>
+                    <div class="md:col-span-2 bg-slate-950 p-6 rounded-3xl border border-slate-700 h-[400px] flex flex-col shadow-inner">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-[10px] font-bold text-slate-500 uppercase">System Logs</h4>
+                            <button onclick="document.getElementById('logConsole').innerHTML=''" class="text-[10px] text-slate-600 hover:text-slate-400">Clear</button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto font-mono text-[11px] space-y-1" id="logConsole">
+                            <p class="text-slate-600">-- Menunggu aktivitas stream --</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Tab: Library -->
             <div id="tab-library" class="tab-content space-y-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Media Library</h2>
-                    <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-2.5 rounded-xl font-bold text-sm">Upload File</button>
+                    <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all"><i class="fas fa-plus mr-2"></i> Upload Media</button>
                     <input type="file" id="file-up" class="hidden" onchange="handleUpload(this)">
                 </div>
-                <div id="media-list" class="grid grid-cols-1 gap-3"></div>
+                <div id="media-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
 
+            <!-- Tab: Settings -->
+            <div id="tab-settings" class="tab-content space-y-6">
+                <h2 class="text-2xl font-bold">Stream Settings</h2>
+                <div class="bg-slate-800 p-8 rounded-3xl border border-slate-700 max-w-2xl shadow-xl">
+                    <form onsubmit="saveSettings(event)" class="space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase">RTMP URL (Youtube/Twitch/Tiktok)</label>
+                            <input type="text" id="setting-rtmp" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-white focus:border-indigo-500 outline-none" placeholder="rtmp://a.rtmp.youtube.com/live2/XXXX-XXXX-XXXX-XXXX">
+                            <p class="text-[10px] text-slate-500 italic">Masukkan URL RTMP lengkap termasuk Stream Key Anda.</p>
+                        </div>
+                        <div class="space-y-2">
+                           <label class="text-xs font-bold text-slate-500 uppercase">Cover Background (MP3 Mode)</label>
+                           <div class="flex items-center gap-4">
+                               <select id="setting-cover" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+                                   <option value="">Default Black</option>
+                               </select>
+                               <span class="text-[10px] text-slate-500">Upload gambar di Media tab untuk memilih.</span>
+                           </div>
+                        </div>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg">SIMPAN PENGATURAN</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tab: Users -->
             <div id="tab-users" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">User & Plan Management</h2>
-                <div class="bg-slate-800 rounded-3xl overflow-hidden border border-slate-700">
+                <div class="bg-slate-800 rounded-3xl overflow-hidden border border-slate-700 shadow-xl">
                     <table class="w-full text-left">
                         <thead class="bg-slate-900/50 text-[10px] uppercase font-bold text-slate-500">
                             <tr>
@@ -110,32 +161,57 @@
         </main>
     </div>
 
-    <!-- Upgrade Modal (Admin Only) -->
+    <!-- Upgrade Modal -->
     <div id="upgradeModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-sm rounded-3xl p-8 space-y-6">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-sm rounded-3xl p-8 space-y-6 shadow-2xl">
             <h3 class="text-xl font-bold">Upgrade User Plan</h3>
             <p id="upgrade-user-name" class="text-sm text-slate-400">User: -</p>
             <select id="plan-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm"></select>
             <div class="flex gap-4">
-                <button onclick="closeUpgradeModal()" class="flex-1 py-3 border border-slate-700 rounded-xl text-sm">Batal</button>
-                <button onclick="submitUpgrade()" class="flex-1 py-3 bg-indigo-600 rounded-xl text-sm font-bold">Simpan</button>
+                <button onclick="closeUpgradeModal()" class="flex-1 py-3 border border-slate-700 rounded-xl text-sm hover:bg-slate-700">Batal</button>
+                <button onclick="submitUpgrade()" class="flex-1 py-3 bg-indigo-600 rounded-xl text-sm font-bold shadow-lg">Simpan</button>
             </div>
         </div>
     </div>
 
     <script>
+        const socket = io();
         let currentUser = null;
         let authMode = 'login';
         let currentUpgradeUserId = null;
 
-        function toggleAuthMode() {
-            authMode = authMode === 'login' ? 'register' : 'login';
-            document.getElementById('auth-title').textContent = authMode === 'login' ? 'LiteStream Login' : 'LiteStream Register';
-            document.getElementById('auth-subtitle').textContent = authMode === 'login' ? 'Kelola stream Anda dengan paket hemat' : 'Dapatkan akses trial 500MB hari ini';
-            document.querySelector('p.text-center.text-xs.text-slate-500').innerHTML = authMode === 'login' 
-                ? 'Belum punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Daftar Trial</a>'
-                : 'Sudah punya akun? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400">Login Saja</a>';
-            document.getElementById('login-btn').textContent = authMode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT';
+        // Socket Events
+        socket.on('log', (data) => {
+            const consoleEl = document.getElementById('logConsole');
+            const p = document.createElement('p');
+            p.className = data.type === 'error' ? 'text-rose-500' : (data.type === 'start' ? 'text-emerald-400 font-bold' : 'text-slate-300');
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${data.message}`;
+            consoleEl.appendChild(p);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+
+            if (data.type === 'start') setLiveStatus(true, data.message);
+            if (data.type === 'end' || data.type === 'error') setLiveStatus(false);
+        });
+
+        function setLiveStatus(isLive, message = "") {
+            const indicator = document.getElementById('status-indicator');
+            const text = document.getElementById('status-text');
+            const stopBtn = document.getElementById('btn-stop-stream');
+            const infoCard = document.getElementById('stream-info-card');
+
+            if (isLive) {
+                indicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
+                text.textContent = "LIVE";
+                text.className = "text-xs font-bold text-emerald-400";
+                stopBtn.classList.remove('hidden');
+                infoCard.querySelector('p').textContent = message || "Streaming sedang berjalan...";
+            } else {
+                indicator.className = "w-2.5 h-2.5 rounded-full bg-slate-600 animate-pulse";
+                text.textContent = "OFFLINE";
+                text.className = "text-xs font-bold text-slate-400";
+                stopBtn.classList.add('hidden');
+                infoCard.querySelector('p').textContent = "Tidak ada aktivitas stream aktif.";
+            }
         }
 
         async function checkAuth() {
@@ -149,7 +225,6 @@
                     document.getElementById('login-view').classList.remove('hidden');
                 }
             } catch (e) {
-                console.error("Auth check failed:", e);
                 document.getElementById('login-view').classList.remove('hidden');
             }
         }
@@ -159,7 +234,6 @@
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             
-            // Render Quota
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             const totalMB = currentUser.max_storage_mb;
             const percent = (usedMB / totalMB) * 100;
@@ -169,24 +243,23 @@
             bar.style.width = percent + '%';
             bar.className = `h-full transition-all duration-500 ${percent > 90 ? 'bg-rose-500' : (percent > 70 ? 'bg-amber-500' : 'bg-indigo-500')}`;
 
-            // Features List
             const feats = document.getElementById('plan-features');
             feats.innerHTML = `
                 <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> Max Streams: ${currentUser.max_active_streams}</li>
                 <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> Allowed: ${currentUser.allowed_types.toUpperCase()}</li>
-                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-indigo-400"></i> SaaS Cloud Storage</li>
+                <li class="flex items-center gap-2"><i class="fas fa-cloud text-indigo-400"></i> SaaS Cloud Storage</li>
             `;
 
             if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
             fetchMedia();
+            fetchSettings();
         }
 
-        async function handleAuth(e, mode) {
+        async function handleAuth(e) {
             e.preventDefault();
             const username = document.getElementById('login-user').value;
             const password = document.getElementById('login-pass').value;
             const errEl = document.getElementById('auth-error');
-            
             errEl.classList.add('hidden');
             
             try {
@@ -196,69 +269,117 @@
                     body: JSON.stringify({ username, password })
                 });
                 const data = await res.json();
-                
                 if (data.success) {
-                    if (authMode === 'register') {
-                        alert(data.message);
-                        toggleAuthMode();
-                    } else {
-                        location.reload();
-                    }
+                    if (authMode === 'register') { alert(data.message); toggleAuthMode(); }
+                    else { location.reload(); }
                 } else {
-                    errEl.textContent = data.error || "Gagal melakukan aksi";
+                    errEl.textContent = data.error || "Login Gagal";
                     errEl.classList.remove('hidden');
                 }
-            } catch (err) {
-                errEl.textContent = "Koneksi ke server terputus.";
-                errEl.classList.remove('hidden');
-            }
+            } catch (err) { alert("Server Error"); }
+        }
+
+        function toggleAuthMode() {
+            authMode = authMode === 'login' ? 'register' : 'login';
+            document.getElementById('auth-title').textContent = authMode === 'login' ? 'LiteStream Login' : 'LiteStream Register';
+            document.getElementById('login-btn').textContent = authMode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT';
         }
 
         async function fetchMedia() {
             const res = await fetch('/api/videos');
             const data = await res.json();
-            document.getElementById('media-list').innerHTML = data.map(v => `
-                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex justify-between items-center">
+            const list = document.getElementById('media-list');
+            const coverSelect = document.getElementById('setting-cover');
+            
+            coverSelect.innerHTML = '<option value="">Default Black</option>';
+            
+            list.innerHTML = data.map(v => {
+                if (v.type === 'image') {
+                    coverSelect.innerHTML += `<option value="${v.id}">${v.filename}</option>`;
+                }
+                return `
+                <div class="bg-slate-800 p-5 rounded-3xl border border-slate-700 flex flex-col gap-4 shadow-lg group hover:border-indigo-500/50 transition-all">
                     <div class="flex items-center gap-4">
-                        <i class="fas ${v.type === 'audio' ? 'fa-music text-amber-500' : 'fa-video text-indigo-500'}"></i>
-                        <div>
-                            <p class="font-bold text-sm">${v.filename}</p>
-                            <p class="text-[10px] text-slate-500 uppercase">${(v.size/1024/1024).toFixed(2)} MB • ${v.type}</p>
+                        <div class="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center">
+                            <i class="fas ${v.type === 'audio' ? 'fa-music text-amber-500' : (v.type === 'image' ? 'fa-image text-emerald-500' : 'fa-video text-indigo-500')}"></i>
                         </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-sm truncate text-white">${v.filename}</p>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-tighter">${(v.size/1024/1024).toFixed(2)} MB • ${v.type}</p>
+                        </div>
+                        <button onclick="deleteMedia(${v.id})" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>
                     </div>
-                    <button onclick="deleteMedia(${v.id})" class="text-slate-600 hover:text-rose-500 transition-colors"><i class="fas fa-trash"></i></button>
+                    ${v.type !== 'image' ? `
+                    <button onclick="startStream(${v.id})" class="w-full py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-xl text-xs font-bold transition-all border border-indigo-500/20">STREAM NOW</button>
+                    ` : ''}
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
-        async function deleteMedia(id) {
-            if (!confirm('Hapus file? Storage akan bertambah kembali.')) return;
-            await fetch('/api/videos/' + id, { method: 'DELETE' });
-            checkAuth(); // Refresh quota info
+        async function fetchSettings() {
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+            document.getElementById('setting-rtmp').value = data.rtmp_url || '';
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const rtmp_url = document.getElementById('setting-rtmp').value;
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ rtmp_url })
+            });
+            if ((await res.json()).success) alert("Pengaturan tersimpan!");
+        }
+
+        async function startStream(id) {
+            const rtmpUrl = document.getElementById('setting-rtmp').value;
+            if (!rtmpUrl) { alert("Atur RTMP URL di menu Settings dulu!"); switchTab('settings'); return; }
+            
+            const coverImageId = document.getElementById('setting-cover').value;
+            
+            try {
+                const res = await fetch('/api/playlist/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ids: [id], rtmpUrl, coverImageId, loop: true })
+                });
+                const data = await res.json();
+                if (!data.success) alert(data.error);
+                else {
+                    switchTab('overview');
+                }
+            } catch (e) { alert("Gagal memulai stream."); }
+        }
+
+        async function stopStream() {
+            await fetch('/api/stream/stop', { method: 'POST' });
         }
 
         async function handleUpload(input) {
             if (!input.files[0]) return;
             const fd = new FormData(); fd.append('video', input.files[0]);
+            const btn = document.querySelector('[onclick*="file-up"]');
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Uploading...';
+            btn.disabled = true;
+
             try {
                 const res = await fetch('/api/videos/upload', { method: 'POST', body: fd });
                 const data = await res.json();
-                if (data.success) {
-                    checkAuth();
-                    input.value = '';
-                } else alert(data.error);
-            } catch (e) {
-                alert("Upload gagal. Periksa koneksi atau ukuran file.");
-            }
+                if (data.success) { checkAuth(); input.value = ''; } else alert(data.error);
+            } catch (e) { alert("Upload gagal."); }
+            btn.innerHTML = original;
+            btn.disabled = false;
         }
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + tab).classList.add('active');
-            
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             document.getElementById('nav-' + tab).classList.add('active');
-            
             if (tab === 'users') fetchUsers();
         }
 
@@ -266,12 +387,12 @@
             const res = await fetch('/api/users');
             const users = await res.json();
             document.getElementById('user-table-body').innerHTML = users.map(u => `
-                <tr class="border-b border-slate-700/50">
-                    <td class="p-4 font-bold text-white">${u.username}</td>
+                <tr class="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors">
+                    <td class="p-4 font-bold text-white">${u.username} ${u.role==='admin'?'<span class="text-[8px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded">ADMIN</span>':''}</td>
                     <td class="p-4 text-indigo-400">${u.plan_name}</td>
                     <td class="p-4 text-slate-400">${(u.storage_used/1024/1024).toFixed(1)} MB</td>
                     <td class="p-4 text-right">
-                        <button onclick="openUpgradeModal(${u.id}, '${u.username}')" class="text-indigo-400 hover:underline">Edit Plan</button>
+                        <button onclick="openUpgradeModal(${u.id}, '${u.username}')" class="text-indigo-400 hover:text-white text-xs font-bold">CHANGE PLAN</button>
                     </td>
                 </tr>
             `).join('');
@@ -298,6 +419,12 @@
             closeUpgradeModal();
             fetchUsers();
             if (currentUpgradeUserId === currentUser.id) checkAuth();
+        }
+
+        async function deleteMedia(id) {
+            if (!confirm('Hapus media? Storage Anda akan berkurang.')) return;
+            await fetch('/api/videos/' + id, { method: 'DELETE' });
+            checkAuth();
         }
 
         async function handleLogout() {

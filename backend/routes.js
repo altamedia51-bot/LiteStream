@@ -23,7 +23,6 @@ const checkStorageQuota = (req, res, next) => {
     WHERE u.id = ?`, [userId], (err, row) => {
     if (err) return res.status(500).json({ error: "DB Error" });
     
-    // Estimasi: Ambil size dari header (tidak 100% akurat tapi cepat)
     const incomingSize = parseInt(req.headers['content-length'] || 0);
     const usedMB = row.storage_used / (1024 * 1024);
     const incomingMB = incomingSize / (1024 * 1024);
@@ -67,15 +66,14 @@ router.get('/videos', async (req, res) => {
 
 router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (req, res) => {
   const userId = req.session.user.id;
+  if (!req.file) return res.status(400).json({ error: "Pilih file dulu" });
+  
   const file = req.file;
   const ext = path.extname(file.filename).toLowerCase();
   let type = (ext === '.mp3') ? 'audio' : (['.jpg','.png','.jpeg'].includes(ext) ? 'image' : 'video');
   
   const id = await saveVideo({ user_id: userId, filename: file.filename, path: file.path, size: file.size, type });
-  
-  // Update storage_used di tabel users
   db.run("UPDATE users SET storage_used = storage_used + ? WHERE id = ?", [file.size, userId]);
-  
   res.json({ success: true, id });
 });
 
@@ -97,19 +95,30 @@ router.post('/playlist/start', async (req, res) => {
   const { ids, rtmpUrl, coverImageId, loop } = req.body;
   const userId = req.session.user.id;
 
-  // Cek Plan Features (Video restriction)
+  if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih media untuk di-stream" });
+  if (!rtmpUrl) return res.status(400).json({ error: "RTMP URL Kosong" });
+
   db.get("SELECT p.allowed_types FROM users u JOIN plans p ON u.plan_id = p.id WHERE u.id = ?", [userId], (err, plan) => {
-    db.all(`SELECT type FROM videos WHERE id IN (${ids.join(',')})`, async (err, videos) => {
-      const hasVideo = videos.some(v => v.type === 'video');
-      if (hasVideo && !plan.allowed_types.includes('video')) {
-        return res.status(403).json({ error: "Paket Anda tidak mendukung streaming Video. Silakan upgrade ke Content Creator." });
+    db.get("SELECT * FROM videos WHERE id = ?", [ids[0]], async (err, video) => {
+      if (!video) return res.status(404).json({ error: "Media tidak ditemukan" });
+
+      if (video.type === 'video' && !plan.allowed_types.includes('video')) {
+        return res.status(403).json({ error: "Paket Anda tidak mendukung streaming Video. Upgrade ke Content Creator." });
       }
 
-      // Jalankan stream...
-      stopStream();
-      // Logic playNext di sini (asumsi integrasi dengan streamEngine)
-      // Kita panggil internal playNext logic (disingkat untuk ruang)
-      res.json({ success: true, message: "Stream dimulai sesuai izin paket." });
+      let coverPath = null;
+      if (coverImageId) {
+          const cover = await new Promise(r => db.get("SELECT path FROM videos WHERE id = ?", [coverImageId], (e, row) => r(row)));
+          if (cover) coverPath = cover.path;
+      }
+
+      try {
+          // Trigger FFmpeg Engine
+          startStream(video.path, rtmpUrl, { loop: !!loop, coverImagePath: coverPath });
+          res.json({ success: true, message: `Streaming ${video.filename} dimulai.` });
+      } catch (e) {
+          res.status(500).json({ error: "Gagal memicu FFmpeg Engine: " + e.message });
+      }
     });
   });
 });

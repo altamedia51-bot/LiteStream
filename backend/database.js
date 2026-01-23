@@ -8,11 +8,14 @@ const db = new sqlite3.Database(dbPath);
 
 const initDB = () => {
   return new Promise((resolve, reject) => {
-    db.serialize(async () => {
-      // 1. Buat Tabel Utama
+    db.serialize(() => {
+      // 1. Aktifkan Foreign Keys
+      db.run("PRAGMA foreign_keys = ON");
+
+      // 2. Buat Tabel
       db.run(`CREATE TABLE IF NOT EXISTS plans (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        name TEXT, 
+        name TEXT UNIQUE, 
         max_storage_mb INTEGER, 
         allowed_types TEXT, 
         max_active_streams INTEGER
@@ -42,33 +45,27 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
-      // 2. Seeding Plans secara sekuensial
-      db.get("SELECT count(*) as count FROM plans", async (err, row) => {
-        if (row && row.count === 0) {
-          console.log("DB: Seeding Default Plans...");
-          const stmt = db.prepare("INSERT INTO plans (name, max_storage_mb, allowed_types, max_active_streams) VALUES (?, ?, ?, ?)");
-          stmt.run('Free Trial', 500, 'audio', 1);
-          stmt.run('Radio Station', 5120, 'audio', 1);
-          stmt.run('Content Creator', 10240, 'video,audio', 2);
-          stmt.finalize();
-        }
+      // 3. Force Seed Plans (Menggunakan INSERT OR IGNORE)
+      console.log("DB: Checking/Seeding Plans...");
+      db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (1, 'Free Trial', 500, 'audio', 1)");
+      db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (2, 'Radio Station', 5120, 'audio', 1)");
+      db.run("INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams) VALUES (3, 'Content Creator', 10240, 'video,audio', 2)");
 
-        // 3. Seeding User Admin (Dijalankan SETELAH plans dipastikan ada/dicek)
-        const defaultUser = 'admin';
-        const defaultPass = 'admin123';
-        const hash = await bcrypt.hash(defaultPass, 10);
-        
-        db.get("SELECT * FROM users WHERE username = ?", [defaultUser], (err, user) => {
-          if (!user) {
-            console.log("DB: Seeding Admin Account...");
-            db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [defaultUser, hash, 'admin', 3], (err) => {
-              if (err) console.error("DB Error Seeding Admin:", err);
-              resolve();
-            });
-          } else {
-            resolve();
-          }
-        });
+      // 4. Force Seed Admin (Gunakan hashSync agar pasti selesai sebelum lanjut)
+      const adminUser = 'admin';
+      const adminPass = 'admin123';
+      const hash = bcrypt.hashSync(adminPass, 10);
+      
+      console.log("DB: Checking/Seeding Admin Account...");
+      // Kita gunakan REPLACE jika role-nya admin untuk memastikan password/plan selalu benar saat inisialisasi
+      db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 3)`, [adminUser, hash], (err) => {
+        if (err) {
+          console.error("DB Error Seeding Admin:", err);
+          reject(err);
+        } else {
+          console.log("DB: Database Initialized & Secured.");
+          resolve();
+        }
       });
     });
   });
