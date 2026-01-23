@@ -16,6 +16,7 @@
         .console-log::-webkit-scrollbar { width: 6px; }
         .console-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .nav-link.active { background: rgba(79, 70, 229, 0.1); color: #818cf8; border-right: 3px solid #6366f1; }
+        input[type="checkbox"]:checked + label { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
@@ -43,8 +44,8 @@
             </div>
             <div class="mt-auto p-6 border-t border-slate-700">
                 <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-700/50 text-center">
-                    <h3 class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Stability Mode</h3>
-                    <p class="text-[11px] text-emerald-400 font-bold">CBR 2000kbps Active</p>
+                    <h3 class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Server Mode</h3>
+                    <p class="text-[11px] text-emerald-400 font-bold">Radio Playlist Active</p>
                 </div>
             </div>
         </aside>
@@ -57,7 +58,7 @@
                     <div id="live-badge" class="hidden items-center gap-2 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-full border border-rose-500/20 animate-pulse uppercase tracking-widest">
                         <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
                     </div>
-                    <div class="text-xs text-slate-500">Server: <span id="server-status" class="text-emerald-400 font-bold">Online</span></div>
+                    <div class="text-xs text-slate-500">Server: <span class="text-emerald-400 font-bold">Online</span></div>
                 </div>
             </header>
 
@@ -66,268 +67,224 @@
                 <div id="tab-overview" class="tab-content active space-y-8">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Stream State</p>
-                            <div id="stat-stream-state" class="text-2xl font-bold text-slate-400">Idle</div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Now Playing</p>
+                            <div id="stat-now-playing" class="text-lg font-bold text-slate-200 truncate">Idle</div>
                         </div>
                         <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Optimization</p>
-                            <div class="text-2xl font-bold text-indigo-400">Low-CPU Copy</div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Playlist Queue</p>
+                            <div id="stat-queue-count" class="text-2xl font-bold text-indigo-400">0 Items</div>
                         </div>
                         <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Library Size</p>
-                            <div id="stat-library-count" class="text-2xl font-bold text-amber-400">0 Files</div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Memory Efficiency</p>
+                            <div class="text-2xl font-bold text-emerald-400">Ultra Low</div>
                         </div>
                     </div>
 
                     <div class="bg-slate-800 rounded-3xl overflow-hidden border border-slate-700 shadow-2xl">
                         <div class="bg-slate-700/30 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
-                            <h3 class="font-bold text-sm">System Logs</h3>
+                            <h3 class="font-bold text-sm">Streaming Logs</h3>
                             <div class="flex gap-2">
-                                <button onclick="stopStreaming()" id="btn-stop-stream" class="hidden text-[10px] bg-rose-500 hover:bg-rose-600 px-3 py-1 rounded-lg font-bold transition-all">STOP STREAM</button>
+                                <button onclick="stopStreaming()" id="btn-stop-stream" class="hidden text-[10px] bg-rose-500 hover:bg-rose-600 px-3 py-1 rounded-lg font-bold">STOP STREAM</button>
                                 <button onclick="document.getElementById('logConsole').innerHTML=''" class="text-[10px] text-slate-400 px-2 py-1">CLEAR</button>
                             </div>
                         </div>
                         <div id="logConsole" class="console-log bg-slate-950 p-6 font-mono text-[11px] h-80 overflow-y-auto space-y-1 text-slate-300">
-                            <p class="text-slate-600 italic">[Waiting for server events...]</p>
+                            <p class="text-slate-600 italic">[Menunggu data...]</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Library Content -->
                 <div id="tab-library" class="tab-content space-y-6">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-xl font-bold">Media Library</h3>
-                        <button onclick="document.getElementById('uploadInput').click()" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all">
-                            <i class="fas fa-upload"></i> Upload File
-                        </button>
-                        <input type="file" id="uploadInput" class="hidden" onchange="handleUpload(this)">
-                    </div>
-
-                    <div id="uploadProgress" class="hidden bg-slate-800 p-4 rounded-xl border border-indigo-500/20">
-                        <div class="flex justify-between text-xs font-bold mb-2"><span>Uploading...</span> <span id="uploadPercent">0%</span></div>
-                        <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                            <div id="uploadProgressBar" class="h-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h3 class="text-xl font-bold">Media Library</h3>
+                            <p class="text-xs text-slate-500">Pilih banyak file untuk diputar sebagai playlist.</p>
                         </div>
+                        <div class="flex gap-2">
+                            <button id="btn-play-selected" onclick="openPlaylistModal()" class="hidden bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all">
+                                <i class="fas fa-play"></i> Play Selected (<span id="selected-count">0</span>)
+                            </button>
+                            <button onclick="document.getElementById('uploadInput').click()" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2">
+                                <i class="fas fa-upload"></i> Upload
+                            </button>
+                        </div>
+                        <input type="file" id="uploadInput" class="hidden" multiple onchange="handleUpload(this)">
                     </div>
 
                     <div id="media-list" class="grid grid-cols-1 gap-3">
-                        <div class="text-center py-10 text-slate-500">Loading media...</div>
+                        <!-- Items injected -->
                     </div>
                 </div>
 
                 <!-- Settings Content -->
                 <div id="tab-settings" class="tab-content space-y-6 max-w-xl">
                     <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 space-y-6">
-                        <h3 class="text-xl font-bold">Configuration</h3>
+                        <h3 class="text-xl font-bold">RTMP Configuration</h3>
                         <div class="space-y-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Default RTMP URL</label>
-                            <input type="text" id="rtmp-input" placeholder="rtmp://a.rtmp.youtube.com/live2/xxxx" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">YouTube/Twitch RTMP URL</label>
+                            <input type="text" id="rtmp-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-indigo-400 outline-none" />
                         </div>
-                        <button onclick="saveSettings()" class="bg-indigo-600 hover:bg-indigo-500 w-full py-3 rounded-xl font-bold text-sm transition-all">Save Changes</button>
+                        <button onclick="saveSettings()" class="bg-indigo-600 hover:bg-indigo-500 w-full py-3 rounded-xl font-bold text-sm">Simpan</button>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Go Live Modal -->
+    <!-- Modal Go Live (Playlist) -->
     <div id="liveModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-6">
         <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-6 shadow-2xl">
-            <h3 class="text-2xl font-bold">Go Live Setup</h3>
-            <div id="modal-file-info" class="text-sm text-slate-400 bg-slate-900/50 p-3 rounded-xl border border-slate-700/50"></div>
+            <h3 class="text-2xl font-bold">Stream Playlist Setup</h3>
+            <div id="playlist-preview" class="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-400 bg-slate-900/50 p-4 rounded-xl">
+                <!-- Selected list -->
+            </div>
             
-            <div id="audio-options" class="hidden space-y-2">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Background Image (For Audio)</label>
-                <select id="cover-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="">-- No Background (Black) --</option>
+            <div id="audio-options" class="space-y-2">
+                <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Global Cover Image</label>
+                <select id="cover-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
+                    <option value="">-- No Image (Black Background) --</option>
                 </select>
             </div>
 
-            <div class="bg-slate-900/50 p-5 rounded-2xl border border-slate-700 flex items-center justify-between">
+            <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="bg-indigo-500/10 p-2 rounded-lg"><i class="fas fa-sync-alt text-indigo-400"></i></div>
+                    <i class="fas fa-sync-alt text-indigo-400"></i>
                     <div>
-                        <p class="text-sm font-bold">Looping Mode</p>
-                        <p class="text-[10px] text-slate-500">Streaming 24/7 otomatis</p>
+                        <p class="text-sm font-bold">Loop Whole Playlist</p>
+                        <p class="text-[10px] text-slate-500">Ulangi terus dari awal lagu pertama</p>
                     </div>
                 </div>
-                <input type="checkbox" id="loop-checkbox" checked class="w-6 h-6 rounded accent-indigo-600 cursor-pointer" />
+                <input type="checkbox" id="loop-checkbox" checked class="w-6 h-6 rounded accent-indigo-600" />
             </div>
 
             <div class="flex gap-4 pt-4">
-                <button onclick="closeModal()" class="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-700 transition-all">Batal</button>
-                <button onclick="startStreaming()" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/30 transition-all">GO LIVE</button>
+                <button onclick="closeModal()" class="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-sm">Batal</button>
+                <button onclick="startPlaylistStream()" class="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-600/30">MULAI RADIO</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Inisialisasi Socket.io
-        let socket;
-        try {
-            socket = io();
-        } catch(e) {
-            console.error("Socket.io not loaded. Dashboard will be read-only.");
-        }
-
+        let socket = io();
         let mediaData = [];
-        let selectedFileId = null;
+        let selectedIds = new Set();
 
-        // Routing UI
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
-            
-            const activeTab = document.getElementById('tab-' + tab);
-            const activeNav = document.getElementById('nav-' + tab);
-            
-            if(activeTab) activeTab.classList.add('active');
-            if(activeNav) activeNav.classList.add('active');
-            
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('nav-' + tab).classList.add('active');
             document.getElementById('current-tab-title').textContent = tab;
-            
             if(tab === 'library') fetchMedia();
             if(tab === 'settings') fetchSettings();
         }
 
-        // Socket Events
-        if(socket) {
-            socket.on('log', (data) => {
-                const consoleEl = document.getElementById('logConsole');
-                const p = document.createElement('p');
-                const time = new Date().toLocaleTimeString();
-                
-                if (data.type === 'error') p.className = 'text-rose-400 font-medium';
-                else if (data.type === 'start') {
-                    p.className = 'text-emerald-400 font-bold';
-                    updateStreamUI(true);
-                } else if (data.type === 'end') {
-                    p.className = 'text-amber-400 font-medium';
-                    updateStreamUI(false);
-                } else if (data.type === 'debug') {
-                    p.className = 'text-slate-500 opacity-60 italic';
-                }
+        socket.on('log', (data) => {
+            const consoleEl = document.getElementById('logConsole');
+            const p = document.createElement('p');
+            const time = new Date().toLocaleTimeString();
+            
+            if (data.type === 'start') {
+                updateStreamUI(true, data.filename);
+                p.className = 'text-emerald-400 font-bold';
+            } else if (data.type === 'end') {
+                updateStreamUI(false);
+                p.className = 'text-amber-400';
+            } else if (data.type === 'error') {
+                p.className = 'text-rose-400';
+            } else {
+                p.className = 'text-slate-500 opacity-60';
+            }
 
-                p.innerHTML = `<span class="opacity-30 mr-2">[${time}]</span> ${data.message || 'Processing stream...'}`;
-                consoleEl.appendChild(p);
-                consoleEl.scrollTop = consoleEl.scrollHeight;
-            });
-        }
+            p.innerHTML = `<span class="opacity-30 mr-2 text-[9px]">[${time}]</span> ${data.message || data.text || 'Processing...'}`;
+            consoleEl.appendChild(p);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        });
 
-        function updateStreamUI(isActive) {
+        socket.on('queue-update', (data) => {
+            document.getElementById('stat-queue-count').textContent = data.count + ' Items';
+        });
+
+        function updateStreamUI(isActive, filename) {
             const badge = document.getElementById('live-badge');
-            const stateText = document.getElementById('stat-stream-state');
+            const nowPlaying = document.getElementById('stat-now-playing');
             const stopBtn = document.getElementById('btn-stop-stream');
 
             if (isActive) {
                 badge.classList.remove('hidden');
-                badge.classList.add('flex');
-                stateText.textContent = 'Streaming';
-                stateText.className = 'text-2xl font-bold text-emerald-400';
+                nowPlaying.textContent = filename || 'Streaming...';
                 stopBtn.classList.remove('hidden');
             } else {
                 badge.classList.add('hidden');
-                stateText.textContent = 'Idle';
-                stateText.className = 'text-2xl font-bold text-slate-400';
+                nowPlaying.textContent = 'Idle';
                 stopBtn.classList.add('hidden');
             }
         }
 
-        // Library Management
         async function fetchMedia() {
-            try {
-                const res = await fetch('/api/videos');
-                mediaData = await res.json();
-                document.getElementById('stat-library-count').textContent = mediaData.length + ' Files';
-                renderMedia();
-            } catch(e) { console.error("Fetch media failed", e); }
+            const res = await fetch('/api/videos');
+            mediaData = await res.json();
+            renderMedia();
+        }
+
+        function toggleSelection(id) {
+            if (selectedIds.has(id)) selectedIds.delete(id);
+            else selectedIds.add(id);
+            
+            const btn = document.getElementById('btn-play-selected');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (selectedIds.size > 0) {
+                btn.classList.remove('hidden');
+                countSpan.textContent = selectedIds.size;
+            } else {
+                btn.classList.add('hidden');
+            }
         }
 
         function renderMedia() {
             const list = document.getElementById('media-list');
             if(mediaData.length === 0) {
-                list.innerHTML = '<div class="text-center py-20 text-slate-600"><i class="fas fa-folder-open text-3xl mb-3"></i><p>Belum ada file media.</p></div>';
+                list.innerHTML = '<div class="text-center py-10 text-slate-500">Library kosong.</div>';
                 return;
             }
-
             list.innerHTML = mediaData.map(item => `
-                <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-between hover:bg-slate-700/30 transition-all group">
-                    <div class="flex items-center gap-4">
-                        <div class="p-3 rounded-xl bg-slate-900 ${item.type === 'audio' ? 'text-amber-400' : item.type === 'image' ? 'text-emerald-400' : 'text-indigo-400'}">
-                            <i class="fas ${item.type === 'audio' ? 'fa-music' : item.type === 'image' ? 'fa-image' : 'fa-video'}"></i>
+                <div class="relative group">
+                    <input type="checkbox" id="chk-${item.id}" class="hidden peer" onchange="toggleSelection(${item.id})">
+                    <label for="chk-${item.id}" class="block bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-between cursor-pointer peer-checked:border-indigo-500 transition-all">
+                        <div class="flex items-center gap-4">
+                            <div class="p-3 rounded-xl bg-slate-900 ${item.type === 'audio' ? 'text-amber-400' : 'text-indigo-400'}">
+                                <i class="fas ${item.type === 'audio' ? 'fa-music' : 'fa-video'}"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-sm truncate max-w-[200px]">${item.filename}</h4>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">${(item.size/1024/1024).toFixed(1)} MB</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="font-bold text-sm text-slate-200">${item.filename}</h4>
-                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">${(item.size/1024/1024).toFixed(1)} MB • ${item.type}</p>
+                        <div class="flex gap-2">
+                             <span class="text-indigo-500 opacity-0 peer-checked:opacity-100"><i class="fas fa-check-circle"></i></span>
+                             <button onclick="event.preventDefault(); deleteMedia(${item.id})" class="text-slate-600 hover:text-rose-500 transition-colors"><i class="fas fa-trash"></i></button>
                         </div>
-                    </div>
-                    <div class="flex gap-2">
-                        ${item.type !== 'image' ? `<button onclick="openModal(${item.id})" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all"><i class="fas fa-play"></i> LIVE</button>` : ''}
-                        <button onclick="deleteMedia(${item.id})" class="bg-slate-700 p-2.5 px-3 rounded-xl hover:bg-rose-500 transition-colors text-slate-400 hover:text-white"><i class="fas fa-trash"></i></button>
-                    </div>
+                    </label>
                 </div>
             `).join('');
         }
 
-        async function handleUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('video', file);
-
-            const progress = document.getElementById('uploadProgress');
-            const progressBar = document.getElementById('uploadProgressBar');
-            const progressPercent = document.getElementById('uploadPercent');
-
-            progress.classList.remove('hidden');
+        function openPlaylistModal() {
+            const preview = document.getElementById('playlist-preview');
+            const selectedMedia = mediaData.filter(m => selectedIds.has(m.id));
             
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/videos/upload', true);
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    progressBar.style.width = percent + '%';
-                    progressPercent.textContent = percent + '%';
-                }
-            };
-            xhr.onload = () => {
-                progress.classList.add('hidden');
-                fetchMedia();
-                input.value = '';
-            };
-            xhr.onerror = () => {
-                alert("Upload gagal. Cek koneksi server.");
-                progress.classList.add('hidden');
-            };
-            xhr.send(formData);
-        }
+            preview.innerHTML = selectedMedia.map(m => `
+                <div class="flex justify-between border-b border-slate-800 py-1">
+                    <span>${m.filename}</span>
+                    <span class="text-indigo-400 uppercase font-bold">${m.type}</span>
+                </div>
+            `).join('');
 
-        async function deleteMedia(id) {
-            if(!confirm('Hapus file ini permanen?')) return;
-            try {
-                await fetch('/api/videos/' + id, { method: 'DELETE' });
-                fetchMedia();
-            } catch(e) { alert("Gagal menghapus."); }
-        }
-
-        // Streaming Controls
-        function openModal(id) {
-            selectedFileId = id;
-            const item = mediaData.find(m => m.id === id);
-            if(!item) return;
-
-            document.getElementById('modal-file-info').innerHTML = `Media: <span class="text-indigo-400 font-bold">${item.filename}</span>`;
-            
-            if (item.type === 'audio') {
-                document.getElementById('audio-options').classList.remove('hidden');
-                const select = document.getElementById('cover-select');
-                const images = mediaData.filter(m => m.type === 'image');
-                select.innerHTML = '<option value="">-- No Background (Black) --</option>' + 
-                    images.map(img => `<option value="${img.id}">${img.filename}</option>`).join('');
-            } else {
-                document.getElementById('audio-options').classList.add('hidden');
-            }
+            const select = document.getElementById('cover-select');
+            select.innerHTML = '<option value="">-- No Image (Black) --</option>' + 
+                mediaData.filter(m => m.type === 'image').map(img => `<option value="${img.id}">${img.filename}</option>`).join('');
             
             document.getElementById('liveModal').classList.remove('hidden');
         }
@@ -336,72 +293,66 @@
             document.getElementById('liveModal').classList.add('hidden');
         }
 
-        async function startStreaming() {
+        async function startPlaylistStream() {
             const rtmpRes = await fetch('/api/settings');
             const rtmpData = await rtmpRes.json();
             const rtmp = rtmpData.rtmp_url;
-            
-            if(!rtmp || rtmp.includes('your-key')) {
-                alert("Harap atur RTMP URL yang valid di tab Settings terlebih dahulu.");
-                switchTab('settings');
-                closeModal();
-                return;
-            }
 
             const coverId = document.getElementById('cover-select').value;
             const loop = document.getElementById('loop-checkbox').checked;
 
-            try {
-                const res = await fetch('/api/stream/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ videoId: selectedFileId, rtmpUrl: rtmp, coverImageId: coverId, loop: loop })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    closeModal();
-                    switchTab('overview');
-                } else alert('Gagal memulai: ' + data.error);
-            } catch(e) { alert("Error sistem."); }
+            const res = await fetch('/api/playlist/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: Array.from(selectedIds), rtmpUrl: rtmp, coverImageId: coverId, loop: loop })
+            });
+            
+            if ((await res.json()).success) {
+                closeModal();
+                switchTab('overview');
+            }
         }
 
         async function stopStreaming() {
-            if(!confirm('Hentikan streaming sekarang?')) return;
-            try {
-                await fetch('/api/stream/stop', { method: 'POST' });
-            } catch(e) { console.error(e); }
+            if(!confirm('Hentikan semua antrean playlist?')) return;
+            await fetch('/api/stream/stop', { method: 'POST' });
         }
 
-        // Settings
+        async function handleUpload(input) {
+            const files = Array.from(input.files);
+            for(const file of files) {
+                const formData = new FormData();
+                formData.append('video', file);
+                await fetch('/api/videos/upload', { method: 'POST', body: formData });
+            }
+            fetchMedia();
+        }
+
         async function fetchSettings() {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                document.getElementById('rtmp-input').value = data.rtmp_url || '';
-            } catch(e) {}
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+            document.getElementById('rtmp-input').value = data.rtmp_url || '';
         }
 
         async function saveSettings() {
             const rtmp = document.getElementById('rtmp-input').value;
-            if(!rtmp) return alert("URL tidak boleh kosong.");
-            
-            try {
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rtmp_url: rtmp })
-                });
-                alert('Konfigurasi RTMP berhasil disimpan.');
-            } catch(e) { alert("Gagal menyimpan."); }
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rtmp_url: rtmp })
+            });
+            alert('RTMP URL disimpan.');
         }
 
-        // Auto Load
+        async function deleteMedia(id) {
+            if(!confirm('Hapus file?')) return;
+            await fetch('/api/videos/' + id, { method: 'DELETE' });
+            fetchMedia();
+        }
+
         window.onload = () => {
             fetchMedia();
-            fetch('/api/stream/status')
-                .then(r => r.json())
-                .then(d => updateStreamUI(d.active))
-                .catch(() => {});
+            fetch('/api/stream/status').then(r => r.json()).then(d => updateStreamUI(d.active, d.nowPlaying));
         };
     </script>
 </body>

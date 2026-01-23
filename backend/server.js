@@ -30,29 +30,28 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sajikan index.html dari root
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../index.html'));
-});
-
-// API Routes
+// Routing API
 app.use('/api', routes);
 
 // Static uploads
 app.use('/uploads', express.static(uploadDir));
 
-// Handle request file statis lainnya (jika ada)
+// Sajikan index.html dari root folder
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../index.html'));
+});
+
+// Support static files dari root (misal socket.io.js)
 app.use(express.static(path.join(__dirname, '../')));
 
 const PORT = process.env.PORT || 3000;
 
 initDB().then(() => {
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`LiteStream Server Ready on Port: ${PORT}`);
+    console.log(`LiteStream Engine Aktif di Port: ${PORT}`);
   });
 });
 
 io.on('connection', (socket) => {
-  console.log('Client connected');
-  socket.emit('log', { type: 'info', message: 'Koneksi Dashboard Aktif.' });
+  console.log('Client dashboard connected');
 });

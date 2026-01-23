@@ -7,127 +7,124 @@ const fs = require('fs');
 const { getVideos, saveVideo, deleteVideo, db } = require('./database');
 const { startStream, stopStream, isStreaming } = require('./streamEngine');
 
-// Setup Multer for Media Uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'));
-  }
-});
+let playlistQueue = [];
+let currentPlaylistIndex = 0;
+let playlistOptions = {};
+let isPlaylistRunning = false;
+let nowPlayingFilename = "";
 
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 1024 * 1024 * 1000 }, // 1GB limit
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (['.mp4', '.mkv', '.mp3', '.jpg', '.png', '.jpeg'].includes(ext)) {
-      cb(null, true);
+// Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => { cb(null, path.join(__dirname, 'uploads')); },
+  filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_')); }
+});
+const upload = multer({ storage });
+
+// Helper: Start Next in Queue
+const playNext = async () => {
+  if (!isPlaylistRunning || playlistQueue.length === 0) return;
+
+  if (currentPlaylistIndex >= playlistQueue.length) {
+    if (playlistOptions.loop) {
+      currentPlaylistIndex = 0; // Reset ke awal jika loop aktif
     } else {
-      cb(new Error('Only videos (mp4/mkv), audio (mp3), and images (jpg/png) are allowed'));
+      isPlaylistRunning = false;
+      return;
     }
   }
-});
 
-// Media Management
+  const mediaId = playlistQueue[currentPlaylistIndex];
+  db.get("SELECT * FROM videos WHERE id = ?", [mediaId], async (err, video) => {
+    if (!video) {
+        currentPlaylistIndex++;
+        playNext();
+        return;
+    }
+
+    nowPlayingFilename = video.filename;
+    if (global.io) {
+        global.io.emit('log', { type: 'start', filename: video.filename, message: `Memutar playlist [${currentPlaylistIndex + 1}/${playlistQueue.length}]: ${video.filename}` });
+        global.io.emit('queue-update', { count: playlistQueue.length - currentPlaylistIndex });
+    }
+
+    try {
+      await startStream(video.path, playlistOptions.rtmpUrl, {
+        coverImagePath: playlistOptions.coverPath,
+        loop: false // FFmpeg jangan loop internal agar kita bisa pindah ke file berikutnya di Node.js
+      });
+      
+      // Jika FFmpeg selesai normal (on 'end'), lanjut ke berikutnya
+      currentPlaylistIndex++;
+      playNext();
+    } catch (e) {
+      console.error("Stream Error, skipping...", e);
+      currentPlaylistIndex++;
+      playNext();
+    }
+  });
+};
+
 router.get('/videos', async (req, res) => {
-  try {
-    const videos = await getVideos();
-    res.json(videos);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  res.json(await getVideos());
 });
 
 router.post('/videos/upload', upload.single('video'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-  
   const ext = path.extname(req.file.filename).toLowerCase();
-  let type = 'video';
-  if (ext === '.mp3') type = 'audio';
-  if (['.jpg', '.jpeg', '.png'].includes(ext)) type = 'image';
-
-  try {
-    const videoId = await saveVideo({
-      filename: req.file.filename,
-      path: req.file.path,
-      size: req.file.size,
-      type: type
-    });
-    res.json({ success: true, id: videoId, type: type });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  let type = (ext === '.mp3') ? 'audio' : (['.jpg','.png','.jpeg'].includes(ext) ? 'image' : 'video');
+  const id = await saveVideo({ filename: req.file.filename, path: req.file.path, size: req.file.size, type });
+  res.json({ success: true, id });
 });
 
 router.delete('/videos/:id', async (req, res) => {
-  try {
-    db.get("SELECT path FROM videos WHERE id = ?", [req.params.id], (err, row) => {
-        if (row && fs.existsSync(row.path)) fs.unlinkSync(row.path);
-        deleteVideo(req.params.id).then(() => res.json({ success: true }));
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Stream Controls
-router.post('/stream/start', async (req, res) => {
-  const { videoId, rtmpUrl, coverImageId, loop } = req.body;
-  
-  db.get("SELECT path, type FROM videos WHERE id = ?", [videoId], (err, video) => {
-    if (err || !video) return res.status(404).json({ error: "Media not found" });
-    
-    const getTargetAndStart = (coverPath = null) => {
-      db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", async (err, setting) => {
-        const target = rtmpUrl || (setting ? setting.value : '');
-        try {
-          startStream(video.path, target, { 
-            coverImagePath: coverPath,
-            loop: loop === true 
-          }).catch(e => console.error(e));
-          res.json({ success: true, message: "Stream initiated" });
-        } catch (e) {
-          res.status(500).json({ error: e.message });
-        }
-      });
-    };
-
-    if (video.type === 'audio' && coverImageId) {
-      db.get("SELECT path FROM videos WHERE id = ?", [coverImageId], (err, cover) => {
-        getTargetAndStart(cover ? cover.path : null);
-      });
-    } else {
-      getTargetAndStart();
-    }
+  db.get("SELECT path FROM videos WHERE id = ?", [req.params.id], (err, row) => {
+    if (row && fs.existsSync(row.path)) fs.unlinkSync(row.path);
+    deleteVideo(req.params.id).then(() => res.json({ success: true }));
   });
 });
 
+// NEW: Start Playlist
+router.post('/playlist/start', async (req, res) => {
+  const { ids, rtmpUrl, coverImageId, loop } = req.body;
+  
+  if (!ids || ids.length === 0) return res.status(400).json({ error: "No media selected" });
+
+  stopStream(); // Hentikan yang sedang jalan
+  
+  playlistQueue = ids;
+  currentPlaylistIndex = 0;
+  isPlaylistRunning = true;
+  
+  // Ambil cover path jika ada
+  let coverPath = null;
+  if (coverImageId) {
+    const cover = await new Promise(r => db.get("SELECT path FROM videos WHERE id = ?", [coverImageId], (e, row) => r(row)));
+    if (cover) coverPath = cover.path;
+  }
+
+  playlistOptions = { rtmpUrl, coverPath, loop };
+
+  // Mulai proses background
+  playNext();
+  res.json({ success: true });
+});
+
 router.post('/stream/stop', (req, res) => {
+  isPlaylistRunning = false;
+  playlistQueue = [];
   const stopped = stopStream();
   res.json({ success: stopped });
 });
 
 router.get('/stream/status', (req, res) => {
-  res.json({ active: isStreaming() });
+  res.json({ active: isStreaming(), nowPlaying: nowPlayingFilename });
 });
 
-// Settings Management
 router.get('/settings', (req, res) => {
-    db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", (err, row) => {
-        res.json({ rtmp_url: row ? row.value : '' });
-    });
+  db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", (err, row) => res.json({ rtmp_url: row ? row.value : '' }));
 });
 
 router.post('/settings', (req, res) => {
-    const { rtmp_url } = req.body;
-    db.run("INSERT OR REPLACE INTO stream_settings (key, value) VALUES ('rtmp_url', ?)", [rtmp_url], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
+  db.run("INSERT OR REPLACE INTO stream_settings (key, value) VALUES ('rtmp_url', ?)", [req.body.rtmp_url], () => res.json({ success: true }));
 });
 
 module.exports = router;
