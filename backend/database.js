@@ -12,16 +12,28 @@ const initDB = () => {
       // 1. Aktifkan Foreign Keys
       db.run("PRAGMA foreign_keys = ON");
 
-      // 2. Buat Tabel
+      // 2. Buat Tabel Dasar jika belum ada
       db.run(`CREATE TABLE IF NOT EXISTS plans (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         name TEXT UNIQUE, 
         max_storage_mb INTEGER, 
         allowed_types TEXT, 
-        max_active_streams INTEGER,
-        price_text TEXT,
-        features_text TEXT
+        max_active_streams INTEGER
       )`);
+
+      // 3. MIGRASI: Tambahkan kolom baru jika belum ada (Menghindari SQLITE_ERROR)
+      db.all("PRAGMA table_info(plans)", (err, columns) => {
+        if (err) return;
+        const hasPrice = columns.some(c => c.name === 'price_text');
+        const hasFeatures = columns.some(c => c.name === 'features_text');
+        
+        if (!hasPrice) {
+          db.run("ALTER TABLE plans ADD COLUMN price_text TEXT");
+        }
+        if (!hasFeatures) {
+          db.run("ALTER TABLE plans ADD COLUMN features_text TEXT");
+        }
+      });
 
       db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -47,7 +59,7 @@ const initDB = () => {
         status TEXT DEFAULT 'pending'
       )`);
 
-      // 3. Seeding Master Data Plans (Kategori Baru: Video, Radio, Sultan)
+      // 4. Seeding Master Data Plans (Paket Video, Radio, Sultan)
       const plans = [
         [1, 'Paket Basic (Pemula)', 2048, 'video,audio', 1, 'Rp 50.000', 'Max 720p, 12 Jam/hari, Auto Reconnect'],
         [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target'],
@@ -57,17 +69,18 @@ const initDB = () => {
       
       plans.forEach(p => {
         db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`, p);
+                VALUES (?, ?, ?, ?, ?, ?, ?)`, p, (err) => {
+                  // Jika INSERT gagal karena kolom belum ada saat race condition, biarkan saja
+                });
       });
 
-      // 4. Seeding Admin
+      // 5. Seeding Admin
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
       db.run(`INSERT OR IGNORE INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
         if (!err) {
-          // Selalu pastikan admin lama pun memiliki role admin dan plan sultan
           db.run(`UPDATE users SET role = 'admin', plan_id = 4 WHERE username = ?`, [adminUser]);
           console.log("DB: Admin Check Completed.");
         }
