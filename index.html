@@ -99,6 +99,9 @@
                     <button onclick="switchTab('schedules')" id="nav-schedules" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
                         <i class="fas fa-calendar-alt w-5"></i> <span class="text-sm font-medium">Schedules</span>
                     </button>
+                    <button onclick="switchTab('users')" id="nav-users" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
+                        <i class="fas fa-users w-5"></i> <span class="text-sm font-medium">Users</span>
+                    </button>
                     <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:text-slate-200">
                         <i class="fas fa-cog w-5"></i> <span class="text-sm font-medium">Settings</span>
                     </button>
@@ -178,6 +181,30 @@
                     <div id="schedule-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
 
+                <!-- Tab Users -->
+                <div id="tab-users" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-bold">User Management</h3>
+                            <p class="text-xs text-slate-500">Kelola akun yang memiliki akses ke dashboard ini.</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-3xl overflow-hidden">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-700/30 border-b border-slate-700">
+                                <tr>
+                                    <th class="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest">Username</th>
+                                    <th class="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest">Role</th>
+                                    <th class="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-list-body">
+                                <!-- Data User Muncul Disini -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Tab Settings -->
                 <div id="tab-settings" class="tab-content space-y-6 max-w-xl">
                     <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 space-y-6">
@@ -220,6 +247,7 @@
     <script>
         let isDemoMode = false;
         let authMode = 'login'; 
+        let currentUser = null;
 
         // Fungsi Toggle Login/Register
         function toggleAuthMode() {
@@ -254,7 +282,7 @@
             }
         }
 
-        // Handler Auth Terpadu (Login & Register)
+        // Handler Auth
         async function handleAuth(e, mode) {
             e.preventDefault();
             const errDiv = document.getElementById('auth-error');
@@ -296,8 +324,12 @@
             try {
                 const res = await fetch('/api/check-auth');
                 const data = await res.json();
-                if (data.authenticated) showDashboard(data.user);
-                else showLogin();
+                if (data.authenticated) {
+                    currentUser = data.user;
+                    showDashboard(data.user);
+                } else {
+                    showLogin();
+                }
             } catch(e) { showLogin(); }
         }
 
@@ -344,11 +376,14 @@
             document.getElementById('tab-' + tab).classList.add('active');
             document.getElementById('nav-' + tab).classList.add('active');
             document.getElementById('current-tab-title').textContent = tab;
+            
             if (tab === 'schedules') fetchSchedules();
             if (tab === 'library') fetchMedia();
             if (tab === 'settings') fetchSettings();
+            if (tab === 'users') fetchUsers();
         }
 
+        // --- MEDIA LOGIC ---
         let mediaData = [];
         let selectedIds = new Set();
 
@@ -397,6 +432,52 @@
             fetchMedia();
         }
 
+        // --- USER MGMT LOGIC ---
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/users');
+                const users = await res.json();
+                const body = document.getElementById('user-list-body');
+                if (!body) return;
+                
+                body.innerHTML = users.map(u => `
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/10 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-indigo-400">
+                                    ${u.username[0].toUpperCase()}
+                                </div>
+                                <span class="font-medium">${u.username}</span>
+                                ${currentUser && currentUser.id === u.id ? '<span class="text-[9px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/30">YOU</span>' : ''}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-[10px] bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-lg uppercase tracking-widest font-bold text-slate-400">${u.role}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button 
+                                onclick="deleteUser(${u.id})" 
+                                ${currentUser && currentUser.id === u.id ? 'disabled class="text-slate-700 cursor-not-allowed"' : 'class="text-slate-500 hover:text-rose-500 transition-colors"'}
+                            >
+                                <i class="fas fa-user-minus"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error("Gagal ambil users", e); }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Hapus pengguna ini? Dia tidak akan bisa login lagi.")) return;
+            try {
+                const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) fetchUsers();
+                else alert(data.error || "Gagal menghapus user.");
+            } catch (e) { alert("Server error."); }
+        }
+
+        // --- PLAYLIST LOGIC ---
         function openPlaylistModal(mode) {
             modalMode = mode;
             document.getElementById('modal-title').textContent = mode === 'now' ? 'Stream Sekarang' : 'Jadwalkan Stream';

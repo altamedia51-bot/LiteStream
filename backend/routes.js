@@ -64,43 +64,53 @@ const playNext = async () => {
   });
 };
 
-// Scheduler Worker: Cek setiap menit
+// Scheduler Worker
 cron.schedule('* * * * *', () => {
   const now = new Date().toISOString();
   db.all("SELECT * FROM schedules WHERE scheduled_at <= ? AND status = 'pending'", [now], async (err, rows) => {
     if (err || !rows) return;
     
     for (const schedule of rows) {
-      console.log(`Scheduler: Menjalankan jadwal ID ${schedule.id}`);
-      
-      // Update status agar tidak dobel eksekusi
       db.run("UPDATE schedules SET status = 'completed' WHERE id = ?", [schedule.id]);
-
-      // Ambil detail cover
       let coverPath = null;
       if (schedule.cover_image_id) {
         const cover = await new Promise(r => db.get("SELECT path FROM videos WHERE id = ?", [schedule.cover_image_id], (e, row) => r(row)));
         if (cover) coverPath = cover.path;
       }
-
-      // Jalankan playlist
       stopStream();
       playlistQueue = JSON.parse(schedule.media_ids);
       currentPlaylistIndex = 0;
       isPlaylistRunning = true;
-      playlistOptions = { 
-        rtmpUrl: schedule.rtmp_url, 
-        coverPath: coverPath, 
-        loop: !!schedule.loop_playlist 
-      };
-      
+      playlistOptions = { rtmpUrl: schedule.rtmp_url, coverPath: coverPath, loop: !!schedule.loop_playlist };
       playNext();
       if (global.io) global.io.emit('log', { type: 'info', message: `JADWAL OTOMATIS DIMULAI (ID: ${schedule.id})` });
     }
   });
 });
 
-// Routes API
+// --- USER MANAGEMENT ROUTES ---
+router.get('/users', (req, res) => {
+  db.all("SELECT id, username, role FROM users", (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+router.delete('/users/:id', (req, res) => {
+  const targetId = req.params.id;
+  const currentUserId = req.session.user.id;
+
+  if (parseInt(targetId) === parseInt(currentUserId)) {
+    return res.status(400).json({ success: false, error: "Anda tidak bisa menghapus akun Anda sendiri." });
+  }
+
+  db.run("DELETE FROM users WHERE id = ?", [targetId], function(err) {
+    if (err) return res.status(500).json({ success: false, error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// --- VIDEO ROUTES ---
 router.get('/videos', async (req, res) => {
   res.json(await getVideos());
 });
@@ -148,7 +158,7 @@ router.get('/stream/status', (req, res) => {
   res.json({ active: isStreaming(), nowPlaying: nowPlayingFilename });
 });
 
-// SCHEDULE ENDPOINTS
+// --- SCHEDULE ROUTES ---
 router.get('/schedules', (req, res) => {
   db.all("SELECT * FROM schedules WHERE status = 'pending' ORDER BY scheduled_at ASC", (err, rows) => {
     res.json(rows || []);
@@ -171,6 +181,7 @@ router.delete('/schedules/:id', (req, res) => {
   db.run("DELETE FROM schedules WHERE id = ?", [req.params.id], () => res.json({ success: true }));
 });
 
+// --- SETTINGS ROUTES ---
 router.get('/settings', (req, res) => {
   db.get("SELECT value FROM stream_settings WHERE key = 'rtmp_url'", (err, row) => res.json({ rtmp_url: row ? row.value : '' }));
 });
