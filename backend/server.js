@@ -41,15 +41,48 @@ const isAuthenticated = (req, res, next) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username dan password wajib diisi' });
+  }
+
   db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
-    if (err) return res.status(500).json({ success: false, error: 'DB Error' });
+    if (err) return res.status(500).json({ success: false, error: 'Kesalahan Database' });
     
     if (user && await bcrypt.compare(password, user.password_hash)) {
       req.session.user = { id: user.id, username: user.username };
       return req.session.save(() => res.json({ success: true }));
     }
     
-    res.status(401).json({ success: false, error: 'Login Gagal' });
+    res.status(401).json({ success: false, error: 'Username atau Password salah' });
+  });
+});
+
+// Register Route
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username dan Password wajib diisi' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ success: false, error: 'Password minimal 6 karakter' });
+  }
+
+  // Cek apakah user sudah ada
+  db.get("SELECT id FROM users WHERE username = ?", [username], async (err, row) => {
+    if (err) return res.status(500).json({ success: false, error: 'Kesalahan Database' });
+    if (row) return res.status(400).json({ success: false, error: 'Username sudah digunakan' });
+
+    try {
+      const hash = await bcrypt.hash(password, 10);
+      db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, hash], function(err) {
+        if (err) return res.status(500).json({ success: false, error: 'Gagal mendaftarkan user' });
+        res.json({ success: true, message: 'Registrasi berhasil! Silakan login.' });
+      });
+    } catch (e) {
+      res.status(500).json({ success: false, error: 'Kesalahan Server' });
+    }
   });
 });
 
@@ -64,7 +97,8 @@ app.post('/api/logout', (req, res) => {
 // Load Routes
 const routes = require('./routes');
 app.use('/api', (req, res, next) => {
-  if (['/login', '/check-auth'].includes(req.path)) return next();
+  // Pengecualian middleware auth untuk login dan register
+  if (['/login', '/register', '/check-auth'].includes(req.path)) return next();
   return isAuthenticated(req, res, next);
 }, routes);
 
@@ -74,6 +108,6 @@ app.use(express.static(path.join(__dirname, '../')));
 
 initDB().then(() => {
   server.listen(3000, '0.0.0.0', () => {
-    console.log("SERVER RUNNING: Login with admin / admin123");
+    console.log("LITESTREAM SERVER AKTIF: Port 3000");
   });
 });

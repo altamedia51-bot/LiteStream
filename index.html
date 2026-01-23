@@ -18,42 +18,68 @@
         .nav-link.active { background: rgba(79, 70, 229, 0.1); color: #818cf8; border-right: 3px solid #6366f1; }
         #main-app { display: none; }
         #login-view { display: flex; }
-        .progress-bar-fill { transition: width 0.3s ease-in-out; }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
-    <!-- Login View -->
-    <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
+    <!-- Auth View (Login/Register) -->
+    <div id="login-view" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6 overflow-y-auto">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 md:p-10 space-y-8 shadow-2xl fade-in my-auto">
             <div class="text-center space-y-2">
-                <div class="bg-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/20">
-                    <i class="fas fa-lock text-white text-xl"></i>
+                <div class="bg-indigo-600 w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/20">
+                    <i id="auth-icon" class="fas fa-lock text-white text-2xl"></i>
                 </div>
-                <h2 class="text-2xl font-bold tracking-tight">LiteStream Login</h2>
-                <p class="text-slate-500 text-sm">Masukkan kredensial VPS Anda</p>
+                <h2 id="auth-title" class="text-2xl font-bold tracking-tight">LiteStream Login</h2>
+                <p id="auth-subtitle" class="text-slate-500 text-sm">Masukkan kredensial LiteStream Anda</p>
             </div>
-            <form onsubmit="handleLogin(event)" class="space-y-4">
+
+            <!-- Login Form -->
+            <form id="login-form" onsubmit="handleAuth(event, 'login')" class="space-y-4">
                 <div class="space-y-2">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Username</label>
-                    <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="admin">
+                    <input type="text" id="login-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="admin">
                 </div>
                 <div class="space-y-2">
                     <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Password</label>
-                    <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+                    <input type="password" id="login-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="••••••••">
                 </div>
-                <div id="login-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-500/10 py-2 rounded-lg border border-rose-500/20"></div>
-                <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 transition-all">SIGN IN</button>
+                <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98]">SIGN IN</button>
             </form>
-            <div class="pt-4 border-t border-slate-700/50 text-center">
-                <button onclick="activateDemoMode()" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition-colors">
-                    <i class="fas fa-flask mr-1"></i> Demo Mode
+
+            <!-- Register Form -->
+            <form id="register-form" onsubmit="handleAuth(event, 'register')" class="hidden space-y-4">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">New Username</label>
+                    <input type="text" id="reg-user" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="my_vps_user">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">New Password</label>
+                    <input type="password" id="reg-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="minimal 6 karakter">
+                </div>
+                <button type="submit" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-600/20 transition-all active:scale-[0.98]">CREATE ACCOUNT</button>
+            </form>
+
+            <div id="auth-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20 fade-in"></div>
+            <div id="auth-success" class="hidden text-emerald-500 text-xs font-bold text-center bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 fade-in"></div>
+
+            <div class="pt-4 border-t border-slate-700/50 text-center space-y-4">
+                <button id="toggle-auth-btn" onclick="toggleAuthMode()" class="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+                    Belum punya akun? Registrasi di sini
                 </button>
+                <div class="flex items-center justify-center gap-4 pt-2">
+                    <button onclick="activateDemoMode()" class="text-[10px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1">
+                        <i class="fas fa-flask"></i> Demo
+                    </button>
+                    <span class="text-slate-700">|</span>
+                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" class="text-[10px] font-bold text-slate-500 hover:text-indigo-400 uppercase tracking-widest transition-colors">Billing Docs</a>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Main App Layout -->
+    <!-- Main App Layout (Hidden by default) -->
     <div id="main-app" class="flex flex-col md:flex-row min-h-screen">
         <aside class="w-full md:w-64 bg-slate-800 border-r border-slate-700 flex-shrink-0 flex flex-col">
             <div class="p-6">
@@ -88,13 +114,16 @@
         <main class="flex-1 flex flex-col overflow-hidden">
             <header class="h-16 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md">
                 <h2 id="current-tab-title" class="text-lg font-bold text-slate-200 capitalize">Overview</h2>
-                <div id="live-badge" class="hidden items-center gap-2 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-full border border-rose-500/20 animate-pulse">
-                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
+                <div class="flex items-center gap-4">
+                    <div id="live-badge" class="hidden items-center gap-2 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1.5 rounded-full border border-rose-500/20 animate-pulse">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> LIVE
+                    </div>
+                    <div class="text-xs text-slate-500">User: <span id="user-display" class="text-indigo-400 font-bold">...</span></div>
                 </div>
             </header>
 
             <div class="flex-1 overflow-y-auto p-8 max-w-6xl mx-auto w-full">
-                <!-- Overview -->
+                <!-- Tab Overview -->
                 <div id="tab-overview" class="tab-content active space-y-8">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
@@ -119,17 +148,19 @@
                     </div>
                 </div>
 
-                <!-- Library -->
+                <!-- Tab Library -->
                 <div id="tab-library" class="tab-content space-y-6">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h3 class="text-xl font-bold">Media Library</h3>
-                            <p class="text-xs text-slate-500">Upload dan pilih media.</p>
+                            <p class="text-xs text-slate-500">Pilih file untuk mulai streaming.</p>
                         </div>
                         <div class="flex gap-2">
                             <button id="btn-play-selected" onclick="openPlaylistModal('now')" class="hidden bg-emerald-600 px-6 py-2.5 rounded-xl font-bold text-sm">Play Selected (<span id="selected-count">0</span>)</button>
                             <button id="btn-schedule-selected" onclick="openPlaylistModal('schedule')" class="hidden bg-indigo-600 px-6 py-2.5 rounded-xl font-bold text-sm">Schedule Selected</button>
-                            <button onclick="document.getElementById('uploadInput').click()" class="bg-slate-700 px-6 py-2.5 rounded-xl font-bold text-sm"><i class="fas fa-upload"></i></button>
+                            <button onclick="document.getElementById('uploadInput').click()" class="bg-slate-700 px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-600 transition-colors">
+                                <i class="fas fa-upload mr-2"></i> Upload
+                            </button>
                         </div>
                         <input type="file" id="uploadInput" class="hidden" multiple onchange="handleUpload(this)">
                     </div>
@@ -139,18 +170,15 @@
                     <div id="media-list" class="grid grid-cols-1 gap-3"></div>
                 </div>
 
-                <!-- Schedules -->
+                <!-- Tab Schedules -->
                 <div id="tab-schedules" class="tab-content space-y-6">
                     <div class="flex justify-between items-center">
                         <h3 class="text-xl font-bold">Scheduled Streams</h3>
-                        <p class="text-xs text-slate-500">Jadwal streaming otomatis mendatang.</p>
                     </div>
-                    <div id="schedule-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Schedules go here -->
-                    </div>
+                    <div id="schedule-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
 
-                <!-- Settings -->
+                <!-- Tab Settings -->
                 <div id="tab-settings" class="tab-content space-y-6 max-w-xl">
                     <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 space-y-6">
                         <h3 class="text-xl font-bold">RTMP Configuration</h3>
@@ -158,45 +186,110 @@
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Global RTMP URL</label>
                             <input type="text" id="rtmp-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-indigo-400 outline-none" placeholder="rtmp://...">
                         </div>
-                        <button onclick="saveSettings()" class="bg-indigo-600 w-full py-3 rounded-xl font-bold text-sm transition-all hover:bg-indigo-500">Simpan</button>
+                        <button onclick="saveSettings()" class="bg-indigo-600 w-full py-3 rounded-xl font-bold text-sm transition-all hover:bg-indigo-500">Save Configuration</button>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Playlist Modal -->
+    <!-- Modals -->
     <div id="liveModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-10 space-y-6 shadow-2xl">
-            <h3 id="modal-title" class="text-2xl font-bold">Stream Playlist Setup</h3>
-            
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 md:p-10 space-y-6 shadow-2xl fade-in">
+            <h3 id="modal-title" class="text-2xl font-bold">Setup Stream</h3>
             <div id="schedule-time-box" class="hidden space-y-2">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Waktu Eksekusi</label>
                 <input type="datetime-local" id="schedule-time-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
             </div>
-
-            <div id="playlist-preview" class="space-y-1 max-h-32 overflow-y-auto text-[10px] text-slate-400 bg-slate-900/50 p-3 rounded-xl"></div>
-            
+            <div id="playlist-preview" class="space-y-1 max-h-32 overflow-y-auto text-[10px] text-slate-400 bg-slate-900/50 p-3 rounded-xl border border-slate-700"></div>
             <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cover Image</label>
+                <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cover Image (Untuk Audio)</label>
                 <select id="cover-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"></select>
             </div>
-            
             <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
                 <span class="text-sm font-bold">Loop Playlist</span>
                 <input type="checkbox" id="loop-checkbox" checked class="w-6 h-6 rounded accent-indigo-600">
             </div>
-
             <div class="flex gap-4 pt-4">
-                <button onclick="closeModal()" class="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-sm">Batal</button>
-                <button id="modal-submit-btn" onclick="submitPlaylist()" class="flex-1 py-4 bg-emerald-600 rounded-2xl font-bold text-sm">SUBMIT</button>
+                <button onclick="closeModal()" class="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-700 transition-colors">Batal</button>
+                <button id="modal-submit-btn" onclick="submitPlaylist()" class="flex-1 py-4 bg-emerald-600 rounded-2xl font-bold text-sm hover:bg-emerald-500 shadow-lg shadow-emerald-500/20">MULAI</button>
             </div>
         </div>
     </div>
 
     <script>
         let isDemoMode = false;
-        let modalMode = 'now'; // 'now' or 'schedule'
+        let authMode = 'login'; 
+
+        // Fungsi Toggle Login/Register
+        function toggleAuthMode() {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            const icon = document.getElementById('auth-icon');
+            const toggleBtn = document.getElementById('toggle-auth-btn');
+            const errDiv = document.getElementById('auth-error');
+            const succDiv = document.getElementById('auth-success');
+
+            errDiv.classList.add('hidden');
+            succDiv.classList.add('hidden');
+
+            if (authMode === 'login') {
+                authMode = 'register';
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                title.textContent = "LiteStream Register";
+                subtitle.textContent = "Buat akun baru untuk mengelola LiteStream";
+                icon.className = "fas fa-user-plus text-white text-2xl";
+                toggleBtn.textContent = "Sudah punya akun? Login di sini";
+            } else {
+                authMode = 'login';
+                registerForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+                title.textContent = "LiteStream Login";
+                subtitle.textContent = "Masukkan kredensial LiteStream Anda";
+                icon.className = "fas fa-lock text-white text-2xl";
+                toggleBtn.textContent = "Belum punya akun? Registrasi di sini";
+            }
+        }
+
+        // Handler Auth Terpadu (Login & Register)
+        async function handleAuth(e, mode) {
+            e.preventDefault();
+            const errDiv = document.getElementById('auth-error');
+            const succDiv = document.getElementById('auth-success');
+            errDiv.classList.add('hidden');
+            succDiv.classList.add('hidden');
+
+            const username = mode === 'login' ? document.getElementById('login-user').value : document.getElementById('reg-user').value;
+            const password = mode === 'login' ? document.getElementById('login-pass').value : document.getElementById('reg-pass').value;
+
+            try {
+                const res = await fetch(`/api/${mode}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (mode === 'login') {
+                        location.reload();
+                    } else {
+                        succDiv.textContent = data.message;
+                        succDiv.classList.remove('hidden');
+                        setTimeout(toggleAuthMode, 2000);
+                    }
+                } else {
+                    errDiv.textContent = data.error || "Terjadi kesalahan";
+                    errDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                errDiv.textContent = "Server tidak merespons.";
+                errDiv.classList.remove('hidden');
+            }
+        }
 
         async function checkAuth() {
             if (localStorage.getItem('liteStream_demo') === 'true') return activateDemoMode();
@@ -211,6 +304,7 @@
         function showDashboard(user) {
             document.getElementById('login-view').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
+            document.getElementById('user-display').textContent = user.username;
             if (!isDemoMode) initSocket();
             fetchMedia();
             fetchSchedules();
@@ -228,13 +322,18 @@
                 if (data.type === 'end') updateStreamUI(false);
                 addLog(data.message);
             });
-            socket.on('queue-update', d => document.getElementById('stat-queue-count').textContent = d.count + ' Items');
+            socket.on('queue-update', d => {
+                const countEl = document.getElementById('stat-queue-count');
+                if (countEl) countEl.textContent = d.count + ' Items';
+            });
         }
 
         function addLog(msg) {
             const el = document.getElementById('logConsole');
+            if (!el) return;
             const p = document.createElement('p');
-            p.innerHTML = `<span class="opacity-30 mr-2">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            p.className = 'py-0.5';
+            p.innerHTML = `<span class="opacity-30 mr-2 text-[9px]">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
             el.appendChild(p);
             el.scrollTop = el.scrollHeight;
         }
@@ -254,25 +353,30 @@
         let selectedIds = new Set();
 
         async function fetchMedia() {
-            const res = await fetch('/api/videos');
-            mediaData = await res.json();
-            renderMedia();
+            try {
+                const res = await fetch('/api/videos');
+                mediaData = await res.json();
+                renderMedia();
+            } catch (e) { console.error("Gagal ambil media", e); }
         }
 
         function renderMedia() {
             const list = document.getElementById('media-list');
+            if (!list) return;
             list.innerHTML = mediaData.map(item => `
-                <div class="relative">
+                <div class="relative group">
                     <input type="checkbox" id="chk-${item.id}" class="hidden peer" onchange="toggleSelection(${item.id})">
-                    <label for="chk-${item.id}" class="block bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-between cursor-pointer peer-checked:border-indigo-500 transition-all">
+                    <label for="chk-${item.id}" class="block bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-between cursor-pointer peer-checked:border-indigo-500 hover:border-slate-600 transition-all">
                         <div class="flex items-center gap-4">
-                            <i class="fas ${item.type === 'audio' ? 'fa-music text-amber-400' : 'fa-video text-indigo-400'}"></i>
+                            <div class="p-3 bg-slate-900 rounded-xl">
+                                <i class="fas ${item.type === 'audio' ? 'fa-music text-amber-400' : (item.type === 'image' ? 'fa-image text-emerald-400' : 'fa-video text-indigo-400')}"></i>
+                            </div>
                             <div>
-                                <h4 class="font-bold text-sm">${item.filename}</h4>
-                                <p class="text-[10px] text-slate-500 uppercase">${(item.size/1024/1024).toFixed(1)} MB</p>
+                                <h4 class="font-bold text-sm text-slate-200">${item.filename}</h4>
+                                <p class="text-[10px] text-slate-500 uppercase font-medium tracking-tighter">${(item.size/1024/1024).toFixed(1)} MB • ${item.type}</p>
                             </div>
                         </div>
-                        <button onclick="event.preventDefault(); deleteMedia(${item.id})" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>
+                        <button onclick="event.preventDefault(); deleteMedia(${item.id})" class="text-slate-600 hover:text-rose-500 p-2 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-trash-alt"></i></button>
                     </label>
                 </div>
             `).join('');
@@ -286,17 +390,24 @@
             document.getElementById('selected-count').textContent = count;
         }
 
+        async function deleteMedia(id) {
+            if(!confirm("Hapus file ini permanen?")) return;
+            await fetch('/api/videos/' + id, { method: 'DELETE' });
+            selectedIds.delete(id);
+            fetchMedia();
+        }
+
         function openPlaylistModal(mode) {
             modalMode = mode;
-            document.getElementById('modal-title').textContent = mode === 'now' ? 'Start Streaming Now' : 'Schedule Auto-Stream';
+            document.getElementById('modal-title').textContent = mode === 'now' ? 'Stream Sekarang' : 'Jadwalkan Stream';
             document.getElementById('schedule-time-box').classList.toggle('hidden', mode === 'now');
-            document.getElementById('modal-submit-btn').textContent = mode === 'now' ? 'START NOW' : 'SET SCHEDULE';
+            document.getElementById('modal-submit-btn').textContent = mode === 'now' ? 'MULAI SEKARANG' : 'SET JADWAL';
             
             const selectedMedia = mediaData.filter(m => selectedIds.has(m.id));
-            document.getElementById('playlist-preview').innerHTML = selectedMedia.map(m => `<div>• ${m.filename}</div>`).join('');
+            document.getElementById('playlist-preview').innerHTML = selectedMedia.map(m => `<div class="py-1 border-b border-slate-800 last:border-0">• ${m.filename}</div>`).join('');
             
             const select = document.getElementById('cover-select');
-            select.innerHTML = '<option value="">Default Black</option>' + mediaData.filter(m => m.type === 'image').map(i => `<option value="${i.id}">${i.filename}</option>`).join('');
+            select.innerHTML = '<option value="">Default (Hitam)</option>' + mediaData.filter(m => m.type === 'image').map(i => `<option value="${i.id}">${i.filename}</option>`).join('');
             
             document.getElementById('liveModal').classList.remove('hidden');
         }
@@ -307,7 +418,7 @@
             const rtmpRes = await fetch('/api/settings');
             const rtmpData = await rtmpRes.json();
             
-            if (!rtmpData.rtmp_url) return alert("RTMP URL belum diatur!");
+            if (!rtmpData.rtmp_url) return alert("RTMP URL belum diatur di Settings!");
 
             const payload = {
                 ids: Array.from(selectedIds),
@@ -329,13 +440,13 @@
                 });
                 if ((await res.json()).success) { closeModal(); switchTab('overview'); }
             } else {
-                if (!payload.scheduled_at) return alert("Pilih waktu eksekusi!");
+                if (!payload.scheduled_at) return alert("Pilih waktu jadwal!");
                 const res = await fetch('/api/schedules', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
-                if ((await res.json()).success) { closeModal(); switchTab('schedules'); alert("Jadwal tersimpan!"); }
+                if ((await res.json()).success) { closeModal(); switchTab('schedules'); alert("Stream berhasil dijadwalkan!"); }
             }
         }
 
@@ -343,20 +454,21 @@
             const res = await fetch('/api/schedules');
             const data = await res.json();
             const list = document.getElementById('schedule-list');
+            if (!list) return;
             if (data.length === 0) {
-                list.innerHTML = '<div class="col-span-full text-center py-10 text-slate-500">Belum ada jadwal.</div>';
+                list.innerHTML = '<div class="col-span-full text-center py-20 bg-slate-800/30 rounded-3xl border border-dashed border-slate-700 text-slate-500">Tidak ada jadwal aktif.</div>';
                 return;
             }
             list.innerHTML = data.map(s => {
-                const date = new Date(s.scheduled_at).toLocaleString('id-ID');
+                const date = new Date(s.scheduled_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
                 const mediaCount = JSON.parse(s.media_ids).length;
                 return `
-                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl flex justify-between items-center shadow-lg">
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl flex justify-between items-center shadow-lg hover:border-indigo-500 transition-all">
                         <div class="space-y-1">
                             <div class="flex items-center gap-2 text-indigo-400 font-bold text-sm">
                                 <i class="fas fa-clock"></i> <span>${date}</span>
                             </div>
-                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${mediaCount} Media Files • Loop: ${s.loop_playlist ? 'ON' : 'OFF'}</p>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${mediaCount} File • Loop: ${s.loop_playlist ? 'AKTIF' : 'NONAKTIF'}</p>
                         </div>
                         <button onclick="deleteSchedule(${s.id})" class="bg-rose-500/10 text-rose-500 p-3 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><i class="fas fa-trash-alt"></i></button>
                     </div>
@@ -365,15 +477,18 @@
         }
 
         async function deleteSchedule(id) {
-            if (!confirm('Batalkan jadwal ini?')) return;
+            if (!confirm('Hapus jadwal otomatis ini?')) return;
             await fetch('/api/schedules/' + id, { method: 'DELETE' });
             fetchSchedules();
         }
 
         function updateStreamUI(isActive, filename) {
-            document.getElementById('live-badge').classList.toggle('hidden', !isActive);
-            document.getElementById('stat-now-playing').textContent = isActive ? (filename || 'Streaming...') : 'Idle';
-            document.getElementById('btn-stop-stream').classList.toggle('hidden', !isActive);
+            const badge = document.getElementById('live-badge');
+            const np = document.getElementById('stat-now-playing');
+            const stopBtn = document.getElementById('btn-stop-stream');
+            if (badge) badge.classList.toggle('hidden', !isActive);
+            if (np) np.textContent = isActive ? (filename || 'Streaming...') : 'Idle';
+            if (stopBtn) stopBtn.classList.toggle('hidden', !isActive);
         }
 
         async function handleUpload(input) {
@@ -388,16 +503,22 @@
                 const fd = new FormData(); fd.append('video', file);
                 xhr.upload.onprogress = e => {
                     const p = Math.round((e.loaded/e.total)*100);
-                    document.getElementById(`${uploadId}-p`).textContent = p + '%';
-                    document.getElementById(`${uploadId}-b`).style.width = p + '%';
+                    const pEl = document.getElementById(`${uploadId}-p`);
+                    const bEl = document.getElementById(`${uploadId}-b`);
+                    if (pEl) pEl.textContent = p + '%';
+                    if (bEl) bEl.style.width = p + '%';
                 };
-                xhr.onload = () => { fetchMedia(); setTimeout(() => document.getElementById(uploadId).remove(), 2000); };
+                xhr.onload = () => { fetchMedia(); setTimeout(() => {
+                    const el = document.getElementById(uploadId);
+                    if (el) el.remove();
+                }, 2000); };
                 xhr.open('POST', '/api/videos/upload'); xhr.send(fd);
             }
+            input.value = '';
         }
 
         async function stopStreaming() {
-            if(!confirm('Hentikan stream?')) return;
+            if(!confirm('Hentikan stream yang sedang berjalan?')) return;
             await fetch('/api/stream/stop', { method: 'POST' });
         }
 
@@ -408,7 +529,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ rtmp_url: rtmp })
             });
-            alert('Settings saved!');
+            alert('Konfigurasi RTMP berhasil disimpan!');
         }
 
         async function fetchSettings() {
@@ -417,20 +538,15 @@
             document.getElementById('rtmp-input').value = data.rtmp_url;
         }
 
-        async function handleLogin(e) {
-            e.preventDefault();
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: document.getElementById('login-user').value, password: document.getElementById('login-pass').value})
-            });
-            if ((await res.json()).success) location.reload();
-            else alert("Login Gagal!");
-        }
-
         async function handleLogout() {
             await fetch('/api/logout', {method: 'POST'});
             location.reload();
+        }
+
+        function activateDemoMode() {
+            isDemoMode = true;
+            localStorage.setItem('liteStream_demo', 'true');
+            showDashboard({ username: 'Demo_User' });
         }
 
         window.onload = checkAuth;
