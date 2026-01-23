@@ -13,24 +13,29 @@
             background-color: #0f172a;
             margin: 0;
             padding: 0;
+            overflow-x: hidden;
         }
-        /* Custom scrollbar for logs inside React components */
+        /* Custom scrollbar for logs */
         .console-log::-webkit-scrollbar { width: 6px; }
         .console-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
     <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@^19.2.3",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-        "react/": "https://esm.sh/react@^19.2.3/",
-        "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-        "socket.io-client": "https://esm.sh/socket.io-client@^4.8.3"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "socket.io-client": "https://esm.sh/socket.io-client@^4.8.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
     <div id="root"></div>
+    <!-- Load the main entry point as an ES module -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>

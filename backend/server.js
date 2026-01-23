@@ -28,19 +28,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Global IO untuk streamEngine
+// Global IO untuk streamEngine agar bisa kirim log ke dashboard
 global.io = io;
 
-// Serving static files dari root (index.html utama)
+// Serving static files dari root project (tempat index.html dan index.tsx berada)
 app.use(express.static(path.join(__dirname, '../')));
-// Serving uploads
+
+// Serving folder uploads secara publik
 app.use('/uploads', express.static(uploadDir));
 
 // API Routes
 app.use('/api', routes);
 
-// Handle SPA: Pastikan request diarahkan ke index.html utama
-app.get('/', (req, res) => {
+// Penting: Handle SPA routing. Semua request navigasi balik ke index.html utama
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+    return; // Biarkan route API ditangani oleh routes.js
+  }
   res.sendFile(path.resolve(__dirname, '../index.html'));
 });
 
@@ -50,7 +54,8 @@ initDB()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`---------------------------------------------------`);
-      console.log(`LiteStream VPS Engine: http://76.13.20.2:${PORT}`);
+      console.log(`LiteStream VPS Engine Aktif di Port: ${PORT}`);
+      console.log(`Akses Dashboard: http://localhost:${PORT}`);
       console.log(`---------------------------------------------------`);
     });
   })
@@ -60,5 +65,5 @@ initDB()
 
 io.on('connection', (socket) => {
   console.log('Dashboard connected');
-  socket.emit('log', { type: 'info', message: 'Koneksi ke VPS Berhasil' });
+  socket.emit('log', { type: 'info', message: 'Koneksi ke VPS Berhasil. Engine Siap.' });
 });
