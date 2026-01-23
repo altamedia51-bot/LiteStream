@@ -16,6 +16,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+// PENTING: Set global.io agar streamEngine dan routes bisa kirim log
+global.io = io;
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -54,7 +54,6 @@
 
     <!-- Main App Layout -->
     <div id="main-app" class="flex flex-col md:flex-row min-h-screen">
-        <!-- Sidebar -->
         <aside class="w-full md:w-64 bg-slate-800 border-r border-slate-700 flex-shrink-0 flex flex-col">
             <div class="p-6">
                 <div class="flex items-center gap-3 mb-10">
@@ -85,7 +84,6 @@
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="flex-1 flex flex-col overflow-hidden">
             <header class="h-16 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md">
                 <h2 id="current-tab-title" class="text-lg font-bold text-slate-200 capitalize">Overview</h2>
@@ -98,7 +96,6 @@
             </header>
 
             <div class="flex-1 overflow-y-auto p-8 max-w-6xl mx-auto w-full">
-                <!-- Overview Content -->
                 <div id="tab-overview" class="tab-content active space-y-8">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl">
@@ -129,7 +126,6 @@
                     </div>
                 </div>
 
-                <!-- Library Content -->
                 <div id="tab-library" class="tab-content space-y-6">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -149,13 +145,12 @@
                     <div id="media-list" class="grid grid-cols-1 gap-3"></div>
                 </div>
 
-                <!-- Settings Content -->
                 <div id="tab-settings" class="tab-content space-y-6 max-w-xl">
                     <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 space-y-6">
                         <h3 class="text-xl font-bold">RTMP Configuration</h3>
                         <div class="space-y-2">
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">YouTube/Twitch RTMP URL</label>
-                            <input type="text" id="rtmp-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-indigo-400 outline-none" />
+                            <input type="text" id="rtmp-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-indigo-400 outline-none" placeholder="rtmp://a.rtmp.youtube.com/live2/XXXX-XXXX-XXXX-XXXX" />
                         </div>
                         <button onclick="saveSettings()" class="bg-indigo-600 hover:bg-indigo-500 w-full py-3 rounded-xl font-bold text-sm">Simpan</button>
                     </div>
@@ -174,6 +169,7 @@
                 <select id="cover-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
                     <option value="">-- No Image (Black) --</option>
                 </select>
+                <p class="text-[10px] text-slate-500">Wajib pilih satu gambar untuk streaming audio (MP3).</p>
             </div>
             <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -193,16 +189,13 @@
 
     <script>
         let isDemoMode = false;
-        
-        // --- DEMO MODE HELPER ---
         function activateDemoMode() {
             isDemoMode = true;
             localStorage.setItem('liteStream_demo', 'true');
             showDashboard({ username: 'Demo_User' });
             document.getElementById('mode-badge').innerHTML = '<p class="text-[11px] text-amber-400 font-bold">Preview Mode (No Backend)</p>';
-            addLog("Demo Mode aktif. Data yang Anda lihat adalah simulasi.");
+            addLog("Demo Mode aktif. Data simulasi.");
         }
-
         function addLog(msg, type = 'info') {
             const consoleEl = document.getElementById('logConsole');
             const p = document.createElement('p');
@@ -211,29 +204,20 @@
             consoleEl.appendChild(p);
             consoleEl.scrollTop = consoleEl.scrollHeight;
         }
-
-        // --- AUTH LOGIC ---
         async function checkAuth() {
-            if (localStorage.getItem('liteStream_demo') === 'true') {
-                return activateDemoMode();
-            }
+            if (localStorage.getItem('liteStream_demo') === 'true') return activateDemoMode();
             try {
                 const res = await fetch('/api/check-auth');
                 const data = await res.json();
                 if (data.authenticated) showDashboard(data.user);
                 else showLogin();
-            } catch(e) { 
-                console.warn("Backend not found, staying on login.");
-                showLogin(); 
-            }
+            } catch(e) { showLogin(); }
         }
-
         async function handleLogin(e) {
             e.preventDefault();
             const user = document.getElementById('login-user').value;
             const pass = document.getElementById('login-pass').value;
             const errorDiv = document.getElementById('login-error');
-
             try {
                 const res = await fetch('/api/login', {
                     method: 'POST',
@@ -247,36 +231,29 @@
                     errorDiv.classList.remove('hidden');
                 }
             } catch(e) {
-                errorDiv.textContent = "Backend tidak merespon. Gunakan Demo Mode untuk preview.";
+                errorDiv.textContent = "Backend tidak merespon.";
                 errorDiv.classList.remove('hidden');
             }
         }
-
         async function handleLogout() {
             localStorage.removeItem('liteStream_demo');
             try { await fetch('/api/logout', {method: 'POST'}); } catch(e) {}
             location.reload();
         }
-
         function showDashboard(user) {
             document.getElementById('login-view').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('user-display').textContent = user.username;
             if (!isDemoMode) initSocket();
             fetchMedia();
-            if (isDemoMode) {
-                updateStreamUI(false);
-            } else {
+            if (!isDemoMode) {
                 fetch('/api/stream/status').then(r => r.json()).then(d => updateStreamUI(d.active, d.nowPlaying));
             }
         }
-
         function showLogin() {
             document.getElementById('login-view').style.display = 'flex';
             document.getElementById('main-app').style.display = 'none';
         }
-
-        // --- DASHBOARD LOGIC ---
         let socket;
         function initSocket() {
             try {
@@ -291,10 +268,8 @@
                 });
             } catch(e) { console.error("Socket IO failed"); }
         }
-
         let mediaData = [];
         let selectedIds = new Set();
-
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
@@ -304,7 +279,6 @@
             if(tab === 'library') fetchMedia();
             if(tab === 'settings') fetchSettings();
         }
-
         function updateStreamUI(isActive, filename) {
             const badge = document.getElementById('live-badge');
             const nowPlaying = document.getElementById('stat-now-playing');
@@ -319,13 +293,11 @@
                 stopBtn.classList.add('hidden');
             }
         }
-
         async function fetchMedia() {
             if (isDemoMode) {
                 mediaData = [
-                    { id: 1, filename: 'Lofi_HipHop_24_7.mp3', type: 'audio', size: 5423122 },
-                    { id: 2, filename: 'Chill_Background.mp4', type: 'video', size: 45231222 },
-                    { id: 3, filename: 'Night_City_Loop.png', type: 'image', size: 1223122 }
+                    { id: 1, filename: 'Lofi_Simulasi.mp3', type: 'audio', size: 5423122 },
+                    { id: 2, filename: 'Cover_Simulasi.png', type: 'image', size: 1223122 }
                 ];
                 return renderMedia();
             }
@@ -336,7 +308,6 @@
                 renderMedia();
             } catch(e) { console.error("Media fetch failed"); }
         }
-
         function toggleSelection(id) {
             if (selectedIds.has(id)) selectedIds.delete(id);
             else selectedIds.add(id);
@@ -347,7 +318,6 @@
                 countSpan.textContent = selectedIds.size;
             } else { btn.classList.add('hidden'); }
         }
-
         function renderMedia() {
             const list = document.getElementById('media-list');
             if(mediaData.length === 0) {
@@ -359,8 +329,8 @@
                     <input type="checkbox" id="chk-${item.id}" class="hidden peer" onchange="toggleSelection(${item.id})">
                     <label for="chk-${item.id}" class="block bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-between cursor-pointer peer-checked:border-indigo-500 transition-all">
                         <div class="flex items-center gap-4">
-                            <div class="p-3 rounded-xl bg-slate-900 ${item.type === 'audio' ? 'text-amber-400' : 'text-indigo-400'}">
-                                <i class="fas ${item.type === 'audio' ? 'fa-music' : 'fa-video'}"></i>
+                            <div class="p-3 rounded-xl bg-slate-900 ${item.type === 'audio' ? 'text-amber-400' : (item.type === 'image' ? 'text-emerald-400' : 'text-indigo-400')}">
+                                <i class="fas ${item.type === 'audio' ? 'fa-music' : (item.type === 'image' ? 'fa-image' : 'fa-video')}"></i>
                             </div>
                             <div>
                                 <h4 class="font-bold text-sm truncate max-w-[200px]">${item.filename}</h4>
@@ -375,7 +345,6 @@
                 </div>
             `).join('');
         }
-
         function openPlaylistModal() {
             const preview = document.getElementById('playlist-preview');
             const selectedMedia = mediaData.filter(m => selectedIds.has(m.id));
@@ -384,9 +353,7 @@
             select.innerHTML = '<option value="">-- No Image (Black) --</option>' + mediaData.filter(m => m.type === 'image').map(img => `<option value="${img.id}">${img.filename}</option>`).join('');
             document.getElementById('liveModal').classList.remove('hidden');
         }
-
         function closeModal() { document.getElementById('liveModal').classList.add('hidden'); }
-
         async function startPlaylistStream() {
             if (isDemoMode) {
                 closeModal();
@@ -396,44 +363,46 @@
             }
             const rtmpRes = await fetch('/api/settings');
             const rtmpData = await rtmpRes.json();
+            if (!rtmpData.rtmp_url) {
+                alert("PENTING: Isi RTMP URL di menu Settings terlebih dahulu!");
+                closeModal();
+                switchTab('settings');
+                return;
+            }
             const res = await fetch('/api/playlist/start', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ ids: Array.from(selectedIds), rtmpUrl: rtmpData.rtmp_url, coverImageId: document.getElementById('cover-select').value, loop: document.getElementById('loop-checkbox').checked })
             });
-            if ((await res.json()).success) { closeModal(); switchTab('overview'); }
+            const result = await res.json();
+            if (result.success) { closeModal(); switchTab('overview'); addLog("Perintah mulai diterima server..."); }
+            else { alert("Error: " + result.error); }
         }
-
         async function stopStreaming() {
-            if(!confirm('Hentikan semua antrean playlist?')) return;
-            if (isDemoMode) {
-                updateStreamUI(false);
-                addLog("Simulasi streaming dihentikan.");
-                return;
-            }
+            if(!confirm('Hentikan streaming?')) return;
+            if (isDemoMode) { updateStreamUI(false); addLog("Simulasi dihentikan."); return; }
             await fetch('/api/stream/stop', { method: 'POST' });
         }
-
         async function handleUpload(input) {
-            if (isDemoMode) return alert("Upload dinonaktifkan di Mode Preview.");
+            if (isDemoMode) return alert("Upload mati di Mode Preview.");
             const files = Array.from(input.files);
+            addLog(`Mengupload ${files.length} file...`);
             for(const file of files) {
                 const formData = new FormData();
                 formData.append('video', file);
                 await fetch('/api/videos/upload', { method: 'POST', body: formData });
             }
             fetchMedia();
+            addLog("Upload selesai.");
         }
-
         async function fetchSettings() {
-            if (isDemoMode) return document.getElementById('rtmp-input').value = 'rtmp://demo.streaming.url/live';
+            if (isDemoMode) return document.getElementById('rtmp-input').value = 'rtmp://demo/live';
             const res = await fetch('/api/settings');
             const data = await res.json();
             document.getElementById('rtmp-input').value = data.rtmp_url || '';
         }
-
         async function saveSettings() {
-            if (isDemoMode) return alert("Simulasi: Pengaturan disimpan.");
+            if (isDemoMode) return alert("Simulasi disimpan.");
             const rtmp = document.getElementById('rtmp-input').value;
             await fetch('/api/settings', {
                 method: 'POST',
@@ -442,17 +411,12 @@
             });
             alert('RTMP URL disimpan.');
         }
-
         async function deleteMedia(id) {
             if(!confirm('Hapus file?')) return;
-            if (isDemoMode) {
-                mediaData = mediaData.filter(m => m.id !== id);
-                return renderMedia();
-            }
+            if (isDemoMode) { mediaData = mediaData.filter(m => m.id !== id); return renderMedia(); }
             await fetch('/api/videos/' + id, { method: 'DELETE' });
             fetchMedia();
         }
-
         window.onload = checkAuth;
     </script>
 </body>

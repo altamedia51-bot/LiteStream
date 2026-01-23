@@ -1,9 +1,12 @@
 
 {
   "name": "litestream-vps-backend",
-  "version": "1.0.1",
-  "description": "Lightweight Multi-Platform Streaming Server Backend with Auth",
+  "version": "1.0.2",
+  "description": "Lightweight Multi-Platform Streaming Server Backend",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "connect-sqlite3": "^0.9.13",
