@@ -28,13 +28,11 @@
         .tab-content { display: none; opacity: 0; transform: translateY(10px); transition: all 0.3s ease; }
         .tab-content.active { display: block; opacity: 1; transform: translateY(0); }
 
-        /* Media Sub-Tab Styling */
         .media-subtab.active { background: #6366f1; color: white; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
 
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
         .hero-bg { background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%); }
         
-        /* Visibility Management */
         .view-section { display: none !important; }
         .view-section.active-view { display: block !important; }
         #main-app.active-view { display: flex !important; }
@@ -42,7 +40,6 @@
         .pulse-live { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); animation: pulse 2s infinite; }
         @keyframes pulse { 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
-        /* Toast Animation */
         .toast-enter { transform: translateY(20px); opacity: 0; }
         .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-out; }
         .toast-exit { transform: translateY(0); opacity: 1; }
@@ -51,7 +48,6 @@
 </head>
 <body class="min-h-screen">
 
-    <!-- LANDING PAGE -->
     <div id="landing-view" class="view-section active-view relative overflow-hidden min-h-screen">
         <div class="absolute inset-0 hero-bg -z-10"></div>
         <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-6 lg:px-20 flex justify-between items-center glass border-b border-slate-800">
@@ -67,7 +63,6 @@
         </nav>
 
         <section class="pt-40 pb-16 px-6 lg:px-20 text-center max-w-5xl mx-auto">
-            <!-- Dynamic Landing Content -->
             <h1 id="landing-title-display" class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span></h1>
             <p id="landing-desc-display" class="text-lg text-slate-400 mb-12">Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
@@ -86,7 +81,6 @@
         </footer>
     </div>
 
-    <!-- AUTH MODAL -->
     <div id="login-view" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl relative">
             <button onclick="hideAuth()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
@@ -106,76 +100,7 @@
         </div>
     </div>
 
-    <!-- MEDIA DETAIL MODAL -->
-    <div id="media-detail-modal" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-fade-in">
-            <button onclick="closeMediaDetails()" class="absolute top-4 right-4 text-slate-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-800 transition-colors"><i class="fas fa-times"></i></button>
-            
-            <div class="flex items-center gap-4 mb-6">
-                <div id="detail-icon-bg" class="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
-                    <i id="detail-icon" class="fas fa-file text-2xl text-indigo-500"></i>
-                </div>
-                <div class="flex-1 overflow-hidden">
-                    <h3 class="text-lg font-bold text-white mb-1">File Details</h3>
-                    <p class="text-xs text-slate-400">Metadata Information</p>
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
-                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">FILENAME</p>
-                    <p id="detail-filename" class="text-sm text-white break-all font-medium">...</p>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">FILE SIZE</p>
-                        <p id="detail-size" class="text-sm text-indigo-400 font-bold">...</p>
-                    </div>
-                    <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">TYPE</p>
-                        <p id="detail-type" class="text-sm text-white capitalize">...</p>
-                    </div>
-                </div>
-
-                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800">
-                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">UPLOADED AT</p>
-                    <p id="detail-date" class="text-sm text-slate-300">...</p>
-                </div>
-            </div>
-
-            <div class="mt-6 flex justify-end">
-                <button onclick="closeMediaDetails()" class="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold text-xs transition-colors">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- USER EDIT MODAL -->
-    <div id="user-edit-modal" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
-            <button onclick="closeUserEdit()" class="absolute top-4 right-4 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
-            <h3 class="text-xl font-bold text-white mb-6">Edit User Plan</h3>
-            <form onsubmit="saveUserPlan(event)" class="space-y-4">
-                <input type="hidden" id="edit-user-id">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Username</label>
-                    <input type="text" id="edit-user-name" disabled class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3 text-slate-500 font-bold">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Assign Plan</label>
-                    <div class="relative">
-                        <select id="edit-user-plan" class="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3 text-white appearance-none outline-none focus:ring-2 ring-indigo-500/50">
-                            <!-- Options populated by JS -->
-                        </select>
-                        <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400"><i class="fas fa-chevron-down"></i></div>
-                    </div>
-                </div>
-                <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white hover:bg-indigo-500 shadow-lg mt-2">Save Changes</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- CUSTOM CONFIRM MODAL (New) -->
+    <!-- CUSTOM CONFIRM MODAL -->
     <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative transform transition-all scale-100">
             <div class="text-center mb-6">
@@ -192,10 +117,8 @@
         </div>
     </div>
 
-    <!-- TOAST NOTIFICATION CONTAINER (New) -->
     <div id="toast-container" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[120] flex flex-col gap-2 w-full max-w-xs pointer-events-none"></div>
 
-    <!-- DASHBOARD VIEW -->
     <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
         <aside class="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col p-8 sticky top-0 h-screen">
             <div class="flex items-center gap-3 mb-12">
@@ -222,21 +145,35 @@
                 </div>
             </header>
 
-            <!-- Plan Info Card -->
             <div class="bg-slate-800 border border-slate-700/50 rounded-3xl p-6 mb-6 shadow-xl overflow-hidden">
-                <div class="flex flex-col md:flex-row gap-6 items-center">
-                    <div class="text-center md:text-left min-w-[200px]">
-                        <p class="text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest mb-1">Your Current Plan</p>
+                <div class="flex flex-col md:flex-row gap-8 items-center">
+                    <div class="text-center md:text-left min-w-[150px]">
+                        <p class="text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest mb-1">Active Plan</p>
                         <h3 id="plan-name-display" class="text-xl font-bold text-white truncate">...</h3>
                     </div>
-                    <div class="flex-1 w-full space-y-2">
-                        <div class="flex justify-between text-xs"><span class="text-slate-400">Storage Usage</span><span id="storage-text" class="text-white font-bold">0 / 0 MB</span></div>
-                        <div class="h-3 bg-slate-950 rounded-full overflow-hidden"><div id="storage-bar" class="h-full bg-indigo-500 transition-all duration-700" style="width: 0%"></div></div>
+                    <div class="flex-1 w-full space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                    <span>Storage</span><span id="storage-text">0 / 0 MB</span>
+                                </div>
+                                <div class="h-2 bg-slate-950 rounded-full overflow-hidden">
+                                    <div id="storage-bar" class="h-full bg-indigo-500 transition-all duration-700" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                    <span>Time Used</span><span id="usage-text">0 / 0 H</span>
+                                </div>
+                                <div class="h-2 bg-slate-950 rounded-full overflow-hidden">
+                                    <div id="usage-bar" class="h-full bg-emerald-500 transition-all duration-700" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB CONTENT: OVERVIEW -->
             <div id="tab-overview" class="tab-content active space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1">
@@ -256,50 +193,41 @@
                                 </div>
                             </div>
                             <div id="idle-msg" class="text-sm text-slate-400 mb-5 italic text-center py-4">Server Stand-by.</div>
-                            <button onclick="stopStream()" id="btn-stop-stream" class="hidden w-full py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold text-sm">STOP STREAMING</button>
+                            <button onclick="stopStream()" id="btn-stop-stream" class="hidden w-full py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold text-sm transition-all">STOP STREAMING</button>
                         </div>
                     </div>
                     <div class="lg:col-span-2 bg-slate-950 rounded-3xl border border-slate-800 h-[400px] overflow-hidden flex flex-col">
-                        <div class="p-3 border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold text-slate-500">LOGS CONSOLE</div>
+                        <div class="p-3 border-b border-slate-800 bg-slate-900/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Logs Console</div>
                         <div id="logConsole" class="flex-1 p-5 font-mono text-[10px] overflow-y-auto space-y-1"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB CONTENT: LIBRARY (DENGAN SUB-TABS) -->
             <div id="tab-library" class="tab-content space-y-6">
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl font-bold">Media Library</h2>
                     <div class="flex gap-2">
                         <button id="btn-start-playlist" onclick="startPlaylist()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold text-sm">START (<span id="selected-count">0</span>)</button>
-                        <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-500">Upload Media</button>
+                        <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-500 transition-all">Upload Media</button>
                     </div>
                     <input type="file" id="file-up" class="hidden" onchange="handleUpload(this)">
                 </div>
 
-                <!-- Media Category Sub-Tabs -->
                 <div class="flex p-1 bg-slate-900 rounded-2xl border border-slate-800 w-fit">
-                    <button onclick="switchMediaTab('video')" id="mt-video" class="media-subtab active px-6 py-2.5 rounded-xl text-xs font-bold transition-all">VIDEOS <span id="count-video" class="ml-1 opacity-70 text-[10px]">(0)</span></button>
-                    <button onclick="switchMediaTab('audio')" id="mt-audio" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all">AUDIOS <span id="count-audio" class="ml-1 opacity-70 text-[10px]">(0)</span></button>
-                    <button onclick="switchMediaTab('image')" id="mt-image" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all">IMAGES <span id="count-image" class="ml-1 opacity-70 text-[10px]">(0)</span></button>
+                    <button onclick="switchMediaTab('video')" id="mt-video" class="media-subtab active px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Videos</button>
+                    <button onclick="switchMediaTab('audio')" id="mt-audio" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Audios</button>
+                    <button onclick="switchMediaTab('image')" id="mt-image" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Images</button>
                 </div>
 
-                <div id="media-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- List difilter otomatis di JS -->
-                </div>
+                <div id="media-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
 
-            <!-- TAB CONTENT: SETTINGS -->
             <div id="tab-settings" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">Settings</h2>
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
                     <form onsubmit="saveSettings(event)" class="space-y-6">
-                        
-                        <!-- Streaming Configuration -->
                         <div class="border-b border-slate-700 pb-6 mb-6">
                              <h3 class="text-lg font-bold text-white mb-4">Streaming Configuration</h3>
-                             
-                            <!-- Platform Dropdown -->
                             <div class="mb-4">
                                 <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Streaming Platform</label>
                                 <div class="relative">
@@ -309,131 +237,49 @@
                                         <option value="twitch">Twitch</option>
                                         <option value="custom">Custom RTMP</option>
                                     </select>
-                                    <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
-                                        <i class="fas fa-chevron-down"></i>
-                                    </div>
+                                    <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400"><i class="fas fa-chevron-down"></i></div>
                                 </div>
                             </div>
-
-                            <!-- Custom Server URL (Hidden by default) -->
                             <div id="server-url-container" class="hidden mb-4">
                                 <label class="block text-xs font-bold text-slate-400 uppercase mb-2">RTMP Server URL</label>
-                                <input type="text" id="setting-server-url" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="e.g. rtmp://my.custom.server/live/">
+                                <input type="text" id="setting-server-url" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="e.g. rtmp://server/live/">
                             </div>
-
-                            <!-- Stream Key Input -->
                             <div>
                                 <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Stream Key</label>
                                 <div class="relative">
-                                    <input type="password" id="setting-key" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Paste your Stream Key here">
+                                    <input type="password" id="setting-key" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
                                     <button type="button" onclick="toggleKeyVisibility()" class="absolute inset-y-0 right-5 text-slate-400 hover:text-white"><i id="eye-icon" class="fas fa-eye"></i></button>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Landing Page Configuration (Admin Only View - but we show it in settings) -->
-                        <div id="landing-config-section" class="border-b border-slate-700 pb-6 mb-6 hidden">
-                            <h3 class="text-lg font-bold text-white mb-4">Landing Page Content</h3>
-                            
-                            <div class="mb-4">
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hero Title (Allows HTML)</label>
-                                <textarea id="setting-landing-title" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50"></textarea>
-                            </div>
-
-                            <div class="mb-4">
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hero Description (Allows HTML)</label>
-                                <textarea id="setting-landing-desc" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50"></textarea>
-                            </div>
-                            
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Register Button Text</label>
-                                    <input type="text" id="setting-landing-btn-reg" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Login Button Text</label>
-                                    <input type="text" id="setting-landing-btn-login" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Hidden field to verify stored full URL -->
                         <input type="hidden" id="setting-full-rtmp">
-
                         <button type="submit" class="bg-indigo-600 w-full py-4 rounded-2xl font-bold hover:bg-indigo-500 shadow-lg">Save Configuration</button>
                     </form>
                 </div>
             </div>
-
-            <!-- TAB CONTENT: PROFILE (NEW) -->
+            
             <div id="tab-profile" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">My Profile</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Account Info Card -->
-                    <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 h-fit">
-                        <div class="flex items-center gap-4 mb-6">
-                            <div class="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl text-white font-bold"><i class="fas fa-user"></i></div>
-                            <div>
-                                <h3 id="profile-username-display" class="text-xl font-bold text-white">...</h3>
-                                <p id="profile-plan-display" class="text-sm text-indigo-400 font-medium">...</p>
-                            </div>
-                        </div>
-                        <hr class="border-slate-700 mb-6">
-                        <form onsubmit="saveProfile(event)" class="space-y-5">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Username</label>
-                                <input type="text" id="profile-username" required class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none focus:ring-2 ring-indigo-500/50">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Current Password</label>
-                                <input type="password" id="profile-current-pass" required class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Required to save changes">
-                            </div>
-                            
-                            <div class="pt-2">
-                                <label class="block text-xs font-bold text-emerald-400 uppercase mb-2">New Password (Optional)</label>
-                                <input type="password" id="profile-new-pass" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Leave empty to keep current">
-                            </div>
-                            
-                            <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white hover:bg-indigo-500 shadow-lg mt-4">Update Profile</button>
-                        </form>
-                    </div>
-
-                    <!-- Security Info / Tips -->
-                    <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800 h-fit">
-                        <h4 class="font-bold text-white mb-4">Account Security</h4>
-                        <ul class="space-y-3 text-sm text-slate-400">
-                            <li class="flex gap-3"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> Use a strong password with mixed characters.</li>
-                            <li class="flex gap-3"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> Don't share your login credentials.</li>
-                            <li class="flex gap-3"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> Changing username will require re-login.</li>
-                        </ul>
-                    </div>
+                <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-sm">
+                    <form onsubmit="saveProfile(event)" class="space-y-4">
+                        <input type="text" id="profile-username" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none">
+                        <input type="password" id="profile-current-pass" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none" placeholder="Password Saat Ini">
+                        <input type="password" id="profile-new-pass" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3 text-white outline-none" placeholder="Password Baru (Opsional)">
+                        <button type="submit" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-white hover:bg-indigo-500">Update Profile</button>
+                    </form>
                 </div>
             </div>
 
-            <!-- TAB CONTENT: ADMIN -->
-            <div id="tab-users" class="tab-content space-y-12">
-                <section>
-                    <h2 class="text-2xl font-bold mb-6">User Management</h2>
-                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
-                                <tr><th class="p-5">Username</th><th class="p-5">Plan</th><th class="p-5">Storage Used</th><th class="p-5">Actions</th></tr>
-                            </thead>
-                            <tbody id="user-table-body" class="text-sm"></tbody>
-                        </table>
-                    </div>
-                </section>
-                <section>
-                    <h2 class="text-2xl font-bold mb-6">Pricing Plans</h2>
-                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
-                                <tr><th class="p-5">Plan Name</th><th class="p-5">Price</th><th class="p-5">Storage (MB)</th><th class="p-5 text-right">Actions</th></tr>
-                            </thead>
-                            <tbody id="plan-table-body" class="text-sm"></tbody>
-                        </table>
-                    </div>
-                </section>
+            <div id="tab-users" class="tab-content space-y-6">
+                <h2 class="text-2xl font-bold">Admin Panel</h2>
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
+                            <tr><th class="p-5">User</th><th class="p-5">Usage</th><th class="p-5 text-right">Actions</th></tr>
+                        </thead>
+                        <tbody id="user-table-body" class="text-sm"></tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
@@ -444,32 +290,17 @@
         let selectedMedia = new Set();
         let allMedia = [];
         let isLoginMode = true;
-        let currentMediaTab = 'video';
-        let adminPlansList = [];
         let confirmCallback = null;
-        
-        const PLATFORMS = {
-            youtube: 'rtmp://a.rtmp.youtube.com/live2/',
-            facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/',
-            twitch: 'rtmp://live.twitch.tv/app/'
-        };
+        const PLATFORMS = { youtube: 'rtmp://a.rtmp.youtube.com/live2/', facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/', twitch: 'rtmp://live.twitch.tv/app/' };
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
-            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-            el.className = `toast-enter ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold backdrop-blur-md`;
-            el.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+            el.className = `toast-enter ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold backdrop-blur-md`;
+            el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${message}</span>`;
             container.appendChild(el);
-            requestAnimationFrame(() => {
-                el.classList.add('toast-enter-active');
-                el.classList.remove('toast-enter');
-            });
-            setTimeout(() => {
-                el.classList.add('toast-exit-active');
-                el.addEventListener('transitionend', () => el.remove());
-            }, 3000);
+            requestAnimationFrame(() => { el.classList.add('toast-enter-active'); el.classList.remove('toast-enter'); });
+            setTimeout(() => { el.classList.add('toast-exit-active'); el.addEventListener('transitionend', () => el.remove()); }, 3000);
         }
 
         function openConfirmModal(message, callback) {
@@ -478,184 +309,132 @@
             confirmCallback = callback;
         }
 
-        function closeConfirmModal() {
-            document.getElementById('custom-confirm-modal').classList.add('hidden');
-            confirmCallback = null;
-        }
-
-        document.getElementById('btn-confirm-action').addEventListener('click', () => {
-            if (confirmCallback) confirmCallback();
-            closeConfirmModal();
-        });
-
-        function setView(viewId) {
-            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
-            const target = document.getElementById(viewId);
-            if (target) target.classList.add('active-view');
-        }
+        function closeConfirmModal() { document.getElementById('custom-confirm-modal').classList.add('hidden'); }
+        document.getElementById('btn-confirm-action').onclick = () => { confirmCallback?.(); closeConfirmModal(); };
 
         async function checkAuth() {
             try {
-                await loadLandingContent();
                 const res = await fetch('/api/check-auth');
                 const data = await res.json();
-                if (data.authenticated) { 
-                    currentUser = data.user; 
-                    showDashboard(); 
-                } else { 
-                    setView('landing-view');
-                    fetchPlans();
-                }
-            } catch (e) { 
-                setView('landing-view');
-                fetchPlans();
-            }
+                if (data.authenticated) { currentUser = data.user; showDashboard(); } 
+                else { setView('landing-view'); fetchPublicPlans(); }
+            } catch (e) { setView('landing-view'); }
         }
 
-        async function loadLandingContent() {
-            try {
-                const res = await fetch('/api/landing-content');
-                const data = await res.json();
-                if (data.landing_title) document.getElementById('landing-title-display').innerHTML = data.landing_title;
-                if (data.landing_desc) document.getElementById('landing-desc-display').innerHTML = data.landing_desc;
-                if (data.landing_btn_reg) document.getElementById('landing-btn-reg-display').textContent = data.landing_btn_reg;
-                if (data.landing_btn_login) document.getElementById('landing-btn-login-display').textContent = data.landing_btn_login;
-            } catch (e) { console.error("Failed to load landing content", e); }
-        }
+        function setView(id) { document.querySelectorAll('.view-section').forEach(v => v.classList.toggle('active-view', v.id === id)); }
 
         async function showDashboard() {
             setView('main-app');
             document.getElementById('login-view').classList.add('hidden');
+            updateUIInfo();
+            if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
+            fetchMedia(); fetchSettings();
+            
+            const res = await fetch('/api/stream/status');
+            const state = await res.json();
+            if (state.active) updateStreamUI(true);
+        }
+
+        function updateUIInfo() {
+            if(!currentUser) return;
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
             const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
             document.getElementById('storage-text').textContent = `${usedMB} / ${currentUser.max_storage_mb} MB`;
             document.getElementById('storage-bar').style.width = Math.min((usedMB / currentUser.max_storage_mb * 100), 100) + '%';
-            document.getElementById('profile-username-display').textContent = currentUser.username;
-            document.getElementById('profile-username').value = currentUser.username;
-            document.getElementById('profile-plan-display').textContent = currentUser.plan_name;
-
-            if (currentUser.role === 'admin') {
-                document.getElementById('nav-users').classList.remove('hidden');
-                document.getElementById('landing-config-section').classList.remove('hidden');
-            }
-            fetchMedia(); 
-            fetchSettings();
             
-            // --- SYNC STATE: Cek status live ke server saat buka dashboard ---
-            try {
-                const res = await fetch('/api/stream/status');
-                const state = await res.json();
-                if (state.active) {
-                    updateStreamUI(true);
-                    const consoleEl = document.getElementById('logConsole');
-                    const p = document.createElement('p');
-                    p.className = 'text-indigo-400 font-bold';
-                    p.textContent = `> Sistem mendeteksi streaming aktif di latar belakang. Sinkronisasi berhasil.`;
-                    consoleEl.appendChild(p);
-                }
-            } catch(e) { console.error("Sync error:", e); }
+            const usedHrs = ( (currentUser.usage_seconds || 0) / 3600).toFixed(1);
+            const limitHrs = currentUser.daily_limit_hours || 24;
+            document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
+            document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
         }
 
-        function updateStreamUI(isLive) {
-            if (isLive) {
-                document.getElementById('live-card').classList.remove('hidden');
-                document.getElementById('idle-msg').classList.add('hidden');
-                document.getElementById('btn-stop-stream').classList.remove('hidden');
-                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-emerald-500 shadow-lg";
-                document.getElementById('status-label').textContent = "Live";
-            } else {
-                document.getElementById('live-card').classList.add('hidden');
-                document.getElementById('idle-msg').classList.remove('hidden');
-                document.getElementById('btn-stop-stream').classList.add('hidden');
-                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-slate-500";
-                document.getElementById('status-label').textContent = "Offline";
-                if(document.getElementById('stat-duration')) document.getElementById('stat-duration').textContent = '00:00:00';
-                if(document.getElementById('stat-bitrate')) document.getElementById('stat-bitrate').textContent = '0 kbps';
-            }
-        }
-
-        async function fetchPlans() {
+        async function fetchPublicPlans() {
             const res = await fetch('/api/plans-public');
             const plans = await res.json();
             document.getElementById('pricing-grid').innerHTML = plans.map(p => {
-                const features = p.features_text ? p.features_text.split(',').map(f => f.trim()) : [];
-                const isSultan = p.id === 4;
+                let extraControls = '';
+                
+                // LOGIKA KHUSUS: Paket Radio (ID 3)
+                if (p.id === 3) {
+                     let options = '';
+                     for(let i=1; i<=12; i++) options += `<option value="${i}">${i} Bulan</option>`;
+                     extraControls = `
+                        <div class="mt-4 mb-2 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Durasi Langganan</label>
+                            <select onchange="updatePlanPrice(this, '${p.price_text}', ${p.id})" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-bold">
+                                ${options}
+                            </select>
+                        </div>
+                     `;
+                }
+
+                // Tampilkan fitur tambahan jika ada
+                const featuresList = p.features_text 
+                    ? p.features_text.split(',').map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f.trim()}</li>`).join('')
+                    : '';
+
                 return `
-                <div class="pricing-card glass p-8 rounded-[3rem] border border-slate-800 flex flex-col ${isSultan ? 'ring-2 ring-indigo-500/50' : ''}">
-                    <h4 class="text-lg font-bold mb-1">${p.name}</h4>
-                    <div class="text-2xl font-black text-indigo-400 mb-6">${p.price_text}</div>
-                    <ul class="space-y-4 mb-10 text-xs text-slate-400 flex-1">
-                        <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_storage_mb/1024 >= 1 ? (p.max_storage_mb/1024).toFixed(0)+'GB' : p.max_storage_mb+'MB'} Storage</li>
-                        ${features.map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f}</li>`).join('')}
+                <div class="glass p-8 rounded-[3rem] border border-slate-800 flex flex-col ${p.id === 4 ? 'ring-2 ring-indigo-500' : ''} relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+                    <h4 class="text-lg font-bold">${p.name}</h4>
+                    <div id="price-display-${p.id}" class="text-2xl font-black text-indigo-400 my-4 transition-opacity duration-300">${p.price_text}</div>
+                    ${extraControls}
+                    <ul class="text-xs text-slate-400 space-y-2 flex-1 mb-6">
+                        <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.daily_limit_hours} Jam/hari</li>
+                        <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_storage_mb}MB Storage</li>
+                         ${featuresList}
                     </ul>
-                    <button onclick="showAuth('register')" class="w-full py-4 rounded-2xl font-bold text-xs ${isSultan ? 'bg-indigo-600' : 'bg-slate-800 border border-slate-700'}">Pilih Paket</button>
+                    <button onclick="showAuth('register')" class="w-full py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20">Pilih Paket</button>
                 </div>`;
             }).join('');
+        }
+
+        function updatePlanPrice(select, basePriceStr, planId) {
+            // Hapus karakter non-digit untuk dapat angka murni (Rp 75.000 -> 75000)
+            const basePrice = parseInt(basePriceStr.replace(/[^0-9]/g, ''));
+            const months = parseInt(select.value);
+            if(isNaN(basePrice)) return;
+
+            const total = basePrice * months;
+            const formatted = 'Rp ' + total.toLocaleString('id-ID'); // Format mata uang Indonesia
+
+            const el = document.getElementById(`price-display-${planId}`);
+            
+            // Animasi kecil saat harga berubah
+            if (el) {
+                el.style.opacity = '0';
+                setTimeout(() => {
+                    el.textContent = formatted;
+                    el.style.opacity = '1';
+                }, 150);
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + tab));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.id === 'nav-' + tab));
+            if (tab === 'users') fetchUsers();
         }
 
         async function fetchMedia() {
             const res = await fetch('/api/videos');
             allMedia = await res.json();
-            updateTabCounts();
-            renderMediaList();
-        }
-
-        function updateTabCounts() {
-            const counts = { video: 0, audio: 0, image: 0 };
-            allMedia.forEach(m => { if(counts[m.type] !== undefined) counts[m.type]++; });
-            document.getElementById('count-video').textContent = `(${counts.video})`;
-            document.getElementById('count-audio').textContent = `(${counts.audio})`;
-            document.getElementById('count-image').textContent = `(${counts.image})`;
-        }
-
-        function switchMediaTab(tab) {
-            currentMediaTab = tab;
-            document.querySelectorAll('.media-subtab').forEach(t => t.classList.remove('active'));
-            document.getElementById('mt-' + tab).classList.add('active');
             renderMediaList();
         }
 
         function renderMediaList() {
-            const filtered = allMedia.filter(m => m.type === currentMediaTab);
-            const list = document.getElementById('media-list');
-            if (filtered.length === 0) {
-                list.innerHTML = `<div class="col-span-full py-20 text-center text-slate-500 text-sm italic">Belum ada file di kategori ini.</div>`;
-                return;
-            }
-            list.innerHTML = filtered.map(v => `
-                <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group hover:bg-slate-800/60 transition-colors">
-                    <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 rounded-lg border-slate-700 bg-slate-900 accent-indigo-500">
-                    <div onclick="showMediaDetails(${v.id})" class="flex-1 truncate text-xs font-bold text-slate-300 cursor-pointer hover:text-indigo-400 transition-colors" title="Click for details">${v.filename}</div>
-                    <button onclick="deleteMedia(${v.id})" class="text-rose-500 opacity-0 group-hover:opacity-100 p-2 hover:bg-rose-500/10 rounded-xl transition-all"><i class="fas fa-trash"></i></button>
-                </div>
-            `).join('');
+            const filtered = allMedia.filter(m => m.type === (window.currentMediaTab || 'video'));
+            document.getElementById('media-list').innerHTML = filtered.map(v => `
+                <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group">
+                    <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 accent-indigo-500">
+                    <div class="flex-1 truncate text-xs font-bold text-slate-300">${v.filename}</div>
+                    <button onclick="deleteMedia(${v.id})" class="text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-trash"></i></button>
+                </div>`).join('');
         }
 
-        function formatBytes(bytes, decimals = 2) {
-            if (!+bytes) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-        }
-
-        function showMediaDetails(id) {
-            const media = allMedia.find(m => m.id === id);
-            if (!media) return;
-            document.getElementById('detail-filename').textContent = media.filename;
-            document.getElementById('detail-size').textContent = formatBytes(media.size);
-            document.getElementById('detail-type').textContent = media.type;
-            document.getElementById('detail-date').textContent = new Date(media.created_at).toLocaleString();
-            const iconEl = document.getElementById('detail-icon');
-            if (media.type === 'video') iconEl.className = 'fas fa-video text-2xl text-indigo-500';
-            else if (media.type === 'audio') iconEl.className = 'fas fa-music text-2xl text-rose-500';
-            else iconEl.className = 'fas fa-image text-2xl text-emerald-500';
-            document.getElementById('media-detail-modal').classList.remove('hidden');
-        }
-
-        function closeMediaDetails() {
-            document.getElementById('media-detail-modal').classList.add('hidden');
+        function switchMediaTab(tab) { 
+            window.currentMediaTab = tab; 
+            document.querySelectorAll('.media-subtab').forEach(t => t.classList.toggle('active', t.id === 'mt-' + tab));
+            renderMediaList(); 
         }
 
         function toggleSelect(id) {
@@ -664,38 +443,19 @@
             document.getElementById('btn-start-playlist').classList.toggle('hidden', selectedMedia.size === 0);
         }
 
-        async function editPlan(id, oldName, oldPrice, oldStorage, oldFeatures) {
-            const name = prompt("Nama Paket:", oldName) || oldName;
-            const price = prompt("Harga:", oldPrice) || oldPrice;
-            const storage = prompt("Kuota (MB):", oldStorage) || oldStorage;
-            const features = prompt("Fitur (koma):", oldFeatures) || oldFeatures;
-            const res = await fetch(`/api/plans/${id}`, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, price_text: price, max_storage_mb: parseInt(storage), features_text: features, allowed_types: 'video,audio' })
-            });
-            if ((await res.json()).success) { fetchAdminPlans(); showToast("Paket berhasil diupdate!"); }
+        async function startPlaylist() {
+            const rtmpUrl = document.getElementById('setting-full-rtmp').value;
+            const res = await fetch('/api/playlist/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true }) });
+            const d = await res.json();
+            if (d.error) showToast(d.error, 'error'); else showToast(d.message);
         }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-' + tab).classList.add('active');
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            document.getElementById('nav-' + tab)?.classList.add('active');
-            if (tab === 'users') { fetchAdminPlans(); fetchUsers(); }
-        }
-
-        async function fetchAdminPlans() {
-            const res = await fetch('/api/plans');
-            const plans = await res.json();
-            window.adminPlansList = plans;
-            document.getElementById('plan-table-body').innerHTML = plans.map(p => `
-                <tr class="border-b border-slate-800 hover:bg-slate-800/20">
-                    <td class="p-5 font-bold">${p.name}</td>
-                    <td class="p-5 text-indigo-400 font-bold">${p.price_text}</td>
-                    <td class="p-5">${p.max_storage_mb} MB</td>
-                    <td class="p-5 text-right"><button onclick="editPlan(${p.id}, '${p.name}', '${p.price_text}', ${p.max_storage_mb}, '${p.features_text || ''}')" class="text-xs font-bold text-indigo-400 px-4 py-2 bg-indigo-500/10 rounded-lg">EDIT</button></td>
-                </tr>`).join('');
+        async function fetchSettings() {
+            const res = await fetch('/api/settings');
+            const d = await res.json();
+            document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
+            document.getElementById('setting-key').value = d.stream_key || '';
+            document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
         }
 
         async function fetchUsers() {
@@ -703,221 +463,52 @@
             const users = await res.json();
             document.getElementById('user-table-body').innerHTML = users.map(u => `
                 <tr class="border-b border-slate-800">
-                    <td class="p-5 font-bold">${u.username} ${u.role==='admin'?'<span class="text-[8px] bg-indigo-600 px-1 rounded ml-2">ADMIN</span>':''}</td>
-                    <td class="p-5 text-slate-400">${u.plan_name}</td>
-                    <td class="p-5 text-xs font-mono">${(u.storage_used/(1024*1024)).toFixed(1)} MB</td>
-                    <td class="p-5">
-                        <button onclick="openUserEdit(${u.id}, '${u.username}', ${u.plan_id})" class="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg transition-colors">Edit Plan</button>
-                    </td>
+                    <td class="p-5 font-bold">${u.username}</td>
+                    <td class="p-5 text-xs">${(u.usage_seconds/3600).toFixed(1)} Jam used</td>
+                    <td class="p-5 text-right"><button onclick="alert('Admin Panel Simple Mode')" class="bg-indigo-600 px-3 py-1 rounded text-[10px] font-bold">MANAGE</button></td>
                 </tr>`).join('');
         }
 
-        function openUserEdit(userId, username, currentPlanId) {
-            document.getElementById('edit-user-id').value = userId;
-            document.getElementById('edit-user-name').value = username;
-            const select = document.getElementById('edit-user-plan');
-            select.innerHTML = window.adminPlansList.map(p => 
-                `<option value="${p.id}" ${p.id == currentPlanId ? 'selected' : ''}>${p.name} (${p.max_storage_mb}MB)</option>`
-            ).join('');
-            document.getElementById('user-edit-modal').classList.remove('hidden');
+        function updateStreamUI(isLive) {
+            document.getElementById('live-card').classList.toggle('hidden', !isLive);
+            document.getElementById('idle-msg').classList.toggle('hidden', isLive);
+            document.getElementById('btn-stop-stream').classList.toggle('hidden', !isLive);
+            document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-slate-500'}`;
+            document.getElementById('status-label').textContent = isLive ? 'Live' : 'Offline';
         }
-
-        function closeUserEdit() {
-            document.getElementById('user-edit-modal').classList.add('hidden');
-        }
-
-        async function saveUserPlan(e) {
-            e.preventDefault();
-            const userId = document.getElementById('edit-user-id').value;
-            const planId = document.getElementById('edit-user-plan').value;
-            const res = await fetch(`/api/users/${userId}`, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ plan_id: planId })
-            });
-            const data = await res.json();
-            if(data.success) {
-                closeUserEdit();
-                fetchUsers();
-                showToast("User Plan Updated!");
-            } else {
-                showToast(data.error || "Failed to update plan", 'error');
-            }
-        }
-
-        async function handleAuth(e) {
-            e.preventDefault();
-            const username = document.getElementById('login-user').value;
-            const password = document.getElementById('login-pass').value;
-            const endpoint = isLoginMode ? '/api/login' : '/api/register';
-            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username, password }) });
-            const data = await res.json();
-            if (data.success) location.reload(); else showToast(data.error, 'error');
-        }
-
-        function showAuth(mode = 'login') {
-            isLoginMode = mode === 'login';
-            document.getElementById('auth-title').textContent = isLoginMode ? 'LiteStream Login' : 'Buat Akun';
-            document.getElementById('auth-btn').textContent = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG';
-            document.getElementById('login-view').classList.remove('hidden');
-        }
-
-        function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
-        function toggleAuthMode() { isLoginMode = !isLoginMode; showAuth(isLoginMode ? 'login' : 'register'); }
-        async function handleLogout() { await fetch('/api/logout', { method: 'POST' }); location.reload(); }
-        
-        async function handleUpload(input) { 
-            if(!input.files[0]) return; 
-            const fd = new FormData(); 
-            fd.append('video', input.files[0]); 
-            const btn = input.previousElementSibling.querySelector('button:last-child'); 
-            const oldText = btn.textContent;
-            btn.textContent = "Uploading...";
-            btn.disabled = true;
-            const res = await fetch('/api/videos/upload', {method:'POST', body:fd}); 
-            const data = await res.json();
-            if(data.success) { 
-                await fetchMedia(); 
-                switchMediaTab(data.type);
-                showToast("File berhasil diupload!");
-            } else { 
-                showToast(data.error || "Gagal upload.", 'error'); 
-            }
-            btn.textContent = oldText;
-            btn.disabled = false;
-        }
-
-        function deleteMedia(id) { 
-            openConfirmModal("Apakah Anda yakin ingin menghapus file ini secara permanen?", async () => {
-                await fetch(`/api/videos/${id}`, {method:'DELETE'}); 
-                fetchMedia();
-                showToast("File dihapus.", 'success');
-            });
-        }
-
-        async function startPlaylist() {
-            const rtmpUrl = document.getElementById('setting-full-rtmp').value;
-            if(!rtmpUrl) return showToast("RTMP URL belum disetting!", 'error');
-            const res = await fetch('/api/playlist/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true }) });
-            const d = await res.json();
-            if(d.error) showToast(d.error, 'error'); else showToast(d.message, 'success');
-        }
-        async function stopStream() { 
-            await fetch('/api/stream/stop', { method: 'POST' }); 
-            showToast("Stream dimatikan.", 'success');
-        }
-
-        async function fetchSettings() { 
-            const res = await fetch('/api/settings'); 
-            const d = await res.json(); 
-            document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
-            document.getElementById('setting-server-url').value = d.custom_server_url || '';
-            document.getElementById('setting-key').value = d.stream_key || '';
-            document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
-            const landingTitle = document.getElementById('setting-landing-title');
-            if (landingTitle) {
-                landingTitle.value = d.landing_title || '';
-                document.getElementById('setting-landing-desc').value = d.landing_desc || '';
-                document.getElementById('setting-landing-btn-reg').value = d.landing_btn_reg || '';
-                document.getElementById('setting-landing-btn-login').value = d.landing_btn_login || '';
-            }
-            handlePlatformChange();
-        }
-
-        function handlePlatformChange() {
-            const platform = document.getElementById('setting-platform').value;
-            const customContainer = document.getElementById('server-url-container');
-            if (platform === 'custom') customContainer.classList.remove('hidden'); else customContainer.classList.add('hidden');
-        }
-
-        function toggleKeyVisibility() {
-            const input = document.getElementById('setting-key');
-            const icon = document.getElementById('eye-icon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                input.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        }
-
-        async function saveSettings(e) { 
-            e.preventDefault(); 
-            const platform = document.getElementById('setting-platform').value;
-            const key = document.getElementById('setting-key').value.trim();
-            let serverUrl = '';
-            if (platform === 'custom') serverUrl = document.getElementById('setting-server-url').value.trim();
-            else serverUrl = PLATFORMS[platform];
-            if (!serverUrl) return showToast("Server URL wajib untuk Custom RTMP", 'error');
-            if (!key) return showToast("Stream Key wajib diisi", 'error');
-            if (serverUrl && !serverUrl.endsWith('/')) serverUrl += '/';
-            const fullUrl = serverUrl + key;
-            const landingTitle = document.getElementById('setting-landing-title');
-            let landingPayload = {};
-            if (landingTitle) {
-                landingPayload = {
-                    landing_title: landingTitle.value,
-                    landing_desc: document.getElementById('setting-landing-desc').value,
-                    landing_btn_reg: document.getElementById('setting-landing-btn-reg').value,
-                    landing_btn_login: document.getElementById('setting-landing-btn-login').value
-                };
-            }
-            const payload = {
-                stream_platform: platform,
-                stream_key: key,
-                custom_server_url: platform === 'custom' ? serverUrl : '',
-                rtmp_url: fullUrl,
-                ...landingPayload
-            };
-            await fetch('/api/settings', { 
-                method: 'POST', 
-                headers: {'Content-Type':'application/json'}, 
-                body: JSON.stringify(payload) 
-            }); 
-            document.getElementById('setting-full-rtmp').value = fullUrl;
-            showToast("Konfigurasi Tersimpan!"); 
-        }
-
-        async function saveProfile(e) {
-            e.preventDefault();
-            const username = document.getElementById('profile-username').value;
-            const currentPassword = document.getElementById('profile-current-pass').value;
-            const newPassword = document.getElementById('profile-new-pass').value;
-            if (!currentPassword) return showToast("Password saat ini dibutuhkan.", 'error');
-            const res = await fetch('/api/profile', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, currentPassword, newPassword })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showToast(data.message);
-                document.getElementById('profile-current-pass').value = '';
-                document.getElementById('profile-new-pass').value = '';
-                document.getElementById('profile-username-display').textContent = username;
-            } else { showToast(data.error, 'error'); }
-        }
-
-        socket.on('log', (data) => {
-            const consoleEl = document.getElementById('logConsole');
-            const p = document.createElement('p');
-            p.className = data.type === 'error' ? 'text-rose-400' : (data.type === 'start' ? 'text-indigo-400 font-bold' : 'text-slate-400');
-            p.textContent = `> ${data.message}`;
-            consoleEl.appendChild(p); consoleEl.scrollTop = consoleEl.scrollHeight;
-            if (data.type === 'start') updateStreamUI(true);
-            else if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
-        });
 
         socket.on('stats', (data) => {
-            const durEl = document.getElementById('stat-duration');
-            const bitEl = document.getElementById('stat-bitrate');
-            if(durEl) durEl.textContent = data.duration.split('.')[0]; 
-            if(bitEl) bitEl.textContent = data.bitrate;
+            document.getElementById('stat-duration').textContent = data.duration.split('.')[0]; 
+            document.getElementById('stat-bitrate').textContent = data.bitrate;
+            
+            // Sync Usage Bar dynamically
+            if (data.usage_remaining !== undefined && currentUser) {
+                const limitHrs = currentUser.daily_limit_hours || 24;
+                const limitSecs = limitHrs * 3600;
+                const usedSecs = limitSecs - data.usage_remaining;
+                currentUser.usage_seconds = usedSecs; // Update local state
+                
+                const usedHrs = (usedSecs / 3600).toFixed(1);
+                document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
+                document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
+            }
         });
 
+        socket.on('log', (data) => {
+            const p = document.createElement('p');
+            p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
+            p.textContent = `> ${data.message}`;
+            const consoleEl = document.getElementById('logConsole');
+            consoleEl.appendChild(p);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+            
+            if (data.type === 'start') updateStreamUI(true);
+            if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
+        });
+
+        async function handleLogout() { await fetch('/api/logout', {method:'POST'}); location.reload(); }
+        function showAuth(m) { isLoginMode = m==='login'; document.getElementById('login-view').classList.remove('hidden'); }
+        function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
         window.onload = checkAuth;
     </script>
 </body>
