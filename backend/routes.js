@@ -4,7 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcryptjs'); // Added for password hashing
+const bcrypt = require('bcryptjs'); 
 const { getVideos, saveVideo, deleteVideo, db } = require('./database');
 const { startStream, stopStream, isStreaming } = require('./streamEngine');
 
@@ -78,7 +78,6 @@ router.put('/plans/:id', isAdmin, (req, res) => {
 
 // Admin User Management
 router.get('/users', isAdmin, (req, res) => {
-    // Added u.plan_id to selection
     db.all("SELECT u.id, u.username, u.role, u.storage_used, u.plan_id, p.name as plan_name FROM users u JOIN plans p ON u.plan_id = p.id", (err, rows) => res.json(rows));
 });
 
@@ -117,6 +116,10 @@ router.delete('/videos/:id', async (req, res) => {
 });
 
 // --- STREAMING LOGIC ---
+router.get('/stream/status', (req, res) => {
+    res.json({ active: isStreaming() });
+});
+
 router.post('/playlist/start', async (req, res) => {
   const { ids, rtmpUrl, coverImageId, loop } = req.body;
   const userId = req.session.user.id;
@@ -129,7 +132,6 @@ router.post('/playlist/start', async (req, res) => {
     db.all(`SELECT * FROM videos WHERE id IN (${placeholders}) AND user_id = ?`, [...ids, userId], async (err, items) => {
       if (!items || items.length === 0) return res.status(404).json({ error: "Media tidak ditemukan" });
 
-      // LOGIKA SMART PLAYLIST: Pisahkan tipe media
       const videoFiles = items.filter(i => i.type === 'video');
       const audioFiles = items.filter(i => i.type === 'audio');
       const imageFiles = items.filter(i => i.type === 'image');
@@ -138,16 +140,13 @@ router.post('/playlist/start', async (req, res) => {
       let finalCoverPath = null;
 
       if (videoFiles.length > 0) {
-        // --- MODE VIDEO ---
         if (!plan.allowed_types.includes('video')) {
             return res.status(403).json({ error: "Paket Anda tidak mendukung streaming Video. Hanya Audio." });
         }
         playlistPaths = videoFiles.map(v => v.path);
       } 
       else if (audioFiles.length > 0) {
-        // --- MODE AUDIO (RADIO) ---
         playlistPaths = audioFiles.map(a => a.path);
-
         if (coverImageId) {
             const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
             if(cov) finalCoverPath = cov.path;
@@ -175,9 +174,7 @@ router.post('/stream/stop', (req, res) => {
   res.json({ success });
 });
 
-// SETTINGS: GET multi keys
 router.get('/settings', (req, res) => {
-    // Add landing page keys
     const keys = [
         'rtmp_url', 'stream_platform', 'stream_key', 'custom_server_url',
         'landing_title', 'landing_desc', 'landing_btn_reg', 'landing_btn_login'
@@ -190,67 +187,45 @@ router.get('/settings', (req, res) => {
     });
 });
 
-// SETTINGS: POST multi keys
 router.post('/settings', (req, res) => {
-    // Updated to handle arbitrary keys sent from frontend
-    const items = req.body; // Expecting object { key: value, key2: value2 }
-    
+    const items = req.body; 
     const stmt = db.prepare("INSERT OR REPLACE INTO stream_settings (key, value) VALUES (?, ?)");
-    
     Object.keys(items).forEach(key => {
-        // Simple security: only allow strings
         const val = items[key] ? String(items[key]) : '';
         stmt.run(key, val);
     });
-    
     stmt.finalize();
     res.json({ success: true });
 });
 
-// --- PROFILE SETTINGS ---
 router.put('/profile', async (req, res) => {
     const { username, currentPassword, newPassword } = req.body;
     const userId = req.session.user.id;
-
     db.get("SELECT * FROM users WHERE id = ?", [userId], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
-
-        // 1. Validasi Password Lama
         const match = await bcrypt.compare(currentPassword, user.password_hash);
         if (!match) return res.status(400).json({ error: "Password saat ini salah." });
-
-        // 2. Cek Username (Jika berubah)
         if (username !== user.username) {
             const exists = await new Promise(r => db.get("SELECT id FROM users WHERE username = ?", [username], (e, row) => r(row)));
             if (exists) return res.status(400).json({ error: "Username sudah digunakan." });
         }
-
-        // 3. Update Database
         try {
             let query = "UPDATE users SET username = ?";
             let params = [username];
-
             if (newPassword && newPassword.length >= 6) {
                 const newHash = await bcrypt.hash(newPassword, 10);
                 query += ", password_hash = ?";
                 params.push(newHash);
             }
-
             query += " WHERE id = ?";
             params.push(userId);
-
             db.run(query, params, (err) => {
                 if (err) return res.status(500).json({ error: err.message });
-                
-                // Update Session
                 req.session.user.username = username;
                 req.session.save();
-
                 res.json({ success: true, message: "Profil berhasil diperbarui." });
             });
-        } catch (e) {
-            res.status(500).json({ error: "Server Error" });
-        }
+        } catch (e) { res.status(500).json({ error: "Server Error" }); }
     });
 });
 

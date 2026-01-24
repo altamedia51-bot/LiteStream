@@ -448,35 +448,24 @@
         let adminPlansList = [];
         let confirmCallback = null;
         
-        // RTMP Constants
         const PLATFORMS = {
             youtube: 'rtmp://a.rtmp.youtube.com/live2/',
             facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/',
             twitch: 'rtmp://live.twitch.tv/app/'
         };
 
-        // --- UI HELPER FUNCTIONS (New) ---
-
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
-            
-            // Design based on type
             const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
             const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-            
             el.className = `toast-enter ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold backdrop-blur-md`;
             el.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
-            
             container.appendChild(el);
-            
-            // Animation In
             requestAnimationFrame(() => {
                 el.classList.add('toast-enter-active');
                 el.classList.remove('toast-enter');
             });
-            
-            // Remove after delay
             setTimeout(() => {
                 el.classList.add('toast-exit-active');
                 el.addEventListener('transitionend', () => el.remove());
@@ -494,13 +483,10 @@
             confirmCallback = null;
         }
 
-        // Attach event listener for the confirm button once
         document.getElementById('btn-confirm-action').addEventListener('click', () => {
             if (confirmCallback) confirmCallback();
             closeConfirmModal();
         });
-
-        // --- END UI HELPERS ---
 
         function setView(viewId) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
@@ -537,7 +523,7 @@
             } catch (e) { console.error("Failed to load landing content", e); }
         }
 
-        function showDashboard() {
+        async function showDashboard() {
             setView('main-app');
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('plan-name-display').textContent = currentUser.plan_name;
@@ -554,6 +540,38 @@
             }
             fetchMedia(); 
             fetchSettings();
+            
+            // --- SYNC STATE: Cek status live ke server saat buka dashboard ---
+            try {
+                const res = await fetch('/api/stream/status');
+                const state = await res.json();
+                if (state.active) {
+                    updateStreamUI(true);
+                    const consoleEl = document.getElementById('logConsole');
+                    const p = document.createElement('p');
+                    p.className = 'text-indigo-400 font-bold';
+                    p.textContent = `> Sistem mendeteksi streaming aktif di latar belakang. Sinkronisasi berhasil.`;
+                    consoleEl.appendChild(p);
+                }
+            } catch(e) { console.error("Sync error:", e); }
+        }
+
+        function updateStreamUI(isLive) {
+            if (isLive) {
+                document.getElementById('live-card').classList.remove('hidden');
+                document.getElementById('idle-msg').classList.add('hidden');
+                document.getElementById('btn-stop-stream').classList.remove('hidden');
+                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-emerald-500 shadow-lg";
+                document.getElementById('status-label').textContent = "Live";
+            } else {
+                document.getElementById('live-card').classList.add('hidden');
+                document.getElementById('idle-msg').classList.remove('hidden');
+                document.getElementById('btn-stop-stream').classList.add('hidden');
+                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-slate-500";
+                document.getElementById('status-label').textContent = "Offline";
+                if(document.getElementById('stat-duration')) document.getElementById('stat-duration').textContent = '00:00:00';
+                if(document.getElementById('stat-bitrate')) document.getElementById('stat-bitrate').textContent = '0 kbps';
+            }
         }
 
         async function fetchPlans() {
@@ -756,10 +774,8 @@
             const oldText = btn.textContent;
             btn.textContent = "Uploading...";
             btn.disabled = true;
-
             const res = await fetch('/api/videos/upload', {method:'POST', body:fd}); 
             const data = await res.json();
-            
             if(data.success) { 
                 await fetchMedia(); 
                 switchMediaTab(data.type);
@@ -772,7 +788,6 @@
         }
 
         function deleteMedia(id) { 
-            // Replaced native confirm() with Custom Modal
             openConfirmModal("Apakah Anda yakin ingin menghapus file ini secara permanen?", async () => {
                 await fetch(`/api/videos/${id}`, {method:'DELETE'}); 
                 fetchMedia();
@@ -834,16 +849,12 @@
             const platform = document.getElementById('setting-platform').value;
             const key = document.getElementById('setting-key').value.trim();
             let serverUrl = '';
-
             if (platform === 'custom') serverUrl = document.getElementById('setting-server-url').value.trim();
             else serverUrl = PLATFORMS[platform];
-
             if (!serverUrl) return showToast("Server URL wajib untuk Custom RTMP", 'error');
             if (!key) return showToast("Stream Key wajib diisi", 'error');
-
             if (serverUrl && !serverUrl.endsWith('/')) serverUrl += '/';
             const fullUrl = serverUrl + key;
-
             const landingTitle = document.getElementById('setting-landing-title');
             let landingPayload = {};
             if (landingTitle) {
@@ -854,7 +865,6 @@
                     landing_btn_login: document.getElementById('setting-landing-btn-login').value
                 };
             }
-
             const payload = {
                 stream_platform: platform,
                 stream_key: key,
@@ -862,13 +872,11 @@
                 rtmp_url: fullUrl,
                 ...landingPayload
             };
-
             await fetch('/api/settings', { 
                 method: 'POST', 
                 headers: {'Content-Type':'application/json'}, 
                 body: JSON.stringify(payload) 
             }); 
-            
             document.getElementById('setting-full-rtmp').value = fullUrl;
             showToast("Konfigurasi Tersimpan!"); 
         }
@@ -879,22 +887,18 @@
             const currentPassword = document.getElementById('profile-current-pass').value;
             const newPassword = document.getElementById('profile-new-pass').value;
             if (!currentPassword) return showToast("Password saat ini dibutuhkan.", 'error');
-
             const res = await fetch('/api/profile', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, currentPassword, newPassword })
             });
-
             const data = await res.json();
             if (data.success) {
                 showToast(data.message);
                 document.getElementById('profile-current-pass').value = '';
                 document.getElementById('profile-new-pass').value = '';
                 document.getElementById('profile-username-display').textContent = username;
-            } else {
-                showToast(data.error, 'error');
-            }
+            } else { showToast(data.error, 'error'); }
         }
 
         socket.on('log', (data) => {
@@ -903,22 +907,8 @@
             p.className = data.type === 'error' ? 'text-rose-400' : (data.type === 'start' ? 'text-indigo-400 font-bold' : 'text-slate-400');
             p.textContent = `> ${data.message}`;
             consoleEl.appendChild(p); consoleEl.scrollTop = consoleEl.scrollHeight;
-
-            if (data.type === 'start') {
-                document.getElementById('live-card').classList.remove('hidden');
-                document.getElementById('idle-msg').classList.add('hidden');
-                document.getElementById('btn-stop-stream').classList.remove('hidden');
-                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-emerald-500 shadow-lg";
-                document.getElementById('status-label').textContent = "Live";
-            } else if (data.type === 'end' || data.type === 'info') {
-                document.getElementById('live-card').classList.add('hidden');
-                document.getElementById('idle-msg').classList.remove('hidden');
-                document.getElementById('btn-stop-stream').classList.add('hidden');
-                document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-slate-500";
-                document.getElementById('status-label').textContent = "Offline";
-                if(document.getElementById('stat-duration')) document.getElementById('stat-duration').textContent = '00:00:00';
-                if(document.getElementById('stat-bitrate')) document.getElementById('stat-bitrate').textContent = '0 kbps';
-            }
+            if (data.type === 'start') updateStreamUI(true);
+            else if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
         });
 
         socket.on('stats', (data) => {
