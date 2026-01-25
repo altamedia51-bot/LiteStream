@@ -9,10 +9,9 @@ const db = new sqlite3.Database(dbPath);
 const initDB = () => {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
-      // 1. Aktifkan Foreign Keys
       db.run("PRAGMA foreign_keys = ON");
 
-      // 2. Buat Tabel Dasar jika belum ada
+      // 1. Buat Tabel Plans dengan kolom daily_limit_hours
       db.run(`CREATE TABLE IF NOT EXISTS plans (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         name TEXT UNIQUE, 
@@ -20,23 +19,23 @@ const initDB = () => {
         allowed_types TEXT, 
         max_active_streams INTEGER,
         price_text TEXT,
-        features_text TEXT
+        features_text TEXT,
+        daily_limit_hours INTEGER DEFAULT 24
       )`);
 
-      // 3. MIGRASI: Tambahkan kolom baru jika belum ada (Menghindari SQLITE_ERROR)
+      // Migrasi kolom baru jika belum ada
       db.all("PRAGMA table_info(plans)", (err, columns) => {
         if (err || !columns) return;
         const hasPrice = columns.some(c => c.name === 'price_text');
         const hasFeatures = columns.some(c => c.name === 'features_text');
+        const hasLimit = columns.some(c => c.name === 'daily_limit_hours');
         
-        if (!hasPrice) {
-          db.run("ALTER TABLE plans ADD COLUMN price_text TEXT");
-        }
-        if (!hasFeatures) {
-          db.run("ALTER TABLE plans ADD COLUMN features_text TEXT");
-        }
+        if (!hasPrice) db.run("ALTER TABLE plans ADD COLUMN price_text TEXT");
+        if (!hasFeatures) db.run("ALTER TABLE plans ADD COLUMN features_text TEXT");
+        if (!hasLimit) db.run("ALTER TABLE plans ADD COLUMN daily_limit_hours INTEGER DEFAULT 24");
       });
 
+      // 2. Buat Tabel Users dengan kolom tracking penggunaan waktu
       db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         username TEXT UNIQUE, 
@@ -44,60 +43,53 @@ const initDB = () => {
         role TEXT DEFAULT 'user',
         plan_id INTEGER DEFAULT 1,
         storage_used INTEGER DEFAULT 0,
+        usage_seconds INTEGER DEFAULT 0,
+        last_usage_reset TEXT,
         FOREIGN KEY(plan_id) REFERENCES plans(id)
       )`);
 
+      db.all("PRAGMA table_info(users)", (err, columns) => {
+        if (err || !columns) return;
+        const hasUsage = columns.some(c => c.name === 'usage_seconds');
+        const hasReset = columns.some(c => c.name === 'last_usage_reset');
+        if (!hasUsage) db.run("ALTER TABLE users ADD COLUMN usage_seconds INTEGER DEFAULT 0");
+        if (!hasReset) db.run("ALTER TABLE users ADD COLUMN last_usage_reset TEXT");
+      });
+
       db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
       db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
-      
-      db.run(`CREATE TABLE IF NOT EXISTS schedules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        user_id INTEGER,
-        media_ids TEXT, 
-        rtmp_url TEXT, 
-        cover_image_id INTEGER, 
-        loop_playlist INTEGER DEFAULT 1, 
-        scheduled_at DATETIME, 
-        status TEXT DEFAULT 'pending'
-      )`);
 
-      // 4. Seeding Master Data Plans
+      // 3. Seeding Data Plans (ID 1 diatur 5 Jam sesuai permintaan)
       const plans = [
-        [1, 'Paket Basic (Pemula)', 2048, 'video,audio', 1, 'Rp 50.000', 'Max 720p, 12 Jam/hari, Auto Reconnect'],
-        [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target'],
-        [3, 'Paket Radio 24/7', 5120, 'audio', 1, 'Rp 75.000', 'Khusus Radio MP3, Visualisasi Cover, Shuffle Playlist'],
-        [4, 'Paket Sultan (Private)', 25600, 'video,audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Setup Dibantu Full']
+        [1, 'Paket Free Trial', 2048, 'video,audio', 1, 'Gratis', 'Max 720p, Batasan 5 Jam/hari, Auto Reconnect', 5],
+        [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target', 24],
+        [3, 'Paket Radio 24/7', 5120, 'audio', 1, 'Rp 75.000', 'Khusus Radio MP3, Visualisasi Cover, Shuffle Playlist', 24],
+        [4, 'Paket Sultan (Private)', 25600, 'video,audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Setup Dibantu Full', 24]
       ];
       
       plans.forEach(p => {
-        // Hanya insert jika belum ada id tersebut agar manual edit tidak hilang
-        db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`, p);
+        db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text, daily_limit_hours) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, p);
+        // Update limit jika paket sudah ada (pastikan id 1 tetap 5 jam)
+        db.run(`UPDATE plans SET daily_limit_hours = ? WHERE id = ?`, [p[7], p[0]]);
       });
 
-      // 5. Seeding Default Settings (Landing Page Content)
+      // Seeding Default Settings
       const defaultSettings = [
         ['landing_title', 'Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span>'],
         ['landing_desc', 'Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM.'],
         ['landing_btn_reg', 'Daftar Sekarang'],
         ['landing_btn_login', 'Login Member']
       ];
+      defaultSettings.forEach(s => db.run(`INSERT OR IGNORE INTO stream_settings (key, value) VALUES (?, ?)`, s));
 
-      defaultSettings.forEach(s => {
-         db.run(`INSERT OR IGNORE INTO stream_settings (key, value) VALUES (?, ?)`, s);
-      });
-
-      // 6. Seeding Admin
+      // Seeding Admin
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
-      
-      // Cek apakah admin sudah ada
       db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
         if (!row) {
-          db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
-            if (!err) console.log("DB: Initial Admin Created (admin/admin123)");
-          });
+          db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);
         }
         resolve();
       });

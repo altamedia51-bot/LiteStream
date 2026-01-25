@@ -213,6 +213,11 @@
                     <input type="file" id="file-up" class="hidden" onchange="handleUpload(this)">
                 </div>
 
+                <div class="relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500"></i>
+                    <input type="text" id="media-search" oninput="renderMediaList()" placeholder="Search filenames..." class="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl pl-12 pr-5 py-3 text-sm text-white outline-none focus:border-indigo-500 transition-all">
+                </div>
+
                 <div class="flex p-1 bg-slate-900 rounded-2xl border border-slate-800 w-fit">
                     <button onclick="switchMediaTab('video')" id="mt-video" class="media-subtab active px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Videos</button>
                     <button onclick="switchMediaTab('audio')" id="mt-audio" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Audios</button>
@@ -422,7 +427,11 @@
         }
 
         function renderMediaList() {
-            const filtered = allMedia.filter(m => m.type === (window.currentMediaTab || 'video'));
+            const query = document.getElementById('media-search') ? document.getElementById('media-search').value.toLowerCase() : '';
+            const filtered = allMedia.filter(m => 
+                m.type === (window.currentMediaTab || 'video') && 
+                m.filename.toLowerCase().includes(query)
+            );
             document.getElementById('media-list').innerHTML = filtered.map(v => `
                 <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group">
                     <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 accent-indigo-500">
