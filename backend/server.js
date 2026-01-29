@@ -9,7 +9,7 @@ const dotenv = require('dotenv');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcryptjs');
-const { initDB, db } = require('./database');
+const { initDB, db, dbPath } = require('./database');
 
 dotenv.config();
 
@@ -41,41 +41,59 @@ const isAuthenticated = (req, res, next) => {
   res.status(401).json({ error: 'Unauthorized' });
 };
 
-// === EMERGENCY ROUTE: RESET ADMIN ===
-// Akses link ini sekali via browser: http://IP-VPS:3000/reset-admin-force
-app.get('/reset-admin-force', async (req, res) => {
-    const adminUser = 'admin';
-    const adminPass = 'admin123';
-    
+// === FACTORY RESET ROUTE ===
+// Akses: http://IP-VPS:3000/api/factory-reset
+app.get('/api/factory-reset', (req, res) => {
     try {
-        const hash = await bcrypt.hash(adminPass, 10);
+        const sessionFile = path.join(__dirname, 'sessions.sqlite');
         
-        db.serialize(() => {
-            // 1. Hapus user admin lama jika ada (untuk menghindari konflik)
-            db.run("DELETE FROM users WHERE username = 'admin'");
-            
-            // 2. Buat ulang user admin baru
-            db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
-                if (err) {
-                    return res.send(`<h1 style="color:red">GAGAL RESET: ${err.message}</h1>`);
-                }
-                res.send(`
-                    <h1 style="color:green">SUKSES! Admin Reset.</h1>
-                    <p>Username: <b>admin</b></p>
-                    <p>Password: <b>admin123</b></p>
-                    <hr>
-                    <a href="/">Klik disini untuk Login</a>
-                `);
+        // 1. Hapus Database Utama
+        if (fs.existsSync(dbPath)) {
+            // Tutup koneksi dulu
+            db.close(() => {
+                try {
+                    fs.unlinkSync(dbPath);
+                    console.log("Database deleted.");
+                } catch(e) { console.error("Del DB Fail", e); }
             });
-        });
+        }
+
+        // 2. Hapus Session
+        if (fs.existsSync(sessionFile)) {
+            try {
+                fs.unlinkSync(sessionFile);
+                console.log("Sessions deleted.");
+            } catch(e) { console.error("Del Session Fail", e); }
+        }
+
+        res.send(`
+            <h1 style="color:red">FACTORY RESET SUCCESS</h1>
+            <p>Database dan Session telah dihapus.</p>
+            <p>Server sedang restart otomatis...</p>
+            <p>Tunggu 10 detik, lalu <a href="/">LOGIN DISINI</a></p>
+            <p><b>Username:</b> admin<br><b>Password:</b> admin123</p>
+            <script>
+                setTimeout(() => { window.location.href = '/' }, 10000);
+            </script>
+        `);
+
+        // 3. Matikan Proses (PM2 akan otomatis menyalakan ulang)
+        setTimeout(() => {
+            console.log("Restarting process...");
+            process.exit(0); 
+        }, 2000);
+
     } catch (e) {
-        res.send("Error hashing password: " + e.message);
+        res.send("Reset Error: " + e.message);
     }
 });
 
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
+  // Debug log
+  console.log(`Login Attempt: User [${username}] with Pass [${password}]`);
+
   const query = `
     SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
     FROM users u 
@@ -83,16 +101,22 @@ app.post('/api/login', (req, res) => {
     WHERE u.username = ?`;
 
   db.get(query, [username], async (err, user) => {
-    if (err) return res.status(500).json({ success: false, error: 'DB Error' });
+    if (err) {
+        console.error("DB Error Login:", err);
+        return res.status(500).json({ success: false, error: 'Database Error: ' + err.message });
+    }
+    
     if (!user) {
-        console.log(`Login Failed: User '${username}' not found.`);
-        return res.status(401).json({ success: false, error: 'User tidak ditemukan' });
+        console.log(`Login Failed: User '${username}' not found in DB.`);
+        return res.status(401).json({ success: false, error: 'Username tidak ditemukan.' });
     }
 
     try {
       const match = await bcrypt.compare(password, user.password_hash);
+      
+      console.log(`Password Check for ${username}: ${match ? 'MATCH' : 'MISMATCH'}`);
+      
       if (match) {
-        // Logika Fallback: Jika plan tidak ditemukan (null), berikan default Free Trial
         const finalPlanName = user.plan_name || 'Standard Plan';
         const finalMaxStorage = user.max_storage_mb || 500;
         const finalAllowedTypes = user.allowed_types || 'audio';
@@ -107,17 +131,20 @@ app.post('/api/login', (req, res) => {
           allowed_types: finalAllowedTypes
         };
 
-        return req.session.save(() => {
+        return req.session.save((err) => {
+          if (err) {
+              console.error("Session Save Error:", err);
+              return res.status(500).json({ success: false, error: 'Session Error' });
+          }
           res.json({ success: true });
         });
       } else {
-          console.log(`Login Failed: Password mismatch for user '${username}'.`);
+          return res.status(401).json({ success: false, error: 'Password Salah.' });
       }
     } catch (e) {
-        console.error("Login Error:", e);
+        console.error("Bcrypt Error:", e);
+        res.status(500).json({ success: false, error: 'Internal Auth Error' });
     }
-    
-    res.status(401).json({ success: false, error: 'Password salah' });
   });
 });
 
@@ -146,6 +173,8 @@ app.get('/api/check-auth', (req, res) => {
         res.json({ authenticated: true, user: fullUser });
       });
     } else {
+        // Session ada tapi user di DB hilang (misal habis reset DB)
+        req.session.destroy();
         res.json({ authenticated: false });
     }
   });
@@ -154,9 +183,9 @@ app.get('/api/check-auth', (req, res) => {
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ success: true })));
 
 const routes = require('./routes');
-// UPDATE: Whitelist '/landing-content' & '/reset-admin-force'
 app.use('/api', (req, res, next) => {
-  if (['/login', '/register', '/check-auth', '/plans-public', '/landing-content'].includes(req.path)) return next();
+  // Allow login, register, factory reset, etc.
+  if (['/login', '/register', '/check-auth', '/plans-public', '/landing-content', '/factory-reset'].includes(req.path)) return next();
   return isAuthenticated(req, res, next);
 }, routes);
 
