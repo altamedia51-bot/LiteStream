@@ -31,6 +31,9 @@ const isAdmin = (req, res, next) => {
 
 const checkStorageQuota = (req, res, next) => {
   const userId = req.session.user.id;
+  // Jika Admin, bypass quota check
+  if (req.session.user.role === 'admin') return next();
+
   db.get(`
     SELECT u.storage_used, p.max_storage_mb 
     FROM users u JOIN plans p ON u.plan_id = p.id 
@@ -194,6 +197,38 @@ router.post('/playlist/start', async (req, res) => {
 
   const currentUsage = await syncUserUsage(userId);
   
+  // LOGIC ADMIN BYPASS
+  if (req.session.user.role === 'admin') {
+      // Admin Logic: Langsung gas tanpa cek kuota
+      const placeholdersDest = destinationIds.map(() => '?').join(',');
+      const destinations = await new Promise((resolve) => {
+            db.all(`SELECT name, platform, rtmp_url, stream_key FROM stream_destinations WHERE id IN (${placeholdersDest}) AND user_id = ?`, [...destinationIds, userId], (err, rows) => resolve(rows));
+      });
+      
+      if (!destinations || destinations.length === 0) return res.status(400).json({ error: "Tujuan streaming tidak valid." });
+
+      const placeholders = ids.map(() => '?').join(',');
+      db.all(`SELECT * FROM videos WHERE id IN (${placeholders}) AND user_id = ?`, [...ids, userId], async (err, items) => {
+          if (!items || items.length === 0) return res.status(404).json({ error: "Media tidak ditemukan" });
+          
+          const audioFiles = items.filter(i => i.type === 'audio').map(a => a.path);
+          const imageFiles = items.filter(i => i.type === 'image');
+          let finalCoverPath = null;
+          if (coverImageId) {
+                const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
+                if(cov) finalCoverPath = cov.path;
+          }
+          if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
+
+          try {
+              const streamId = await startStream(audioFiles, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+              res.json({ success: true, message: `Streaming Administrator Dimulai (ID: ${streamId})` });
+          } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
+      });
+      return;
+  }
+
+  // LOGIC USER BIASA (Pake Limit)
   db.get(`
     SELECT p.allowed_types, p.daily_limit_hours, p.max_active_streams
     FROM users u JOIN plans p ON u.plan_id = p.id 

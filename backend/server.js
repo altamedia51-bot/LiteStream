@@ -117,9 +117,16 @@ app.post('/api/login', (req, res) => {
       console.log(`Password Check for ${username}: ${match ? 'MATCH' : 'MISMATCH'}`);
       
       if (match) {
-        const finalPlanName = user.plan_name || 'Standard Plan';
-        const finalMaxStorage = user.max_storage_mb || 500;
-        const finalAllowedTypes = user.allowed_types || 'audio';
+        // OVERRIDE FOR ADMIN
+        let finalPlanName = user.plan_name || 'Standard Plan';
+        let finalMaxStorage = user.max_storage_mb || 500;
+        let finalAllowedTypes = user.allowed_types || 'audio';
+        
+        if (user.role === 'admin') {
+            finalPlanName = 'Administrator';
+            finalMaxStorage = 999999; // 1TB practically
+            finalAllowedTypes = 'audio,video,image';
+        }
 
         req.session.user = { 
           id: user.id, 
@@ -160,16 +167,24 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   
-  db.get("SELECT storage_used, plan_id FROM users WHERE id = ?", [req.session.user.id], (err, row) => {
+  db.get("SELECT storage_used, plan_id, role FROM users WHERE id = ?", [req.session.user.id], (err, row) => {
     if (row) {
       db.get("SELECT name as plan_name, max_storage_mb, allowed_types FROM plans WHERE id = ?", [row.plan_id], (err, p) => {
-        const fullUser = { 
+        let fullUser = { 
           ...req.session.user, 
           storage_used: row.storage_used, 
           plan_name: p ? p.plan_name : req.session.user.plan_name,
           max_storage_mb: p ? p.max_storage_mb : req.session.user.max_storage_mb,
           allowed_types: p ? p.allowed_types : req.session.user.allowed_types
         };
+        
+        // OVERRIDE FOR ADMIN
+        if (req.session.user.role === 'admin' || row.role === 'admin') {
+            fullUser.plan_name = 'Administrator';
+            fullUser.max_storage_mb = 999999;
+            fullUser.daily_limit_hours = 24;
+        }
+
         res.json({ authenticated: true, user: fullUser });
       });
     } else {

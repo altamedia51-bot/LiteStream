@@ -633,7 +633,48 @@
             updateStreamUI(s.total_active > 0, s.active_streams);
         }
         
-        function updateUIInfo() { if(!currentUser)return; document.getElementById('plan-name-display').textContent=currentUser.plan_name; const u=(currentUser.storage_used/1048576).toFixed(1); document.getElementById('storage-text').textContent=`${u} / ${currentUser.max_storage_mb} MB`; document.getElementById('storage-bar').style.width=Math.min((u/currentUser.max_storage_mb*100),100)+'%'; const h=((currentUser.usage_seconds||0)/3600).toFixed(1); document.getElementById('usage-text').textContent=`${h} / ${currentUser.daily_limit_hours||24} H`; document.getElementById('usage-bar').style.width=Math.min((h/(currentUser.daily_limit_hours||24)*100),100)+'%'; }
+        function updateUIInfo() { 
+            if(!currentUser) return; 
+            
+            // PLAN NAME
+            const planNameEl = document.getElementById('plan-name-display');
+            planNameEl.textContent = currentUser.plan_name;
+            
+            // If Admin/Administrator, style gold
+            if (currentUser.plan_name === 'Administrator' || currentUser.role === 'admin') {
+                planNameEl.classList.add('text-amber-400');
+                planNameEl.classList.remove('text-white');
+            } else {
+                planNameEl.classList.add('text-white');
+                planNameEl.classList.remove('text-amber-400');
+            }
+
+            // STORAGE BAR
+            const u = (currentUser.storage_used/1048576).toFixed(1); 
+            const maxMB = currentUser.max_storage_mb;
+            if (maxMB > 500000) { // Assume > 500GB is unlimited
+                document.getElementById('storage-text').textContent = "UNLIMITED";
+                document.getElementById('storage-bar').style.width = '100%';
+                document.getElementById('storage-bar').className = 'h-full bg-amber-500 transition-all duration-700';
+            } else {
+                document.getElementById('storage-text').textContent = `${u} / ${maxMB} MB`; 
+                document.getElementById('storage-bar').style.width = Math.min((u/maxMB*100),100)+'%';
+                document.getElementById('storage-bar').className = 'h-full bg-indigo-500 transition-all duration-700';
+            }
+
+            // TIME BAR
+            const h = ((currentUser.usage_seconds||0)/3600).toFixed(1); 
+            const limitH = currentUser.daily_limit_hours||24;
+            if (limitH >= 24) {
+                 document.getElementById('usage-text').textContent = "UNLIMITED";
+                 document.getElementById('usage-bar').style.width = '100%';
+                 document.getElementById('usage-bar').className = 'h-full bg-amber-500 transition-all duration-700';
+            } else {
+                 document.getElementById('usage-text').textContent = `${h} / ${limitH} H`; 
+                 document.getElementById('usage-bar').style.width = Math.min((h/limitH*100),100)+'%';
+                 document.getElementById('usage-bar').className = 'h-full bg-emerald-500 transition-all duration-700';
+            }
+        }
 
         async function fetchPublicPlans() {
             const r=await fetch('/api/plans-public'); const p=await r.json();
@@ -704,9 +745,14 @@
                         const limitHrs = currentUser.daily_limit_hours || 24;
                         const usedSecs = (limitHrs * 3600) - data.usage_remaining;
                         currentUser.usage_seconds = usedSecs; 
-                        const usedHrs = (usedSecs / 3600).toFixed(1);
-                        document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
-                        document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
+                        
+                        // UI Update for usage handled in updateUIInfo usually, but simple refresh here:
+                        const h = ((usedSecs)/3600).toFixed(1); 
+                        const limitH = currentUser.daily_limit_hours||24;
+                        if(limitH < 24) {
+                            document.getElementById('usage-text').textContent = `${h} / ${limitH} H`; 
+                            document.getElementById('usage-bar').style.width = Math.min((h/limitH*100),100)+'%';
+                        }
                     }
                 });
                 socket.on('log', (data) => {
