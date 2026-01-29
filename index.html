@@ -8,7 +8,8 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath d='M13 10V3L4 14h7v7l9-11h-7z'/%3E%3C/svg%3E">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Socket.io load with onerror fallback -->
+    <script src="/socket.io/socket.io.js" onerror="console.warn('Socket.io failed to load. Real-time features disabled.')"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
@@ -58,7 +59,8 @@
                 <a href="#features" class="hover:text-white transition-colors">Features</a>
                 <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
             </div>
-            <button onclick="showAuth()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl transition-all">Dashboard</button>
+            <!-- Update onclick to explicit login -->
+            <button onclick="showAuth('login')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl transition-all">Dashboard</button>
         </nav>
 
         <section class="pt-40 pb-16 px-6 lg:px-20 text-center max-w-5xl mx-auto">
@@ -80,6 +82,7 @@
         </footer>
     </div>
 
+    <!-- LOGIN MODAL -->
     <div id="login-view" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 space-y-8 shadow-2xl relative">
             <button onclick="hideAuth()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
@@ -289,11 +292,85 @@
     </div>
 
     <script>
-        const socket = io();
+        // --- AUTH & UI FUNCTIONS (DEFINED FIRST FOR SAFETY) ---
+        let isLoginMode = true;
+
+        function showAuth(mode) {
+            // Default to login if no mode specified
+            isLoginMode = (mode === 'register') ? false : true;
+            updateAuthUI();
+            
+            const modal = document.getElementById('login-view');
+            if (modal) {
+                modal.classList.remove('hidden');
+                console.log("Opening Auth Modal in mode:", isLoginMode ? 'Login' : 'Register');
+            } else {
+                console.error("Login modal element not found!");
+            }
+        }
+
+        function hideAuth() { 
+            document.getElementById('login-view').classList.add('hidden'); 
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            updateAuthUI();
+        }
+
+        function updateAuthUI() {
+            document.getElementById('auth-title').innerText = isLoginMode ? 'LiteStream' : 'Daftar Baru';
+            document.getElementById('auth-btn').innerText = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG';
+            document.getElementById('toggle-text').innerText = isLoginMode ? 'Belum punya akun?' : 'Sudah punya akun?';
+            document.getElementById('toggle-btn').innerText = isLoginMode ? 'Daftar Sekarang' : 'Login Disini';
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-user').value;
+            const pass = document.getElementById('login-pass').value;
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+            const btn = document.getElementById('auth-btn');
+            
+            const originalText = btn.innerText;
+            btn.innerText = 'Memproses...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (isLoginMode) {
+                        showToast('Login Berhasil!', 'success');
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        showToast('Registrasi berhasil! Silakan login.', 'success');
+                        toggleAuthMode();
+                    }
+                } else {
+                    showToast(data.error || 'Gagal melakukan otentikasi', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Koneksi Gagal ke Server', 'error');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+        
+        async function handleLogout() { await fetch('/api/logout', {method:'POST'}); location.reload(); }
+
+        // --- CORE APP VARIABLES ---
+        let socket = null;
         let currentUser = null;
         let selectedMedia = new Set();
         let allMedia = [];
-        let isLoginMode = true;
         let confirmCallback = null;
         const PLATFORMS = { youtube: 'rtmp://a.rtmp.youtube.com/live2/', facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/', twitch: 'rtmp://live.twitch.tv/app/' };
 
@@ -357,8 +434,6 @@
             const plans = await res.json();
             document.getElementById('pricing-grid').innerHTML = plans.map(p => {
                 let extraControls = '';
-                
-                // LOGIKA KHUSUS: Paket Radio (ID 3)
                 if (p.id === 3) {
                      let options = '';
                      for(let i=1; i<=12; i++) options += `<option value="${i}">${i} Bulan</option>`;
@@ -368,14 +443,9 @@
                             <select onchange="updatePlanPrice(this, '${p.price_text}', ${p.id})" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-bold">
                                 ${options}
                             </select>
-                        </div>
-                     `;
+                        </div>`;
                 }
-
-                // Tampilkan fitur tambahan jika ada
-                const featuresList = p.features_text 
-                    ? p.features_text.split(',').map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f.trim()}</li>`).join('')
-                    : '';
+                const featuresList = p.features_text ? p.features_text.split(',').map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f.trim()}</li>`).join('') : '';
 
                 return `
                 <div class="glass p-8 rounded-[3rem] border border-slate-800 flex flex-col ${p.id === 4 ? 'ring-2 ring-indigo-500' : ''} relative overflow-hidden group hover:border-indigo-500/30 transition-all">
@@ -393,24 +463,13 @@
         }
 
         function updatePlanPrice(select, basePriceStr, planId) {
-            // Hapus karakter non-digit untuk dapat angka murni (Rp 75.000 -> 75000)
             const basePrice = parseInt(basePriceStr.replace(/[^0-9]/g, ''));
             const months = parseInt(select.value);
             if(isNaN(basePrice)) return;
-
             const total = basePrice * months;
-            const formatted = 'Rp ' + total.toLocaleString('id-ID'); // Format mata uang Indonesia
-
+            const formatted = 'Rp ' + total.toLocaleString('id-ID');
             const el = document.getElementById(`price-display-${planId}`);
-            
-            // Animasi kecil saat harga berubah
-            if (el) {
-                el.style.opacity = '0';
-                setTimeout(() => {
-                    el.textContent = formatted;
-                    el.style.opacity = '1';
-                }, 150);
-            }
+            if (el) { el.style.opacity = '0'; setTimeout(() => { el.textContent = formatted; el.style.opacity = '1'; }, 150); }
         }
 
         function switchTab(tab) {
@@ -427,10 +486,7 @@
 
         function renderMediaList() {
             const query = document.getElementById('media-search') ? document.getElementById('media-search').value.toLowerCase() : '';
-            const filtered = allMedia.filter(m => 
-                m.type === (window.currentMediaTab || 'video') && 
-                m.filename.toLowerCase().includes(query)
-            );
+            const filtered = allMedia.filter(m => m.type === (window.currentMediaTab || 'video') && m.filename.toLowerCase().includes(query));
             document.getElementById('media-list').innerHTML = filtered.map(v => `
                 <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group">
                     <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 accent-indigo-500">
@@ -439,11 +495,7 @@
                 </div>`).join('');
         }
 
-        function switchMediaTab(tab) { 
-            window.currentMediaTab = tab; 
-            document.querySelectorAll('.media-subtab').forEach(t => t.classList.toggle('active', t.id === 'mt-' + tab));
-            renderMediaList(); 
-        }
+        function switchMediaTab(tab) { window.currentMediaTab = tab; document.querySelectorAll('.media-subtab').forEach(t => t.classList.toggle('active', t.id === 'mt-' + tab)); renderMediaList(); }
 
         function toggleSelect(id) {
             if (selectedMedia.has(id)) selectedMedia.delete(id); else selectedMedia.add(id);
@@ -485,89 +537,45 @@
             document.getElementById('status-label').textContent = isLive ? 'Live' : 'Offline';
         }
 
-        socket.on('stats', (data) => {
-            document.getElementById('stat-duration').textContent = data.duration.split('.')[0]; 
-            document.getElementById('stat-bitrate').textContent = data.bitrate;
-            
-            // Sync Usage Bar dynamically
-            if (data.usage_remaining !== undefined && currentUser) {
-                const limitHrs = currentUser.daily_limit_hours || 24;
-                const limitSecs = limitHrs * 3600;
-                const usedSecs = limitSecs - data.usage_remaining;
-                currentUser.usage_seconds = usedSecs; // Update local state
-                
-                const usedHrs = (usedSecs / 3600).toFixed(1);
-                document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
-                document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
+        // --- SAFE INITIALIZATION ---
+        window.onload = function() {
+            // Check socket availability
+            if (typeof io !== 'undefined') {
+                try {
+                    socket = io();
+                    socket.on('stats', (data) => {
+                        document.getElementById('stat-duration').textContent = data.duration.split('.')[0]; 
+                        document.getElementById('stat-bitrate').textContent = data.bitrate;
+                        if (data.usage_remaining !== undefined && currentUser) {
+                            const limitHrs = currentUser.daily_limit_hours || 24;
+                            const limitSecs = limitHrs * 3600;
+                            const usedSecs = limitSecs - data.usage_remaining;
+                            currentUser.usage_seconds = usedSecs; 
+                            const usedHrs = (usedSecs / 3600).toFixed(1);
+                            document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
+                            document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
+                        }
+                    });
+
+                    socket.on('log', (data) => {
+                        const p = document.createElement('p');
+                        p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
+                        p.textContent = `> ${data.message}`;
+                        const consoleEl = document.getElementById('logConsole');
+                        if (consoleEl) {
+                            consoleEl.appendChild(p);
+                            consoleEl.scrollTop = consoleEl.scrollHeight;
+                        }
+                        if (data.type === 'start') updateStreamUI(true);
+                        if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
+                    });
+                } catch(e) { console.warn("Socket Init Failed", e); }
+            } else {
+                console.warn("Socket.io library not loaded.");
             }
-        });
-
-        socket.on('log', (data) => {
-            const p = document.createElement('p');
-            p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
-            p.textContent = `> ${data.message}`;
-            const consoleEl = document.getElementById('logConsole');
-            consoleEl.appendChild(p);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
             
-            if (data.type === 'start') updateStreamUI(true);
-            if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
-        });
-        
-        // --- AUTH FUNCTIONS ADDED ---
-        
-        async function handleAuth(e) {
-            e.preventDefault();
-            const user = document.getElementById('login-user').value;
-            const pass = document.getElementById('login-pass').value;
-            const endpoint = isLoginMode ? '/api/login' : '/api/register';
-            const btn = document.getElementById('auth-btn');
-            
-            // UI Feedback
-            const originalText = btn.innerText;
-            btn.innerText = 'Memproses...';
-            btn.disabled = true;
-
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    if (isLoginMode) {
-                        showToast('Login Berhasil!', 'success');
-                        setTimeout(() => location.reload(), 500);
-                    } else {
-                        showToast('Registrasi berhasil! Silakan login.', 'success');
-                        toggleAuthMode(); // Switch back to login
-                    }
-                } else {
-                    showToast(data.error || 'Gagal melakukan otentikasi', 'error');
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('Koneksi Gagal ke Server', 'error');
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        function toggleAuthMode() {
-            isLoginMode = !isLoginMode;
-            document.getElementById('auth-title').innerText = isLoginMode ? 'LiteStream' : 'Daftar Baru';
-            document.getElementById('auth-btn').innerText = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG';
-            document.getElementById('toggle-text').innerText = isLoginMode ? 'Belum punya akun?';
-            document.getElementById('toggle-btn').innerText = isLoginMode ? 'Daftar Sekarang' : 'Login Disini';
-        }
-
-        async function handleLogout() { await fetch('/api/logout', {method:'POST'}); location.reload(); }
-        function showAuth(m) { isLoginMode = m==='login'; document.getElementById('login-view').classList.remove('hidden'); }
-        function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
-        window.onload = checkAuth;
+            checkAuth();
+        };
     </script>
 </body>
 </html>
