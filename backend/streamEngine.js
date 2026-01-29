@@ -181,9 +181,32 @@ const stopStream = (streamId = null, userId = null) => {
   let stoppedCount = 0;
 
   activeStreams.forEach((state, key) => {
-      // Logic: Stop if ID matches OR if User matches (stop all for user) OR if stop ALL (no args)
-      if ((streamId && key === streamId) || (userId && state.userId === userId) || (!streamId && !userId)) {
-          
+      let shouldStop = false;
+
+      if (streamId) {
+          // KASUS 1: Stop Stream Tertentu
+          // Cek apakah key cocok DAN (jika userId disediakan) apakah pemiliknya benar
+          if (key === streamId) {
+              if (userId) {
+                  // Jika ini dipanggil oleh user, pastikan ini punya dia
+                  if (state.userId === userId) shouldStop = true;
+              } else {
+                  // Jika dipanggil oleh system/admin tanpa userId, force stop
+                  shouldStop = true;
+              }
+          }
+      } else if (userId) {
+          // KASUS 2: Stop Semua Stream milik User Tertentu (streamId kosong)
+          // Ini biasanya dipanggil saat logout atau kuota habis
+          if (state.userId === userId) {
+              shouldStop = true;
+          }
+      } else {
+          // KASUS 3: Stop Semua Stream (Factory Reset / Shutdown)
+          shouldStop = true;
+      }
+
+      if (shouldStop) {
           state.loopActive = false;
           if (state.activeInputStream) {
               try { state.activeInputStream.end(); } catch(e) {}
