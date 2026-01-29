@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -514,6 +513,56 @@
             if (data.type === 'start') updateStreamUI(true);
             if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
         });
+        
+        // --- AUTH FUNCTIONS ADDED ---
+        
+        async function handleAuth(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-user').value;
+            const pass = document.getElementById('login-pass').value;
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+            const btn = document.getElementById('auth-btn');
+            
+            // UI Feedback
+            const originalText = btn.innerText;
+            btn.innerText = 'Memproses...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (isLoginMode) {
+                        showToast('Login Berhasil!', 'success');
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        showToast('Registrasi berhasil! Silakan login.', 'success');
+                        toggleAuthMode(); // Switch back to login
+                    }
+                } else {
+                    showToast(data.error || 'Gagal melakukan otentikasi', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Koneksi Gagal ke Server', 'error');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? 'LiteStream' : 'Daftar Baru';
+            document.getElementById('auth-btn').innerText = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG';
+            document.getElementById('toggle-text').innerText = isLoginMode ? 'Belum punya akun?';
+            document.getElementById('toggle-btn').innerText = isLoginMode ? 'Daftar Sekarang' : 'Login Disini';
+        }
 
         async function handleLogout() { await fetch('/api/logout', {method:'POST'}); location.reload(); }
         function showAuth(m) { isLoginMode = m==='login'; document.getElementById('login-view').classList.remove('hidden'); }
