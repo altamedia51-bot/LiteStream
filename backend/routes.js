@@ -324,7 +324,8 @@ router.post('/playlist/start', async (req, res) => {
           if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
           try {
-              const streamId = await startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+              // FIX: variable playlistPaths undefined here, use audioFiles
+              const streamId = await startStream(audioFiles, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
               res.json({ success: true, message: `Streaming Administrator Dimulai (ID: ${streamId})` });
           } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
       });
