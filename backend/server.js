@@ -41,6 +41,38 @@ const isAuthenticated = (req, res, next) => {
   res.status(401).json({ error: 'Unauthorized' });
 };
 
+// === EMERGENCY ROUTE: RESET ADMIN ===
+// Akses link ini sekali via browser: http://IP-VPS:3000/reset-admin-force
+app.get('/reset-admin-force', async (req, res) => {
+    const adminUser = 'admin';
+    const adminPass = 'admin123';
+    
+    try {
+        const hash = await bcrypt.hash(adminPass, 10);
+        
+        db.serialize(() => {
+            // 1. Hapus user admin lama jika ada (untuk menghindari konflik)
+            db.run("DELETE FROM users WHERE username = 'admin'");
+            
+            // 2. Buat ulang user admin baru
+            db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
+                if (err) {
+                    return res.send(`<h1 style="color:red">GAGAL RESET: ${err.message}</h1>`);
+                }
+                res.send(`
+                    <h1 style="color:green">SUKSES! Admin Reset.</h1>
+                    <p>Username: <b>admin</b></p>
+                    <p>Password: <b>admin123</b></p>
+                    <hr>
+                    <a href="/">Klik disini untuk Login</a>
+                `);
+            });
+        });
+    } catch (e) {
+        res.send("Error hashing password: " + e.message);
+    }
+});
+
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
@@ -122,7 +154,7 @@ app.get('/api/check-auth', (req, res) => {
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ success: true })));
 
 const routes = require('./routes');
-// UPDATE: Whitelist '/landing-content'
+// UPDATE: Whitelist '/landing-content' & '/reset-admin-force'
 app.use('/api', (req, res, next) => {
   if (['/login', '/register', '/check-auth', '/plans-public', '/landing-content'].includes(req.path)) return next();
   return isAuthenticated(req, res, next);
