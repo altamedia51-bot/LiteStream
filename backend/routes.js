@@ -114,14 +114,47 @@ router.post('/destinations', (req, res) => {
     
     if(!platform || !stream_key) return res.status(400).json({ error: "Platform dan Stream Key wajib diisi" });
 
-    db.run(
-        "INSERT INTO stream_destinations (user_id, name, platform, rtmp_url, stream_key, is_active) VALUES (?, ?, ?, ?, ?, 1)", 
-        [userId, name || platform, platform, rtmp_url, stream_key], 
-        function(err) {
-            if(err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, id: this.lastID });
+    // 1. Cek Limit Plan vs Existing Destinations
+    db.get(`
+        SELECT p.max_active_streams, p.name as plan_name
+        FROM users u
+        JOIN plans p ON u.plan_id = p.id
+        WHERE u.id = ?`, [userId], (err, plan) => {
+        
+        if (err) return res.status(500).json({ error: "DB Error" });
+
+        // Function untuk proses insert (dipanggil jika lolos cek)
+        const processInsert = () => {
+            db.run(
+                "INSERT INTO stream_destinations (user_id, name, platform, rtmp_url, stream_key, is_active) VALUES (?, ?, ?, ?, ?, 1)", 
+                [userId, name || platform, platform, rtmp_url, stream_key], 
+                function(err) {
+                    if(err) return res.status(500).json({ error: err.message });
+                    res.json({ success: true, id: this.lastID });
+                }
+            );
+        };
+
+        // Bypass untuk Admin
+        if (req.session.user.role === 'admin') {
+            return processInsert();
         }
-    );
+
+        // Cek jumlah destinasi yang sudah ada
+        db.get("SELECT COUNT(*) as count FROM stream_destinations WHERE user_id = ?", [userId], (err, row) => {
+            if (err) return res.status(500).json({ error: "DB Error" });
+
+            // VALIDASI: Jika jumlah destinasi >= max_active_streams, tolak.
+            // Stream Tester (Plan 1) max_active_streams = 1.
+            if (row.count >= plan.max_active_streams) {
+                return res.status(403).json({ 
+                    error: `Limit Tercapai! Paket ${plan.plan_name} hanya mendukung ${plan.max_active_streams} tujuan stream.` 
+                });
+            }
+
+            processInsert();
+        });
+    });
 });
 
 router.delete('/destinations/:id', (req, res) => {
