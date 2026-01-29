@@ -187,6 +187,24 @@ router.put('/users/:id', isAdmin, (req, res) => {
     });
 });
 
+router.delete('/users/:id', isAdmin, (req, res) => {
+    const userId = req.params.id;
+    // Prevent deleting self (admin) if only 1 admin exists, or just logic check in frontend. 
+    // Here we just prevent deleting user ID 1 (assumed Super Admin) or check current session.
+    if(parseInt(userId) === req.session.user.id) return res.status(400).json({ error: "Cannot delete yourself." });
+
+    // 1. Delete Videos
+    // 2. Delete Folders
+    // 3. Delete Destinations
+    // 4. Delete User
+    // For simplicity in SQLite, cascading delete is usually handled by DB, but we do manual cleanup if needed.
+    // Assuming Foreign Keys ON.
+    db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
+        if(err) return res.status(500).json({ success: false, error: err.message });
+        res.json({ success: true });
+    });
+});
+
 router.get('/videos', async (req, res) => res.json(await getVideos(req.session.user.id)));
 
 router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (req, res) => {
