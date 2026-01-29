@@ -75,7 +75,7 @@
             <h1 class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Start Your <br> <span class="text-indigo-400">Radio Station.</span></h1>
             <p class="text-lg text-slate-400 mb-12 max-w-2xl mx-auto">Server streaming audio paling ringan. Upload MP3, pasang cover, dan broadcast 24/7 ke YouTube, Facebook, dan lainnya secara bersamaan.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <button onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
+                <button onclick="showAuth('register', 1)" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
                 <button onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold border border-slate-700">Login Member</button>
             </div>
         </section>
@@ -93,6 +93,9 @@
             <div class="text-center">
                 <div class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-music text-2xl text-white"></i></div>
                 <h2 class="text-2xl font-bold" id="auth-title">LiteStream</h2>
+                <div id="selected-plan-badge" class="hidden mt-2 inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-bold uppercase tracking-wider">
+                    Paket Dipilih
+                </div>
             </div>
             <form onsubmit="handleAuth(event)" class="space-y-4">
                 <input type="text" id="login-user" required class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="Username">
@@ -553,6 +556,7 @@
         let allFolders = [];
         let currentFolderId = null; 
         let confirmCallback = null;
+        let selectedPlanId = 1; // Default to Stream Tester
         
         // ADMIN VARIABLES
         let globalUsers = [];
@@ -767,17 +771,68 @@
             if(t==='users')fetchUsers(); 
         }
 
-        function showAuth(m) { document.getElementById('login-view').classList.remove('hidden'); isLoginMode=m!=='register'; updateAuthUI(); }
+        // Updated showAuth to accept planId
+        function showAuth(m, planId = 1) { 
+            document.getElementById('login-view').classList.remove('hidden'); 
+            isLoginMode = m !== 'register'; 
+            if(!isLoginMode) selectedPlanId = planId; // Set selected plan if registering
+            
+            updateAuthUI(); 
+        }
+        
         function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
         function toggleAuthMode() { isLoginMode=!isLoginMode; updateAuthUI(); }
-        function updateAuthUI() { document.getElementById('auth-btn').innerText=isLoginMode?'MASUK DASHBOARD':'DAFTAR SEKARANG'; document.getElementById('auth-title').innerText=isLoginMode?'LiteStream':'Daftar Baru'; document.getElementById('toggle-text').innerText=isLoginMode?'Belum punya akun?':'Sudah punya akun?'; document.getElementById('toggle-btn').innerText=isLoginMode?'Daftar Sekarang':'Login Disini'; }
+        
+        function updateAuthUI() { 
+            document.getElementById('auth-btn').innerText = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG'; 
+            document.getElementById('auth-title').innerText = isLoginMode ? 'LiteStream' : 'Daftar Baru'; 
+            document.getElementById('toggle-text').innerText = isLoginMode ? 'Belum punya akun?' : 'Sudah punya akun?'; 
+            document.getElementById('toggle-btn').innerText = isLoginMode ? 'Daftar Sekarang' : 'Login Disini'; 
+            
+            // Show Badge if Registering
+            const badge = document.getElementById('selected-plan-badge');
+            if(!isLoginMode) {
+                badge.classList.remove('hidden');
+                let planName = 'Stream Tester';
+                if(selectedPlanId === 2) planName = 'Starter Stream';
+                if(selectedPlanId === 3) planName = 'Pro Streamer';
+                if(selectedPlanId === 4) planName = 'Ultra Broadcast';
+                badge.innerText = `Daftar: ${planName}`;
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
         
         async function handleAuth(e) {
-             e.preventDefault(); const u=document.getElementById('login-user').value, p=document.getElementById('login-pass').value;
-             const ep = isLoginMode?'/api/login':'/api/register';
-             try { const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const d=await r.json();
-             if(d.success){ if(isLoginMode){location.reload();}else{showToast('Register Sukses'); toggleAuthMode();} }else showToast(d.error,'error'); }catch(e){}
+             e.preventDefault(); 
+             const u=document.getElementById('login-user').value; 
+             const p=document.getElementById('login-pass').value;
+             const ep = isLoginMode ? '/api/login' : '/api/register';
+             
+             const payload = { username: u, password: p };
+             if(!isLoginMode) payload.plan_id = selectedPlanId; // Include Plan ID
+
+             try { 
+                 const r = await fetch(ep, {
+                     method: 'POST',
+                     headers: {'Content-Type':'application/json'},
+                     body: JSON.stringify(payload)
+                 }); 
+                 const d = await r.json();
+                 
+                 if(d.success){ 
+                     if(isLoginMode){
+                         location.reload();
+                     } else {
+                         showToast('Register Sukses'); 
+                         toggleAuthMode();
+                     } 
+                 } else {
+                     showToast(d.error,'error'); 
+                 }
+             } catch(e){}
         }
+
         async function handleLogout() { await fetch('/api/logout',{method:'POST'}); location.reload(); }
         
         async function checkAuth() { 
@@ -905,7 +960,7 @@
                         </li>
                     </ul>
 
-                    <button onclick="showAuth('register')" class="w-full py-3.5 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all">Pilih Paket</button>
+                    <button onclick="showAuth('register', ${x.id})" class="w-full py-3.5 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all">Pilih Paket</button>
                 </div>
                 `;
             }).join('');

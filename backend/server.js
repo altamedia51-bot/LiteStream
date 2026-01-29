@@ -189,11 +189,15 @@ app.post('/api/login', (req, res) => {
 });
 
 app.post('/api/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, plan_id } = req.body; // Ambil plan_id dari request
   if (!username || !password) return res.status(400).json({ success: false, error: "Isi semua data" });
   
+  // Validasi plan_id, default ke 1 jika tidak ada
+  const finalPlanId = plan_id ? parseInt(plan_id) : 1;
+  
   const hash = await bcrypt.hash(password, 10);
-  db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', 1], function(err) {
+  // Gunakan finalPlanId, bukan hardcode 1
+  db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', finalPlanId], function(err) {
     if (err) return res.status(400).json({ success: false, error: 'Username sudah dipakai' });
     res.json({ success: true, message: 'Registrasi Berhasil' });
   });
