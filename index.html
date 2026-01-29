@@ -484,6 +484,55 @@
             renderMediaList();
         }
 
+        // --- NEW UPLOAD & DELETE FUNCTIONS ---
+        async function handleUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            showToast('Mengupload file...', 'info');
+            const formData = new FormData();
+            formData.append('video', file); // 'video' matches backend multer field
+
+            try {
+                const res = await fetch('/api/videos/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Upload Berhasil!', 'success');
+                    fetchMedia(); 
+                    updateUIInfo(); // Refresh storage usage
+                } else {
+                    showToast(data.error || 'Upload Gagal', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Terjadi kesalahan saat upload', 'error');
+            }
+            input.value = ''; // Reset input
+        }
+
+        function deleteMedia(id) {
+            openConfirmModal('Hapus file ini permanen?', async () => {
+                try {
+                    const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (data.success) {
+                        showToast('File dihapus', 'success');
+                        fetchMedia();
+                        updateUIInfo();
+                        if (selectedMedia.has(id)) toggleSelect(id);
+                    } else {
+                        showToast(data.error || 'Gagal menghapus', 'error');
+                    }
+                } catch(e) { 
+                    showToast('Error koneksi', 'error'); 
+                }
+            });
+        }
+
         function renderMediaList() {
             const query = document.getElementById('media-search') ? document.getElementById('media-search').value.toLowerCase() : '';
             const filtered = allMedia.filter(m => m.type === (window.currentMediaTab || 'video') && m.filename.toLowerCase().includes(query));
