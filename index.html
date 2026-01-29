@@ -221,11 +221,12 @@
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
                     <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
                         <div class="col-span-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stream Name</div>
-                        <div class="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Destinations</div>
+                        <div class="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Platform</div>
                         <div class="col-span-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</div>
                     </div>
 
                     <div id="overview-stream-list" class="min-h-[200px] relative">
+                        <!-- Empty State -->
                         <div id="overview-empty" class="absolute inset-0 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
                             <div class="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700/50">
                                 <i class="fas fa-broadcast-tower text-2xl text-slate-600"></i>
@@ -233,34 +234,8 @@
                             <h3 class="text-sm font-bold text-slate-400">No active streams</h3>
                             <p class="text-xs text-slate-600 mt-1">Start a new broadcast from library.</p>
                         </div>
-
-                        <div id="overview-active-row" class="hidden grid grid-cols-12 gap-4 px-6 py-4 items-center border-b border-slate-800 hover:bg-slate-800/20 transition-colors bg-slate-900/30">
-                            <div class="col-span-6 flex items-center gap-4">
-                                <div class="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400 border border-indigo-500/10 shrink-0">
-                                     <i class="fas fa-podcast"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="font-bold text-sm text-white truncate">Multi-Platform Broadcast</div>
-                                    <div class="text-[10px] font-mono text-slate-500 flex items-center gap-2 mt-0.5">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                                        <span id="row-bitrate">0 kbps</span>
-                                        <span class="text-slate-600">|</span>
-                                        <span id="row-duration">00:00:00</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-span-3">
-                                <span class="text-xs font-bold text-slate-300 flex items-center gap-2">
-                                    <i class="fas fa-share-alt text-indigo-400"></i>
-                                    <span id="row-dest-count">0 Target</span>
-                                </span>
-                            </div>
-                            <div class="col-span-3 text-right">
-                                <button onclick="stopStream()" class="group bg-slate-800 hover:bg-rose-500/10 border border-slate-700 hover:border-rose-500/30 p-2 rounded-lg transition-all" title="Stop Stream">
-                                    <i class="fas fa-stop text-slate-400 group-hover:text-rose-500 text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
+                        
+                        <!-- Rows will be injected here via JS -->
                     </div>
                 </div>
 
@@ -444,7 +419,8 @@
             
             const res = await fetch('/api/stream/status');
             const state = await res.json();
-            if (state.active) updateStreamUI(true, state.destination_count);
+            // Pass the active destinations list to UI
+            updateStreamUI(state.active, state.active_destinations);
         }
 
         function updateUIInfo() {
@@ -677,18 +653,60 @@
                 </tr>`).join('');
         }
 
-        function updateStreamUI(isLive, destCount = 0) {
+        function updateStreamUI(isLive, activeDestinations = []) {
             const emptyState = document.getElementById('overview-empty');
-            const activeRow = document.getElementById('overview-active-row');
+            const listContainer = document.getElementById('overview-stream-list');
             
-            if(isLive) {
+            // Clear existing dynamic rows (keep empty state div)
+            Array.from(listContainer.children).forEach(child => {
+                if (child.id !== 'overview-empty') child.remove();
+            });
+
+            if(isLive && activeDestinations && activeDestinations.length > 0) {
                 emptyState.classList.add('hidden');
-                activeRow.classList.remove('hidden');
-                document.getElementById('row-dest-count').textContent = destCount + ' Target';
+                
+                // Render a row for EACH active destination
+                activeDestinations.forEach(dest => {
+                    const row = document.createElement('div');
+                    row.className = "grid grid-cols-12 gap-4 px-6 py-4 items-center border-b border-slate-800 hover:bg-slate-800/20 transition-colors bg-slate-900/30";
+                    
+                    const iconClass = dest.platform === 'youtube' ? 'fa-youtube text-red-500' : 
+                                      dest.platform === 'facebook' ? 'fa-facebook text-blue-500' : 
+                                      dest.platform === 'twitch' ? 'fa-twitch text-purple-500' : 'fa-broadcast-tower text-indigo-400';
+
+                    row.innerHTML = `
+                        <div class="col-span-6 flex items-center gap-4">
+                            <div class="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/10 shrink-0">
+                                 <i class="fab ${iconClass} text-lg"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-sm text-white truncate">${dest.name}</div>
+                                <div class="text-[10px] font-mono text-slate-500 flex items-center gap-2 mt-0.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span class="live-bitrate">0 kbps</span>
+                                    <span class="text-slate-600">|</span>
+                                    <span class="live-duration">00:00:00</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-span-3">
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20 flex w-fit items-center gap-1.5">
+                                LIVE
+                            </span>
+                        </div>
+                        <div class="col-span-3 text-right">
+                            <button onclick="stopStream()" class="group bg-slate-800 hover:bg-rose-500/10 border border-slate-700 hover:border-rose-500/30 p-2 rounded-lg transition-all" title="Stop All Streams">
+                                <i class="fas fa-stop text-slate-400 group-hover:text-rose-500 text-xs"></i>
+                            </button>
+                        </div>
+                    `;
+                    listContainer.appendChild(row);
+                });
+
             } else {
                 emptyState.classList.remove('hidden');
-                activeRow.classList.add('hidden');
             }
+            
             document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-slate-500'}`;
             document.getElementById('status-label').textContent = isLive ? 'Live' : 'Offline';
         }
@@ -718,14 +736,12 @@
                 try {
                     socket = io();
                     socket.on('stats', (data) => {
-                        const durationEl = document.getElementById('row-duration');
-                        if(durationEl) durationEl.textContent = data.duration.split('.')[0]; 
-                        const bitrateEl = document.getElementById('row-bitrate');
-                        if(bitrateEl) bitrateEl.textContent = data.bitrate;
+                        // Update ALL rows simultaneously
+                        const durationEls = document.querySelectorAll('.live-duration');
+                        durationEls.forEach(el => el.textContent = data.duration.split('.')[0]);
                         
-                        if(data.destination_count) {
-                             document.getElementById('row-dest-count').textContent = data.destination_count + ' Target';
-                        }
+                        const bitrateEls = document.querySelectorAll('.live-bitrate');
+                        bitrateEls.forEach(el => el.textContent = data.bitrate);
 
                         if (data.usage_remaining !== undefined && currentUser) {
                             const limitHrs = currentUser.daily_limit_hours || 24;
@@ -744,8 +760,12 @@
                         p.textContent = `> ${data.message}`;
                         const consoleEl = document.getElementById('logConsole');
                         if (consoleEl) { consoleEl.appendChild(p); consoleEl.scrollTop = consoleEl.scrollHeight; }
-                        if (data.type === 'start') updateStreamUI(true);
-                        if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
+                        
+                        // If stream starts/ends via socket, refresh dashboard to get correct destination list
+                        if (data.type === 'start' || data.type === 'end') {
+                            // Small delay to ensure DB is updated
+                            setTimeout(() => showDashboard(), 500);
+                        }
                     });
                 } catch(e) { console.warn("Socket Init Failed", e); }
             }

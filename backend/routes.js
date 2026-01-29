@@ -177,9 +177,12 @@ router.delete('/videos/:id', async (req, res) => {
 
 router.get('/stream/status', async (req, res) => {
     const usage = await syncUserUsage(req.session.user.id);
-    db.all("SELECT * FROM stream_destinations WHERE user_id = ? AND is_active = 1", [req.session.user.id], (err, rows) => {
-        const destCount = rows ? rows.length : 0;
-        res.json({ active: isStreaming(), usage_seconds: usage, destination_count: destCount });
+    db.all("SELECT id, name, platform FROM stream_destinations WHERE user_id = ? AND is_active = 1", [req.session.user.id], (err, rows) => {
+        res.json({ 
+            active: isStreaming(), 
+            usage_seconds: usage, 
+            active_destinations: rows || [] // Mengirim detail array, bukan hanya count
+        });
     });
 });
 
