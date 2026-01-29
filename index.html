@@ -196,6 +196,18 @@
             </div>
         </div>
     </div>
+
+    <!-- NEW FOLDER MODAL -->
+    <div id="new-folder-modal" class="hidden fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+            <h3 class="text-lg font-bold text-white mb-4">Buat Folder Baru</h3>
+            <input type="text" id="new-folder-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500 mb-4" placeholder="Nama Folder">
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('new-folder-modal').classList.add('hidden')" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm">Batal</button>
+                <button onclick="confirmCreateFolder()" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-lg">Buat</button>
+            </div>
+        </div>
+    </div>
     
     <!-- CONFIRM MODAL -->
     <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
@@ -342,11 +354,17 @@
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <h2 class="text-xl font-bold hidden md:block">Media Library</h2>
                     
-                    <div class="w-full md:w-auto flex gap-2">
-                        <!-- Desktop Button -->
-                        <button id="btn-start-playlist" onclick="openStartModal()" class="flex-1 md:flex-none hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all">
+                    <div class="w-full md:w-auto flex flex-wrap gap-2">
+                         <!-- Start Button -->
+                         <button id="btn-start-playlist" onclick="openStartModal()" class="flex-1 md:flex-none hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all">
                             <i class="fas fa-play mr-2"></i> START (<span id="selected-count">0</span>)
                         </button>
+                        
+                        <!-- New Folder Button -->
+                        <button onclick="openNewFolderModal()" class="flex-1 md:flex-none bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-amber-900/20 transition-all">
+                            <i class="fas fa-folder-plus mr-2"></i> New Folder
+                        </button>
+
                         <!-- Upload Button -->
                         <button onclick="document.getElementById('file-up').click()" class="flex-1 md:flex-none bg-indigo-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-indigo-500 transition-all text-white shadow-lg shadow-indigo-900/20">
                             <i class="fas fa-cloud-upload-alt mr-2"></i> Upload
@@ -365,6 +383,11 @@
                         <button onclick="switchMediaTab('audio')" id="mt-audio" class="flex-1 md:flex-none media-subtab active px-6 py-2.5 rounded-lg text-xs font-bold transition-all uppercase">MP3</button>
                         <button onclick="switchMediaTab('image')" id="mt-image" class="flex-1 md:flex-none media-subtab px-6 py-2.5 rounded-lg text-xs font-bold transition-all uppercase">IMG</button>
                     </div>
+                </div>
+
+                <!-- Breadcrumbs -->
+                <div id="breadcrumbs" class="flex items-center gap-2 text-sm text-slate-400 pb-2">
+                    <!-- Populated dynamically -->
                 </div>
 
                 <!-- Grid List -->
@@ -487,6 +510,8 @@
         let currentUser = null;
         let selectedMedia = new Set();
         let allMedia = [];
+        let allFolders = [];
+        let currentFolderId = null; // State for navigation
         let confirmCallback = null;
         const PLATFORMS = { 
             youtube: 'rtmp://a.rtmp.youtube.com/live2/', 
@@ -718,16 +743,14 @@
         async function showDashboard() {
             setView('main-app'); hideAuth(); updateUIInfo();
             if(currentUser.role==='admin') document.getElementById('nav-users').classList.remove('hidden');
-            fetchMedia(); fetchDestinations();
+            fetchMedia(); fetchFolders(); fetchDestinations();
             const r = await fetch('/api/stream/status'); const s = await r.json();
             updateStreamUI(s.total_active > 0, s.active_streams);
         }
         
         function updateUIInfo() { 
             if(!currentUser) return; 
-            
-            // PROFILE & PLAN LOGIC
-            // 1. Sidebar/Header stats
+            // Stats logic remains same
             const planNameEl = document.getElementById('plan-name-display');
             if(planNameEl) {
                 planNameEl.textContent = currentUser.plan_name;
@@ -739,35 +762,26 @@
                     planNameEl.classList.remove('text-amber-400');
                 }
             }
-            
-            // 2. Profile Tab Inputs
-            const profileUserEl = document.getElementById('profile-username');
+             const profileUserEl = document.getElementById('profile-username');
             if(profileUserEl) profileUserEl.value = currentUser.username;
 
-            // 3. Subscription Card Details
-            const subPlanName = document.getElementById('sub-plan-name');
-            const subExpiresDate = document.getElementById('sub-expires-date');
-            const subExpiresDays = document.getElementById('sub-expires-days');
-            
+             const subPlanName = document.getElementById('sub-plan-name');
             if(subPlanName) {
                 subPlanName.textContent = currentUser.plan_name;
-                
-                // MOCK LOGIC FOR EXPIRY (Since DB doesn't track specific expiry yet)
+                const subExpiresDate = document.getElementById('sub-expires-date');
+                const subExpiresDays = document.getElementById('sub-expires-days');
                 if(currentUser.role === 'admin') {
                     subExpiresDate.textContent = 'NEVER';
                     subExpiresDays.textContent = 'Lifetime Access';
                     subPlanName.className = "text-2xl md:text-3xl font-bold text-amber-400";
                 } else {
-                    // Just a visual placeholder for now, 30 days from now
-                    const date = new Date();
-                    date.setDate(date.getDate() + 30);
+                    const date = new Date(); date.setDate(date.getDate() + 30);
                     subExpiresDate.textContent = date.toISOString().split('T')[0];
                     subExpiresDays.textContent = '30 days remaining';
                     subPlanName.className = "text-2xl md:text-3xl font-bold text-white";
                 }
             }
 
-            // 4. STORAGE & USAGE BARS
             const u = (currentUser.storage_used/1048576).toFixed(1); 
             const maxMB = currentUser.max_storage_mb;
             if (maxMB > 500000) { 
@@ -779,8 +793,7 @@
                 document.getElementById('storage-bar').style.width = Math.min((u/maxMB*100),100)+'%';
                 document.getElementById('storage-bar').className = 'h-full bg-indigo-500 transition-all duration-700';
             }
-
-            const h = ((currentUser.usage_seconds||0)/3600).toFixed(1); 
+             const h = ((currentUser.usage_seconds||0)/3600).toFixed(1); 
             const limitH = currentUser.daily_limit_hours||24;
             if (limitH >= 24) {
                  document.getElementById('usage-text').textContent = "UNLIMITED";
@@ -799,11 +812,137 @@
         }
 
         async function fetchMedia() { const r=await fetch('/api/videos'); allMedia=await r.json(); renderMediaList(); }
+        async function fetchFolders() { const r=await fetch('/api/folders'); allFolders=await r.json(); renderMediaList(); }
+        
+        function getFolderPath(folderId) {
+            const path = [];
+            let current = allFolders.find(f => f.id === folderId);
+            while(current) {
+                path.unshift(current);
+                current = allFolders.find(f => f.id === current.parent_id);
+            }
+            return path;
+        }
+
         function renderMediaList() {
             const q = document.getElementById('media-search').value.toLowerCase();
-            const f = allMedia.filter(m=>m.type===window.currentMediaTab && m.filename.toLowerCase().includes(q));
-            document.getElementById('media-list').innerHTML=f.map(v=>`<div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 flex items-center gap-3 group active:scale-[0.98] transition-transform"><input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id)?'checked':''} class="w-5 h-5 accent-indigo-500 rounded"><div onclick="openMediaDetails(${v.id})" class="flex-1 min-w-0 cursor-pointer hover:text-indigo-400 transition-colors"><div class="truncate text-xs font-bold text-slate-300">${v.filename}</div><div class="text-[10px] text-slate-500">${(v.size/1024/1024).toFixed(1)} MB</div></div><button onclick="deleteMedia(${v.id})" class="text-slate-600 active:text-rose-500 md:text-rose-500 md:opacity-0 md:group-hover:opacity-100 p-2"><i class="fas fa-trash"></i></button></div>`).join('');
+            const listContainer = document.getElementById('media-list');
+            const breadcrumbContainer = document.getElementById('breadcrumbs');
+
+            // 1. Render Breadcrumbs
+            let breadcrumbsHtml = `<span onclick="enterFolder(null)" class="cursor-pointer hover:text-white ${currentFolderId === null ? 'font-bold text-indigo-400' : ''}">Home</span>`;
+            if (currentFolderId) {
+                const path = getFolderPath(currentFolderId);
+                path.forEach((folder, index) => {
+                    breadcrumbsHtml += ` <span class="text-slate-600">/</span> `;
+                    const isLast = index === path.length - 1;
+                    breadcrumbsHtml += `<span onclick="enterFolder(${folder.id})" class="cursor-pointer hover:text-white ${isLast ? 'font-bold text-indigo-400' : ''}">${folder.name}</span>`;
+                });
+            }
+            breadcrumbContainer.innerHTML = breadcrumbsHtml;
+
+            // 2. Filter & Render Items
+            let html = '';
+
+            // Back Button Logic
+            if (currentFolderId !== null) {
+                const currentFolder = allFolders.find(f => f.id === currentFolderId);
+                const parentId = currentFolder ? currentFolder.parent_id : null;
+                // Double dot back button
+                html += `<div onclick="enterFolder(${parentId})" class="bg-slate-800/20 p-3 rounded-2xl border border-dashed border-slate-700/50 flex items-center gap-3 cursor-pointer hover:bg-slate-800/50 transition-colors">
+                    <div class="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500"><i class="fas fa-level-up-alt"></i></div>
+                    <div class="text-xs font-bold text-slate-500">.. (Back)</div>
+                </div>`;
+            }
+
+            // Render Folders
+            // Only show folders that belong to current parent AND match search
+            const filteredFolders = allFolders.filter(f => (f.parent_id === currentFolderId) && f.name.toLowerCase().includes(q));
+            
+            filteredFolders.forEach(f => {
+                html += `<div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 flex items-center gap-3 group active:scale-[0.98] transition-transform">
+                     <div class="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-lg flex items-center justify-center"><i class="fas fa-folder text-lg"></i></div>
+                     <div onclick="enterFolder(${f.id})" class="flex-1 min-w-0 cursor-pointer hover:text-amber-400 transition-colors">
+                        <div class="truncate text-xs font-bold text-slate-300">${f.name}</div>
+                        <div class="text-[10px] text-slate-500">Folder</div>
+                     </div>
+                     <button onclick="deleteFolder(${f.id})" class="text-slate-600 active:text-rose-500 md:text-rose-500 md:opacity-0 md:group-hover:opacity-100 p-2"><i class="fas fa-trash"></i></button>
+                </div>`;
+            });
+
+            // Render Files
+            // Match current Folder, match Tab type, match Search
+            // Note: DB returns null folder_id as null, ensure logic handles null === null
+            const filteredFiles = allMedia.filter(m => {
+                const inCurrentFolder = (m.folder_id === currentFolderId) || (currentFolderId === null && !m.folder_id);
+                return inCurrentFolder && m.type === window.currentMediaTab && m.filename.toLowerCase().includes(q);
+            });
+
+            filteredFiles.forEach(v => {
+                html += `<div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 flex items-center gap-3 group active:scale-[0.98] transition-transform">
+                    <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id)?'checked':''} class="w-5 h-5 accent-indigo-500 rounded">
+                    <div onclick="openMediaDetails(${v.id})" class="flex-1 min-w-0 cursor-pointer hover:text-indigo-400 transition-colors">
+                        <div class="truncate text-xs font-bold text-slate-300">${v.filename}</div>
+                        <div class="text-[10px] text-slate-500">${(v.size/1024/1024).toFixed(1)} MB</div>
+                    </div>
+                    <button onclick="deleteMedia(${v.id})" class="text-slate-600 active:text-rose-500 md:text-rose-500 md:opacity-0 md:group-hover:opacity-100 p-2"><i class="fas fa-trash"></i></button>
+                </div>`;
+            });
+
+            if (html === '' && !currentFolderId) {
+                html = `<div class="col-span-full text-center py-10 text-slate-500 text-sm">Library kosong.</div>`;
+            }
+
+            listContainer.innerHTML = html;
         }
+
+        // --- FOLDER LOGIC ---
+        function enterFolder(id) {
+            currentFolderId = id;
+            selectedMedia.clear(); // Clear selection when changing folder to avoid confusion
+            toggleSelect(-1); // Update UI
+            renderMediaList();
+        }
+
+        function openNewFolderModal() {
+            document.getElementById('new-folder-name').value = '';
+            document.getElementById('new-folder-modal').classList.remove('hidden');
+        }
+
+        async function confirmCreateFolder() {
+            const name = document.getElementById('new-folder-name').value;
+            if(!name) return showToast("Nama folder wajib", "error");
+            
+            try {
+                const res = await fetch('/api/folders', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: name, parent_id: currentFolderId })
+                });
+                const d = await res.json();
+                if(d.success) {
+                    showToast("Folder dibuat");
+                    document.getElementById('new-folder-modal').classList.add('hidden');
+                    fetchFolders();
+                } else {
+                    showToast(d.error, "error");
+                }
+            } catch(e) { showToast("Connection error", "error"); }
+        }
+
+        function deleteFolder(id) {
+            openConfirmModal('Hapus Folder? Harus kosong.', async () => {
+                const res = await fetch('/api/folders/' + id, { method: 'DELETE' });
+                const d = await res.json();
+                if(d.success) {
+                    showToast("Folder dihapus");
+                    fetchFolders();
+                } else {
+                    showToast(d.error, "error");
+                }
+            });
+        }
+
         function switchMediaTab(t){window.currentMediaTab=t; document.querySelectorAll('.media-subtab').forEach(x=>x.classList.toggle('active',x.id==='mt-'+t)); renderMediaList();}
         function toggleSelect(id) { 
             if(id!==-1){ if(selectedMedia.has(id))selectedMedia.delete(id); else selectedMedia.add(id); } 
@@ -849,7 +988,12 @@
 
         async function handleUpload(i) {
             const f=i.files[0]; if(!f)return; if(!f.name.match(/\.(mp3|jpg|jpeg|png)$/i)){showToast('Format salah','error'); return;}
-            const fd=new FormData(); fd.append('video',f); showToast('Uploading...', 'info');
+            const fd=new FormData(); 
+            fd.append('video',f); 
+            // Append current Folder ID
+            if(currentFolderId) fd.append('folderId', currentFolderId);
+
+            showToast('Uploading...', 'info');
             const r=await fetch('/api/videos/upload',{method:'POST',body:fd}); const d=await r.json();
             if(d.success){showToast('Sukses'); fetchMedia(); updateUIInfo();}else showToast(d.error,'error'); i.value='';
         }

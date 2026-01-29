@@ -55,7 +55,26 @@ const initDB = () => {
         if (!hasReset) db.run("ALTER TABLE users ADD COLUMN last_usage_reset TEXT");
       });
 
+      // 3. Update Tabel Videos & Create Folders
       db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+      
+      // Add folder_id to videos if not exists
+      db.all("PRAGMA table_info(videos)", (err, columns) => {
+          if (!columns.some(c => c.name === 'folder_id')) {
+              db.run("ALTER TABLE videos ADD COLUMN folder_id INTEGER DEFAULT NULL");
+          }
+      });
+
+      // Create Folders Table
+      db.run(`CREATE TABLE IF NOT EXISTS folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          name TEXT NOT NULL,
+          parent_id INTEGER DEFAULT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(user_id) REFERENCES users(id)
+      )`);
+
       db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
 
       // 3. TABLE BARU: stream_destinations untuk Multi-Stream
@@ -112,7 +131,7 @@ const initDB = () => {
 };
 
 const getVideos = (userId) => new Promise((res, rej) => db.all("SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC", [userId], (err, rows) => err ? rej(err) : res(rows)));
-const saveVideo = (data) => new Promise((res, rej) => db.run("INSERT INTO videos (user_id, filename, path, size, type) VALUES (?, ?, ?, ?, ?)", [data.user_id, data.filename, data.path, data.size, data.type || 'video'], function(err) { err ? rej(err) : res(this.lastID); }));
+const saveVideo = (data) => new Promise((res, rej) => db.run("INSERT INTO videos (user_id, filename, path, size, type, folder_id) VALUES (?, ?, ?, ?, ?, ?)", [data.user_id, data.filename, data.path, data.size, data.type || 'video', data.folder_id || null], function(err) { err ? rej(err) : res(this.lastID); }));
 const deleteVideo = (id) => new Promise((res, rej) => db.run("DELETE FROM videos WHERE id = ?", [id], (err) => err ? rej(err) : res()));
 
 module.exports = { initDB, getVideos, saveVideo, deleteVideo, db, dbPath };

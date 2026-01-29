@@ -55,6 +55,49 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// --- FOLDER ROUTES ---
+
+router.get('/folders', (req, res) => {
+    const userId = req.session.user.id;
+    db.all("SELECT * FROM folders WHERE user_id = ? ORDER BY name ASC", [userId], (err, rows) => {
+        if(err) return res.status(500).json({error: err.message});
+        res.json(rows);
+    });
+});
+
+router.post('/folders', (req, res) => {
+    const userId = req.session.user.id;
+    const { name, parent_id } = req.body;
+    if(!name) return res.status(400).json({error: "Nama folder wajib"});
+    
+    db.run("INSERT INTO folders (user_id, name, parent_id) VALUES (?, ?, ?)", 
+        [userId, name, parent_id || null], 
+        function(err) {
+            if(err) return res.status(500).json({error: err.message});
+            res.json({success: true, id: this.lastID});
+        }
+    );
+});
+
+router.delete('/folders/:id', (req, res) => {
+    const userId = req.session.user.id;
+    const folderId = req.params.id;
+
+    // Cek apakah folder kosong (file dan subfolder)
+    db.get("SELECT COUNT(*) as count FROM videos WHERE folder_id = ?", [folderId], (err, row) => {
+        if(row && row.count > 0) return res.status(400).json({error: "Folder tidak kosong (ada file)."});
+        
+        db.get("SELECT COUNT(*) as count FROM folders WHERE parent_id = ?", [folderId], (err2, row2) => {
+             if(row2 && row2.count > 0) return res.status(400).json({error: "Folder tidak kosong (ada subfolder)."});
+             
+             db.run("DELETE FROM folders WHERE id = ? AND user_id = ?", [folderId, userId], (err3) => {
+                 if(err3) return res.status(500).json({error: err3.message});
+                 res.json({success: true});
+             });
+        });
+    });
+});
+
 // --- DESTINATION ROUTES (MULTI-STREAM) ---
 
 router.get('/destinations', (req, res) => {
@@ -150,6 +193,9 @@ router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (
   const userId = req.session.user.id;
   if (!req.file) return res.status(400).json({ error: "Pilih file dulu" });
   
+  // Get Folder ID from Query or Body
+  const folderId = req.body.folderId || req.query.folderId || null;
+
   const file = req.file;
   const ext = path.extname(file.filename).toLowerCase();
   
@@ -162,7 +208,7 @@ router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (
 
   let type = (ext === '.mp3') ? 'audio' : 'image';
   
-  const id = await saveVideo({ user_id: userId, filename: file.filename, path: file.path, size: file.size, type });
+  const id = await saveVideo({ user_id: userId, filename: file.filename, path: file.path, size: file.size, type, folder_id: folderId });
   db.run("UPDATE users SET storage_used = storage_used + ? WHERE id = ?", [file.size, userId]);
   res.json({ success: true, id, type });
 });
