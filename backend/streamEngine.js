@@ -89,7 +89,7 @@ const startStream = (inputPaths, destinations, options = {}) => {
       const encodingFlags = [
         '-map 0:v', '-map 1:a', `-vf ${videoFilter}`,
         '-c:v libx264', '-preset ultrafast', '-tune zerolatency', '-r 24', '-g 48', '-keyint_min 48', '-sc_threshold 0',
-        '-b:v 1500k', '-maxrate 1500k', '-bufsize 3000k', 
+        '-b:v 2500k', '-maxrate 2500k', '-bufsize 4000k', 
         '-c:a aac', '-b:a 320k', '-ar 48000', '-af aresample=async=1',
         '-f flv', '-flvflags no_duration_filesize'
       ];
