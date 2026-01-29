@@ -8,7 +8,6 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath d='M13 10V3L4 14h7v7l9-11h-7z'/%3E%3C/svg%3E">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Socket.io load with onerror fallback -->
     <script src="/socket.io/socket.io.js" onerror="console.warn('Socket.io failed to load. Real-time features disabled.')"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -37,7 +36,6 @@
         .view-section.active-view { display: block !important; }
         #main-app.active-view { display: flex !important; }
         
-        /* Custom Switch Toggle */
         .toggle-checkbox:checked { right: 0; border-color: #68D391; }
         .toggle-checkbox:checked + .toggle-label { background-color: #68D391; }
         
@@ -55,20 +53,15 @@
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><i class="fas fa-music text-white"></i></div>
                 <span class="text-xl font-bold tracking-tight">LiteStream</span>
             </div>
-            <div class="hidden md:flex gap-8 text-sm font-semibold text-slate-400">
-                <a href="#features" class="hover:text-white transition-colors">Features</a>
-                <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
-            </div>
-            <!-- Update onclick to explicit login -->
             <button onclick="showAuth('login')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl transition-all">Dashboard</button>
         </nav>
 
         <section class="pt-40 pb-16 px-6 lg:px-20 text-center max-w-5xl mx-auto">
-            <h1 id="landing-title-display" class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Start Your <br> <span class="text-indigo-400">Radio Station.</span></h1>
-            <p id="landing-desc-display" class="text-lg text-slate-400 mb-12">Server streaming audio paling ringan. Upload MP3, pasang cover, dan broadcast 24/7 ke YouTube, Facebook, dan lainnya secara bersamaan.</p>
+            <h1 class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Start Your <br> <span class="text-indigo-400">Radio Station.</span></h1>
+            <p class="text-lg text-slate-400 mb-12">Server streaming audio paling ringan. Upload MP3, pasang cover, dan broadcast 24/7 ke YouTube, Facebook, dan lainnya secara bersamaan.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <button id="landing-btn-reg-display" onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
-                <button id="landing-btn-login-display" onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold border border-slate-700">Login Member</button>
+                <button onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
+                <button onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold border border-slate-700">Login Member</button>
             </div>
         </section>
 
@@ -76,10 +69,6 @@
             <div class="text-center mb-16"><h2 class="text-4xl font-bold mb-4">Pilih Paket Radio</h2></div>
             <div id="pricing-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto"></div>
         </section>
-        
-        <footer class="py-10 text-center border-t border-slate-800 text-slate-600 text-[10px] uppercase font-bold tracking-widest">
-            &copy; 2024 LiteStream Audio Engine.
-        </footer>
     </div>
 
     <!-- LOGIN MODAL -->
@@ -102,20 +91,22 @@
         </div>
     </div>
 
-    <!-- CUSTOM CONFIRM MODAL -->
-    <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative transform transition-all scale-100">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-exclamation-triangle text-2xl text-rose-500"></i>
-                </div>
-                <h3 class="text-lg font-bold text-white mb-2">Konfirmasi Tindakan</h3>
-                <p id="confirm-message" class="text-sm text-slate-400">Apakah Anda yakin?</p>
+    <!-- START STREAM SELECTION MODAL -->
+    <div id="start-stream-modal" class="hidden fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
+            <button onclick="closeStartModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-white mb-2">Pilih Tujuan Broadcast</h3>
+                <p class="text-xs text-slate-400">Pilih channel mana yang akan memutar playlist ini.</p>
             </div>
-            <div class="flex gap-3">
-                <button onclick="closeConfirmModal()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm transition-colors">Batal</button>
-                <button id="btn-confirm-action" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-rose-600/20">Ya, Hapus</button>
+            
+            <div id="start-dest-list" class="space-y-3 mb-6 max-h-60 overflow-y-auto">
+                <!-- Checkboxes populated dynamically -->
             </div>
+
+            <button onclick="confirmStartStream()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg transition-colors">
+                <i class="fas fa-play mr-2"></i> MULAI STREAMING
+            </button>
         </div>
     </div>
 
@@ -135,8 +126,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Nama Label (Opsional)</label>
-                    <input type="text" id="new-dest-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="Contoh: My Gaming Channel">
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Nama Label</label>
+                    <input type="text" id="new-dest-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="Contoh: Channel 1 - Dangdut">
                 </div>
                 <div id="new-dest-url-container" class="hidden">
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Server RTMP URL</label>
@@ -148,6 +139,20 @@
                 </div>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg mt-4">Simpan Tujuan</button>
             </form>
+        </div>
+    </div>
+    
+    <!-- CONFIRM MODAL -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+            <div class="text-center mb-6">
+                <h3 class="text-lg font-bold text-white mb-2">Konfirmasi</h3>
+                <p id="confirm-message" class="text-sm text-slate-400">Yakin?</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm">Batal</button>
+                <button id="btn-confirm-action" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-sm">Ya</button>
+            </div>
         </div>
     </div>
 
@@ -209,41 +214,30 @@
             </div>
 
             <div id="tab-overview" class="tab-content active space-y-6">
-                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 class="text-2xl font-bold text-white">Streaming Status</h2>
-                    <div class="flex gap-3 w-full sm:w-auto">
-                        <button onclick="switchTab('library')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 whitespace-nowrap">
-                            <i class="fas fa-plus"></i> New Stream
-                        </button>
-                    </div>
-                </div>
-
+                <h2 class="text-2xl font-bold text-white">Streaming Status</h2>
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
                     <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-                        <div class="col-span-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stream Name</div>
+                        <div class="col-span-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stream Targets</div>
                         <div class="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Platform</div>
                         <div class="col-span-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</div>
                     </div>
 
                     <div id="overview-stream-list" class="min-h-[200px] relative">
-                        <!-- Empty State -->
                         <div id="overview-empty" class="absolute inset-0 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
                             <div class="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700/50">
                                 <i class="fas fa-broadcast-tower text-2xl text-slate-600"></i>
                             </div>
                             <h3 class="text-sm font-bold text-slate-400">No active streams</h3>
-                            <p class="text-xs text-slate-600 mt-1">Start a new broadcast from library.</p>
+                            <p class="text-xs text-slate-600 mt-1">Start a broadcast from library.</p>
                         </div>
-                        
-                        <!-- Rows will be injected here via JS -->
+                        <!-- Rows injected here -->
                     </div>
                 </div>
-
+                <!-- Log Console -->
                 <div class="mt-8">
                     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 pl-1">System Logs</h3>
                     <div class="bg-slate-950 rounded-2xl border border-slate-800 h-48 overflow-hidden flex flex-col relative group">
-                        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500/0 via-indigo-500/50 to-indigo-500/0 opacity-50"></div>
-                        <div id="logConsole" class="flex-1 p-5 font-mono text-[10px] overflow-y-auto space-y-1.5 text-slate-500 selection:bg-indigo-500/30"></div>
+                         <div id="logConsole" class="flex-1 p-5 font-mono text-[10px] overflow-y-auto space-y-1.5 text-slate-500"></div>
                     </div>
                 </div>
             </div>
@@ -252,7 +246,8 @@
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl font-bold">Media Library</h2>
                     <div class="flex gap-2">
-                        <button id="btn-start-playlist" onclick="startPlaylist()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold text-sm">START RADIO (<span id="selected-count">0</span>)</button>
+                        <!-- BUTTON TRIGGERS NEW MODAL -->
+                        <button id="btn-start-playlist" onclick="openStartModal()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold text-sm">START RADIO (<span id="selected-count">0</span>)</button>
                         <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-500 transition-all">Upload MP3/Image</button>
                     </div>
                     <input type="file" id="file-up" class="hidden" accept=".mp3,.jpg,.jpeg,.png" onchange="handleUpload(this)">
@@ -276,23 +271,12 @@
                     <h2 class="text-2xl font-bold">Multi-Stream Manager</h2>
                     <button onclick="openAddDestModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg"><i class="fas fa-plus mr-2"></i> Tambah Tujuan</button>
                 </div>
-                
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50">
-                    <div id="destinations-list" class="space-y-4">
-                        <!-- Loaded dynamically -->
-                        <div class="text-center py-10 text-slate-500">Memuat tujuan streaming...</div>
-                    </div>
-                </div>
-                
-                <div class="bg-blue-900/20 border border-blue-500/20 p-4 rounded-2xl flex gap-4 items-start">
-                    <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400"><i class="fas fa-info-circle"></i></div>
-                    <div>
-                        <h4 class="font-bold text-sm text-blue-200">Info Multi-Stream</h4>
-                        <p class="text-xs text-blue-300/70 mt-1">Semua tujuan yang statusnya "ON" akan menerima siaran secara bersamaan saat Anda menekan tombol START di Library.</p>
-                    </div>
+                    <div id="destinations-list" class="space-y-4"></div>
                 </div>
             </div>
-            
+
+            <!-- Profile & User Tabs hidden for brevity (same as before) -->
             <div id="tab-profile" class="tab-content space-y-6">
                 <h2 class="text-2xl font-bold">My Profile</h2>
                 <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-sm">
@@ -320,52 +304,8 @@
     </div>
 
     <script>
-        // --- AUTH & UI FUNCTIONS ---
-        let isLoginMode = true;
+        // CORE VARIABLES
         let destinations = [];
-
-        function showAuth(mode) {
-            isLoginMode = (mode === 'register') ? false : true;
-            updateAuthUI();
-            const modal = document.getElementById('login-view');
-            if (modal) modal.classList.remove('hidden');
-        }
-
-        function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
-        function toggleAuthMode() { isLoginMode = !isLoginMode; updateAuthUI(); }
-        function updateAuthUI() {
-            document.getElementById('auth-title').innerText = isLoginMode ? 'LiteStream' : 'Daftar Baru';
-            document.getElementById('auth-btn').innerText = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG';
-            document.getElementById('toggle-text').innerText = isLoginMode ? 'Belum punya akun?' : 'Sudah punya akun?';
-            document.getElementById('toggle-btn').innerText = isLoginMode ? 'Daftar Sekarang' : 'Login Disini';
-        }
-
-        async function handleAuth(e) {
-            e.preventDefault();
-            const user = document.getElementById('login-user').value;
-            const pass = document.getElementById('login-pass').value;
-            const endpoint = isLoginMode ? '/api/login' : '/api/register';
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (isLoginMode) {
-                        showToast('Login Berhasil!', 'success');
-                        setTimeout(() => location.reload(), 500);
-                    } else {
-                        showToast('Registrasi berhasil! Silakan login.', 'success');
-                        toggleAuthMode();
-                    }
-                } else showToast(data.error || 'Gagal otentikasi', 'error');
-            } catch (err) { showToast('Koneksi Gagal', 'error'); }
-        }
-        
-        async function handleLogout() { await fetch('/api/logout', {method:'POST'}); location.reload(); }
-
         let socket = null;
         let currentUser = null;
         let selectedMedia = new Set();
@@ -376,398 +316,278 @@
             facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/', 
             twitch: 'rtmp://live.twitch.tv/app/' 
         };
-        
         window.currentMediaTab = 'audio';
 
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const el = document.createElement('div');
-            el.className = `toast-enter ${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold backdrop-blur-md`;
-            el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${message}</span>`;
-            container.appendChild(el);
-            requestAnimationFrame(() => { el.classList.add('toast-enter-active'); el.classList.remove('toast-enter'); });
-            setTimeout(() => { el.classList.add('toast-exit-active'); el.remove(); }, 3000);
+        // --- AUTH & COMMON UTILS ---
+        function showToast(msg, type='success') {
+            const c = document.getElementById('toast-container');
+            const e = document.createElement('div');
+            e.className = `toast-enter ${type==='success'?'bg-emerald-600':'bg-rose-600'} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold backdrop-blur-md`;
+            e.innerHTML = `<i class="fas ${type==='success'?'fa-check-circle':'fa-exclamation-circle'}"></i><span>${msg}</span>`;
+            c.appendChild(e);
+            requestAnimationFrame(() => { e.classList.add('toast-enter-active'); e.classList.remove('toast-enter'); });
+            setTimeout(() => { e.classList.add('toast-exit-active'); e.remove(); }, 3000);
         }
 
-        function openConfirmModal(message, callback) {
-            document.getElementById('confirm-message').textContent = message;
-            document.getElementById('custom-confirm-modal').classList.remove('hidden');
-            confirmCallback = callback;
-        }
-
-        function closeConfirmModal() { document.getElementById('custom-confirm-modal').classList.add('hidden'); }
-        document.getElementById('btn-confirm-action').onclick = () => { confirmCallback?.(); closeConfirmModal(); };
-
-        async function checkAuth() {
-            try {
-                const res = await fetch('/api/check-auth');
-                const data = await res.json();
-                if (data.authenticated) { currentUser = data.user; showDashboard(); } 
-                else { setView('landing-view'); fetchPublicPlans(); }
-            } catch (e) { setView('landing-view'); }
-        }
-
-        function setView(id) { document.querySelectorAll('.view-section').forEach(v => v.classList.toggle('active-view', v.id === id)); }
-
-        async function showDashboard() {
-            setView('main-app');
-            document.getElementById('login-view').classList.add('hidden');
-            updateUIInfo();
-            if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
-            fetchMedia(); 
-            fetchDestinations(); // Load multi-stream targets
-            
-            const res = await fetch('/api/stream/status');
-            const state = await res.json();
-            // Pass the active destinations list to UI
-            updateStreamUI(state.active, state.active_destinations);
-        }
-
-        function updateUIInfo() {
-            if(!currentUser) return;
-            document.getElementById('plan-name-display').textContent = currentUser.plan_name;
-            const usedMB = (currentUser.storage_used / (1024 * 1024)).toFixed(1);
-            document.getElementById('storage-text').textContent = `${usedMB} / ${currentUser.max_storage_mb} MB`;
-            document.getElementById('storage-bar').style.width = Math.min((usedMB / currentUser.max_storage_mb * 100), 100) + '%';
-            
-            const usedHrs = ( (currentUser.usage_seconds || 0) / 3600).toFixed(1);
-            const limitHrs = currentUser.daily_limit_hours || 24;
-            document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
-            document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
-        }
-
-        async function fetchPublicPlans() {
-            const res = await fetch('/api/plans-public');
-            const plans = await res.json();
-            document.getElementById('pricing-grid').innerHTML = plans.map(p => {
-                const featuresList = p.features_text ? p.features_text.split(',').map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f.trim()}</li>`).join('') : '';
-                return `
-                <div class="glass p-8 rounded-[3rem] border border-slate-800 flex flex-col ${p.id === 4 ? 'ring-2 ring-indigo-500' : ''} relative overflow-hidden group hover:border-indigo-500/30 transition-all">
-                    <h4 class="text-lg font-bold">${p.name}</h4>
-                    <div id="price-display-${p.id}" class="text-2xl font-black text-indigo-400 my-4 transition-opacity duration-300">${p.price_text}</div>
-                    <ul class="text-xs text-slate-400 space-y-2 flex-1 mb-6">
-                        <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.daily_limit_hours} Jam/hari</li>
-                        <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_storage_mb}MB Storage</li>
-                         ${featuresList}
-                    </ul>
-                    <button onclick="showAuth('register')" class="w-full py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20">Pilih Paket</button>
-                </div>`;
-            }).join('');
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + tab));
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.id === 'nav-' + tab));
-            if (tab === 'users') fetchUsers();
-        }
-
-        // --- MEDIA FUNCTIONS ---
-        async function fetchMedia() {
-            const res = await fetch('/api/videos');
-            allMedia = await res.json();
-            renderMediaList();
-        }
-
-        async function handleUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            if (!file.name.match(/\.(mp3|jpg|jpeg|png)$/i)) {
-                showToast('Hanya file MP3 dan Gambar (JPG/PNG) yang diperbolehkan!', 'error');
-                input.value = ''; return;
-            }
-            showToast('Mengupload file...', 'info');
-            const formData = new FormData();
-            formData.append('video', file);
-            try {
-                const res = await fetch('/api/videos/upload', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) { showToast('Upload Berhasil!', 'success'); fetchMedia(); updateUIInfo(); } 
-                else showToast(data.error || 'Upload Gagal', 'error');
-            } catch (e) { showToast('Terjadi kesalahan', 'error'); }
-            input.value = ''; 
-        }
-
-        function deleteMedia(id) {
-            openConfirmModal('Hapus file ini permanen?', async () => {
-                try {
-                    const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
-                    const data = await res.json();
-                    if (data.success) {
-                        showToast('File dihapus', 'success');
-                        fetchMedia(); updateUIInfo();
-                        if (selectedMedia.has(id)) toggleSelect(id);
-                    } else showToast(data.error, 'error');
-                } catch(e) { showToast('Error koneksi', 'error'); }
-            });
-        }
-
-        function renderMediaList() {
-            const query = document.getElementById('media-search') ? document.getElementById('media-search').value.toLowerCase() : '';
-            const filtered = allMedia.filter(m => m.type === window.currentMediaTab && m.filename.toLowerCase().includes(query));
-            document.getElementById('media-list').innerHTML = filtered.map(v => `
-                <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group">
-                    <input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id) ? 'checked' : ''} class="w-5 h-5 accent-indigo-500">
-                    <div class="flex-1 truncate text-xs font-bold text-slate-300">${v.filename}</div>
-                    <button onclick="deleteMedia(${v.id})" class="text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-trash"></i></button>
-                </div>`).join('');
-        }
-
-        function switchMediaTab(tab) { window.currentMediaTab = tab; document.querySelectorAll('.media-subtab').forEach(t => t.classList.toggle('active', t.id === 'mt-' + tab)); renderMediaList(); }
-
-        function toggleSelect(id) {
-            if (selectedMedia.has(id)) selectedMedia.delete(id); else selectedMedia.add(id);
-            document.getElementById('selected-count').textContent = selectedMedia.size;
-            document.getElementById('btn-start-playlist').classList.toggle('hidden', selectedMedia.size === 0);
-        }
-
-        async function startPlaylist() {
-            const res = await fetch('/api/playlist/start', { 
-                method: 'POST', 
-                headers: {'Content-Type':'application/json'}, 
-                body: JSON.stringify({ ids: Array.from(selectedMedia), loop: true }) 
-            });
-            const d = await res.json();
-            if (d.error) {
-                showToast(d.error, 'error');
-                if(d.error.includes("Multi-Stream")) switchTab('settings');
-            } else {
-                showToast(d.message);
-                switchTab('overview');
-            }
-        }
-
-        // --- MULTI-STREAM SETTINGS ---
-        
+        // --- STREAM & DESTINATION LOGIC ---
         async function fetchDestinations() {
             try {
                 const res = await fetch('/api/destinations');
                 destinations = await res.json();
                 renderDestinations();
-            } catch(e) { console.error("Fetch Dest Error", e); }
+            } catch(e) {}
         }
 
         function renderDestinations() {
-            const container = document.getElementById('destinations-list');
-            if(destinations.length === 0) {
-                container.innerHTML = `<div class="text-center py-8 text-slate-500 bg-slate-900/50 rounded-2xl border border-dashed border-slate-700">Belum ada tujuan streaming. Tambahkan sekarang!</div>`;
-                return;
-            }
-            container.innerHTML = destinations.map(dest => {
-                const icon = dest.platform === 'youtube' ? 'fa-youtube text-red-500' : 
-                             dest.platform === 'facebook' ? 'fa-facebook text-blue-500' : 
-                             dest.platform === 'twitch' ? 'fa-twitch text-purple-500' : 'fa-server text-slate-400';
-                
-                return `
-                <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex items-center justify-between group hover:border-slate-700 transition-all">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-xl shadow-lg">${'<i class="fab '+icon+'"></i>'}</div>
-                        <div>
-                            <div class="font-bold text-sm text-white">${dest.name}</div>
-                            <div class="text-[10px] text-slate-500 font-mono">...${dest.stream_key.slice(-4)}</div>
-                        </div>
+            const list = document.getElementById('destinations-list');
+            if(!destinations.length) { list.innerHTML = '<div class="text-center py-6 text-slate-500">Belum ada tujuan stream.</div>'; return; }
+            list.innerHTML = destinations.map(d => `
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-sm">${d.name}</div>
+                        <div class="text-[10px] text-slate-500">${d.platform}</div>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-2">
-                             <span class="text-[10px] font-bold text-slate-500 uppercase">${dest.is_active ? 'ON' : 'OFF'}</span>
-                             <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                <input type="checkbox" name="toggle" id="toggle-${dest.id}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-700 transition-all duration-300 ${dest.is_active ? 'right-0 border-emerald-400' : 'left-0'}" ${dest.is_active ? 'checked' : ''} onclick="toggleDestination(${dest.id})"/>
-                                <label for="toggle-${dest.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer ${dest.is_active ? 'bg-emerald-500' : ''}"></label>
+                    <div class="flex gap-3">
+                         <div class="flex items-center gap-2">
+                             <span class="text-[10px] font-bold text-slate-500 uppercase">${d.is_active ? 'ON' : 'OFF'}</span>
+                             <div class="relative inline-block w-10 align-middle select-none">
+                                <input type="checkbox" id="toggle-${d.id}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-700 transition-all duration-300 ${d.is_active ? 'right-0 border-emerald-400' : 'left-0'}" ${d.is_active ? 'checked' : ''} onclick="toggleDestination(${d.id})"/>
+                                <label for="toggle-${d.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer ${d.is_active ? 'bg-emerald-500' : ''}"></label>
                             </div>
                         </div>
-                        <button onclick="deleteDestination(${dest.id})" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-500 hover:text-rose-500 transition-all"><i class="fas fa-trash text-xs"></i></button>
+                        <button onclick="deleteDestination(${d.id})" class="text-slate-500 hover:text-rose-500"><i class="fas fa-trash"></i></button>
                     </div>
-                </div>`;
-            }).join('');
+                </div>
+            `).join('');
         }
 
-        function openAddDestModal() {
-            document.getElementById('new-dest-platform').value = 'youtube';
-            document.getElementById('new-dest-name').value = '';
-            document.getElementById('new-dest-url').value = '';
-            document.getElementById('new-dest-key').value = '';
-            handleNewDestPlatformChange();
-            document.getElementById('add-dest-modal').classList.remove('hidden');
-        }
-
-        function handleNewDestPlatformChange() {
-            const platform = document.getElementById('new-dest-platform').value;
-            const urlContainer = document.getElementById('new-dest-url-container');
-            if(platform === 'custom') urlContainer.classList.remove('hidden');
-            else urlContainer.classList.add('hidden');
-        }
-
-        async function handleAddDestination(e) {
-            e.preventDefault();
-            const platform = document.getElementById('new-dest-platform').value;
-            let rtmpUrl = '';
-            if(platform === 'custom') {
-                rtmpUrl = document.getElementById('new-dest-url').value;
-                if(!rtmpUrl.endsWith('/')) rtmpUrl += '/';
-            } else {
-                rtmpUrl = PLATFORMS[platform];
-            }
+        // --- NEW START STREAM MODAL ---
+        function openStartModal() {
+            const list = document.getElementById('start-dest-list');
+            list.innerHTML = destinations.filter(d => d.is_active).map(d => `
+                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-800 border border-slate-700 cursor-pointer hover:border-emerald-500/50 transition-colors">
+                    <input type="checkbox" name="start_dest" value="${d.id}" class="w-5 h-5 accent-emerald-500 rounded">
+                    <div>
+                        <div class="font-bold text-xs text-white">${d.name}</div>
+                        <div class="text-[10px] text-slate-500 uppercase">${d.platform}</div>
+                    </div>
+                </label>
+            `).join('');
             
-            const payload = {
-                name: document.getElementById('new-dest-name').value || platform,
-                platform: platform,
-                rtmp_url: rtmpUrl,
-                stream_key: document.getElementById('new-dest-key').value
-            };
+            if(list.innerHTML === '') list.innerHTML = '<div class="text-slate-500 text-xs text-center">Aktifkan tujuan di tab Multi-Stream dulu.</div>';
+            
+            document.getElementById('start-stream-modal').classList.remove('hidden');
+        }
+
+        function closeStartModal() { document.getElementById('start-stream-modal').classList.add('hidden'); }
+
+        async function confirmStartStream() {
+            const checkboxes = document.querySelectorAll('input[name="start_dest"]:checked');
+            const selectedDestIds = Array.from(checkboxes).map(c => c.value);
+
+            if(selectedDestIds.length === 0) { showToast('Pilih minimal satu channel', 'error'); return; }
+
+            const btn = document.querySelector('#start-stream-modal button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Starting...';
+            btn.disabled = true;
 
             try {
-                const res = await fetch('/api/destinations', {
+                const res = await fetch('/api/playlist/start', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ 
+                        ids: Array.from(selectedMedia), 
+                        destinationIds: selectedDestIds, // Send specific IDs
+                        loop: true 
+                    })
                 });
                 const d = await res.json();
-                if(d.success) {
-                    showToast('Tujuan ditambahkan!', 'success');
-                    document.getElementById('add-dest-modal').classList.add('hidden');
-                    fetchDestinations();
-                } else showToast(d.error, 'error');
-            } catch(e) { showToast('Error koneksi', 'error'); }
-        }
-
-        async function deleteDestination(id) {
-            openConfirmModal("Hapus tujuan stream ini?", async () => {
-                const res = await fetch(`/api/destinations/${id}`, { method: 'DELETE' });
-                if(res.ok) { fetchDestinations(); showToast('Tujuan dihapus'); }
-            });
-        }
-
-        async function toggleDestination(id) {
-            await fetch(`/api/destinations/${id}/toggle`, { method: 'PUT' });
-            // Re-fetch to sync UI perfectly or update local state
-            fetchDestinations();
-        }
-
-        async function fetchUsers() {
-            const res = await fetch('/api/users');
-            const users = await res.json();
-            document.getElementById('user-table-body').innerHTML = users.map(u => `
-                <tr class="border-b border-slate-800">
-                    <td class="p-5 font-bold">${u.username}</td>
-                    <td class="p-5 text-xs">${(u.usage_seconds/3600).toFixed(1)} Jam used</td>
-                    <td class="p-5 text-right"><button onclick="alert('Admin Panel Simple Mode')" class="bg-indigo-600 px-3 py-1 rounded text-[10px] font-bold">MANAGE</button></td>
-                </tr>`).join('');
-        }
-
-        function updateStreamUI(isLive, activeDestinations = []) {
-            const emptyState = document.getElementById('overview-empty');
-            const listContainer = document.getElementById('overview-stream-list');
-            
-            // Clear existing dynamic rows (keep empty state div)
-            Array.from(listContainer.children).forEach(child => {
-                if (child.id !== 'overview-empty') child.remove();
-            });
-
-            if(isLive && activeDestinations && activeDestinations.length > 0) {
-                emptyState.classList.add('hidden');
                 
-                // Render a row for EACH active destination
-                activeDestinations.forEach(dest => {
-                    const row = document.createElement('div');
-                    row.className = "grid grid-cols-12 gap-4 px-6 py-4 items-center border-b border-slate-800 hover:bg-slate-800/20 transition-colors bg-slate-900/30";
-                    
-                    const iconClass = dest.platform === 'youtube' ? 'fa-youtube text-red-500' : 
-                                      dest.platform === 'facebook' ? 'fa-facebook text-blue-500' : 
-                                      dest.platform === 'twitch' ? 'fa-twitch text-purple-500' : 'fa-broadcast-tower text-indigo-400';
+                if(d.success) {
+                    showToast(d.message);
+                    closeStartModal();
+                    selectedMedia.clear(); 
+                    renderMediaList();
+                    toggleSelect(-1); // Update counter
+                    switchTab('overview');
+                    setTimeout(showDashboard, 1000); // Refresh list
+                } else {
+                    showToast(d.error, 'error');
+                }
+            } catch(e) { showToast('Connection Error', 'error'); }
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
 
+        async function stopStream(streamId) {
+            await fetch('/api/stream/stop', {
+                method:'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ streamId }) // Optional streamId
+            });
+            setTimeout(showDashboard, 500);
+        }
+
+        // --- OVERVIEW UI ---
+        function updateStreamUI(isActive, activeStreams = []) {
+            const empty = document.getElementById('overview-empty');
+            const list = document.getElementById('overview-stream-list');
+            
+            // Clear rows
+            Array.from(list.children).forEach(c => { if(c.id !== 'overview-empty') c.remove(); });
+
+            if(isActive && activeStreams.length > 0) {
+                empty.classList.add('hidden');
+                activeStreams.forEach(stream => {
+                    // One row per active STREAM PROCESS (which might cover multiple destinations)
+                    // But to display nicely, let's list the destinations in the row
+                    const destNames = stream.destinations.map(d => `<span class="bg-slate-800 px-2 py-0.5 rounded text-[10px] border border-slate-700">${d.name}</span>`).join(' ');
+                    const platformIcon = stream.destinations[0].platform === 'youtube' ? 'fa-youtube text-red-500' : 'fa-broadcast-tower text-indigo-400';
+
+                    const row = document.createElement('div');
+                    row.className = 'grid grid-cols-12 gap-4 px-6 py-4 items-center border-b border-slate-800 hover:bg-slate-800/20 transition-colors bg-slate-900/30';
                     row.innerHTML = `
                         <div class="col-span-6 flex items-center gap-4">
                             <div class="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/10 shrink-0">
-                                 <i class="fab ${iconClass} text-lg"></i>
+                                 <i class="fab ${platformIcon} text-lg"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="font-bold text-sm text-white truncate">${dest.name}</div>
-                                <div class="text-[10px] font-mono text-slate-500 flex items-center gap-2 mt-0.5">
+                                <div class="font-bold text-sm text-white truncate flex flex-wrap gap-1">${destNames}</div>
+                                <div class="text-[10px] font-mono text-slate-500 flex items-center gap-2 mt-1">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    <span class="live-bitrate">0 kbps</span>
+                                    <span id="bitrate-${stream.id}">Connecting...</span>
                                     <span class="text-slate-600">|</span>
-                                    <span class="live-duration">00:00:00</span>
+                                    <span id="duration-${stream.id}">00:00:00</span>
                                 </div>
                             </div>
                         </div>
                         <div class="col-span-3">
-                            <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20 flex w-fit items-center gap-1.5">
-                                LIVE
-                            </span>
+                             <span class="text-[10px] font-bold text-slate-400 uppercase">${stream.destinations.map(d=>d.platform).join(', ')}</span>
                         </div>
                         <div class="col-span-3 text-right">
-                            <button onclick="stopStream()" class="group bg-slate-800 hover:bg-rose-500/10 border border-slate-700 hover:border-rose-500/30 p-2 rounded-lg transition-all" title="Stop All Streams">
+                            <button onclick="stopStream('${stream.id}')" class="group bg-slate-800 hover:bg-rose-500/10 border border-slate-700 hover:border-rose-500/30 p-2 rounded-lg transition-all" title="Stop This Stream">
                                 <i class="fas fa-stop text-slate-400 group-hover:text-rose-500 text-xs"></i>
                             </button>
                         </div>
                     `;
-                    listContainer.appendChild(row);
+                    list.appendChild(row);
                 });
-
+                
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-emerald-500';
+                document.getElementById('status-label').textContent = 'Live (' + activeStreams.length + ')';
             } else {
-                emptyState.classList.remove('hidden');
+                empty.classList.remove('hidden');
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-slate-500';
+                document.getElementById('status-label').textContent = 'Offline';
             }
-            
-            document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-slate-500'}`;
-            document.getElementById('status-label').textContent = isLive ? 'Live' : 'Offline';
+        }
+
+        // --- STANDARD UTILS (Auth, Media, Profile - same as before) ---
+        function switchTab(t) { document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active', c.id==='tab-'+t)); document.querySelectorAll('.nav-link').forEach(l=>l.classList.toggle('active', l.id==='nav-'+t)); if(t==='users')fetchUsers(); }
+        function showAuth(m) { document.getElementById('login-view').classList.remove('hidden'); isLoginMode=m!=='register'; updateAuthUI(); }
+        function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
+        function toggleAuthMode() { isLoginMode=!isLoginMode; updateAuthUI(); }
+        function updateAuthUI() { document.getElementById('auth-btn').innerText=isLoginMode?'MASUK DASHBOARD':'DAFTAR SEKARANG'; document.getElementById('auth-title').innerText=isLoginMode?'LiteStream':'Daftar Baru'; document.getElementById('toggle-text').innerText=isLoginMode?'Belum punya akun?':'Sudah punya akun?'; document.getElementById('toggle-btn').innerText=isLoginMode?'Daftar Sekarang':'Login Disini'; }
+        
+        async function handleAuth(e) {
+             e.preventDefault(); const u=document.getElementById('login-user').value, p=document.getElementById('login-pass').value;
+             const ep = isLoginMode?'/api/login':'/api/register';
+             try { const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const d=await r.json();
+             if(d.success){ if(isLoginMode){location.reload();}else{showToast('Register Sukses'); toggleAuthMode();} }else showToast(d.error,'error'); }catch(e){}
+        }
+        async function handleLogout() { await fetch('/api/logout',{method:'POST'}); location.reload(); }
+        
+        async function checkAuth() { 
+            try { const r=await fetch('/api/check-auth'); const d=await r.json(); 
+            if(d.authenticated){ currentUser=d.user; showDashboard(); }else{ setView('landing-view'); fetchPublicPlans(); } }catch(e){setView('landing-view');} 
+        }
+        function setView(id){ document.querySelectorAll('.view-section').forEach(v=>v.classList.toggle('active-view', v.id===id)); }
+        
+        async function showDashboard() {
+            setView('main-app'); hideAuth(); updateUIInfo();
+            if(currentUser.role==='admin') document.getElementById('nav-users').classList.remove('hidden');
+            fetchMedia(); fetchDestinations();
+            const r = await fetch('/api/stream/status'); const s = await r.json();
+            updateStreamUI(s.total_active > 0, s.active_streams);
         }
         
-        async function stopStream() { await fetch('/api/stream/stop', {method:'POST'}); }
-        
-        async function saveProfile(e) {
-            e.preventDefault();
-            const username = document.getElementById('profile-username').value;
-            const currentPassword = document.getElementById('profile-current-pass').value;
-            const newPassword = document.getElementById('profile-new-pass').value;
-            try {
-                const res = await fetch('/api/profile', {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ username, currentPassword, newPassword })
-                });
-                const d = await res.json();
-                if(d.success) { showToast('Profil diperbarui'); document.getElementById('profile-current-pass').value = ''; } 
-                else showToast(d.error, 'error');
-            } catch(e) { showToast('Error', 'error'); }
+        function updateUIInfo() { if(!currentUser)return; document.getElementById('plan-name-display').textContent=currentUser.plan_name; const u=(currentUser.storage_used/1048576).toFixed(1); document.getElementById('storage-text').textContent=`${u} / ${currentUser.max_storage_mb} MB`; document.getElementById('storage-bar').style.width=Math.min((u/currentUser.max_storage_mb*100),100)+'%'; const h=((currentUser.usage_seconds||0)/3600).toFixed(1); document.getElementById('usage-text').textContent=`${h} / ${currentUser.daily_limit_hours||24} H`; document.getElementById('usage-bar').style.width=Math.min((h/(currentUser.daily_limit_hours||24)*100),100)+'%'; }
+
+        async function fetchPublicPlans() {
+            const r=await fetch('/api/plans-public'); const p=await r.json();
+            document.getElementById('pricing-grid').innerHTML=p.map(x=>`<div class="glass p-8 rounded-[3rem] border border-slate-800 flex flex-col relative"><h4 class="text-lg font-bold">${x.name}</h4><div class="text-2xl font-black text-indigo-400 my-4">${x.price_text}</div><ul class="text-xs text-slate-400 space-y-2 flex-1 mb-6"><li>${x.daily_limit_hours} Jam/hari</li><li>${x.max_storage_mb}MB Storage</li></ul><button onclick="showAuth('register')" class="w-full py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500">Pilih Paket</button></div>`).join('');
         }
+
+        async function fetchMedia() { const r=await fetch('/api/videos'); allMedia=await r.json(); renderMediaList(); }
+        function renderMediaList() {
+            const q = document.getElementById('media-search').value.toLowerCase();
+            const f = allMedia.filter(m=>m.type===window.currentMediaTab && m.filename.toLowerCase().includes(q));
+            document.getElementById('media-list').innerHTML=f.map(v=>`<div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group"><input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id)?'checked':''} class="w-5 h-5 accent-indigo-500"><div class="flex-1 truncate text-xs font-bold text-slate-300">${v.filename}</div><button onclick="deleteMedia(${v.id})" class="text-rose-500 opacity-0 group-hover:opacity-100"><i class="fas fa-trash"></i></button></div>`).join('');
+        }
+        function switchMediaTab(t){window.currentMediaTab=t; document.querySelectorAll('.media-subtab').forEach(x=>x.classList.toggle('active',x.id==='mt-'+t)); renderMediaList();}
+        function toggleSelect(id) { if(id!==-1){ if(selectedMedia.has(id))selectedMedia.delete(id); else selectedMedia.add(id); } document.getElementById('selected-count').textContent=selectedMedia.size; document.getElementById('btn-start-playlist').classList.toggle('hidden', selectedMedia.size===0); }
+        
+        async function handleUpload(i) {
+            const f=i.files[0]; if(!f)return; if(!f.name.match(/\.(mp3|jpg|jpeg|png)$/i)){showToast('Format salah','error'); return;}
+            const fd=new FormData(); fd.append('video',f); showToast('Uploading...');
+            const r=await fetch('/api/videos/upload',{method:'POST',body:fd}); const d=await r.json();
+            if(d.success){showToast('Sukses'); fetchMedia(); updateUIInfo();}else showToast(d.error,'error'); i.value='';
+        }
+        function deleteMedia(id){ openConfirmModal('Hapus?', async()=>{ await fetch('/api/videos/'+id,{method:'DELETE'}); fetchMedia(); updateUIInfo(); }); }
+        
+        function openConfirmModal(msg, cb) { document.getElementById('confirm-message').textContent=msg; document.getElementById('custom-confirm-modal').classList.remove('hidden'); confirmCallback=cb; }
+        function closeConfirmModal() { document.getElementById('custom-confirm-modal').classList.add('hidden'); }
+        document.getElementById('btn-confirm-action').onclick = ()=>{ confirmCallback?.(); closeConfirmModal(); };
+        
+        // Settings / Destinations
+        function openAddDestModal(){ document.getElementById('new-dest-platform').value='youtube'; handleNewDestPlatformChange(); document.getElementById('add-dest-modal').classList.remove('hidden'); }
+        function handleNewDestPlatformChange(){ const p=document.getElementById('new-dest-platform').value; document.getElementById('new-dest-url-container').classList.toggle('hidden', p!=='custom'); }
+        async function handleAddDestination(e){ 
+            e.preventDefault(); const p=document.getElementById('new-dest-platform').value; 
+            const u = p==='custom' ? document.getElementById('new-dest-url').value : PLATFORMS[p];
+            const load={ name:document.getElementById('new-dest-name').value||p, platform:p, rtmp_url:u, stream_key:document.getElementById('new-dest-key').value };
+            const r=await fetch('/api/destinations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(load)});
+            if(r.ok){ showToast('Disimpan'); document.getElementById('add-dest-modal').classList.add('hidden'); fetchDestinations(); }
+        }
+        async function deleteDestination(id){ openConfirmModal('Hapus tujuan?', async()=>{await fetch('/api/destinations/'+id,{method:'DELETE'}); fetchDestinations();}); }
+        async function toggleDestination(id){ await fetch(`/api/destinations/${id}/toggle`,{method:'PUT'}); fetchDestinations(); }
+
+        async function fetchUsers(){ const r=await fetch('/api/users'); const u=await r.json(); document.getElementById('user-table-body').innerHTML=u.map(x=>`<tr class="border-b border-slate-800"><td class="p-5 font-bold">${x.username}</td><td class="p-5 text-xs">${(x.usage_seconds/3600).toFixed(1)}H</td><td class="p-5 text-right"><button class="bg-indigo-600 px-3 py-1 rounded text-[10px] font-bold">Manage</button></td></tr>`).join(''); }
+        async function saveProfile(e){ e.preventDefault(); const u=document.getElementById('profile-username').value, c=document.getElementById('profile-current-pass').value, n=document.getElementById('profile-new-pass').value; const r=await fetch('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,currentPassword:c,newPassword:n})}); const d=await r.json(); showToast(d.success?'Updated':d.error, d.success?'success':'error'); }
 
         // --- INIT ---
         window.onload = function() {
             if (typeof io !== 'undefined') {
-                try {
-                    socket = io();
-                    socket.on('stats', (data) => {
-                        // Update ALL rows simultaneously
-                        const durationEls = document.querySelectorAll('.live-duration');
-                        durationEls.forEach(el => el.textContent = data.duration.split('.')[0]);
-                        
-                        const bitrateEls = document.querySelectorAll('.live-bitrate');
-                        bitrateEls.forEach(el => el.textContent = data.bitrate);
+                socket = io();
+                socket.on('stats', (data) => {
+                    // Update SPECIFIC row based on Stream ID
+                    const durEl = document.getElementById(`duration-${data.streamId}`);
+                    const bitEl = document.getElementById(`bitrate-${data.streamId}`);
+                    if(durEl) durEl.textContent = data.duration.split('.')[0];
+                    if(bitEl) bitEl.textContent = data.bitrate;
 
-                        if (data.usage_remaining !== undefined && currentUser) {
-                            const limitHrs = currentUser.daily_limit_hours || 24;
-                            const limitSecs = limitHrs * 3600;
-                            const usedSecs = limitSecs - data.usage_remaining;
-                            currentUser.usage_seconds = usedSecs; 
-                            const usedHrs = (usedSecs / 3600).toFixed(1);
-                            document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
-                            document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
-                        }
-                    });
-
-                    socket.on('log', (data) => {
-                        const p = document.createElement('p');
-                        p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
-                        p.textContent = `> ${data.message}`;
-                        const consoleEl = document.getElementById('logConsole');
-                        if (consoleEl) { consoleEl.appendChild(p); consoleEl.scrollTop = consoleEl.scrollHeight; }
-                        
-                        // If stream starts/ends via socket, refresh dashboard to get correct destination list
-                        if (data.type === 'start' || data.type === 'end') {
-                            // Small delay to ensure DB is updated
-                            setTimeout(() => showDashboard(), 500);
-                        }
-                    });
-                } catch(e) { console.warn("Socket Init Failed", e); }
+                    if (data.usage_remaining !== undefined && currentUser) {
+                        const limitHrs = currentUser.daily_limit_hours || 24;
+                        const usedSecs = (limitHrs * 3600) - data.usage_remaining;
+                        currentUser.usage_seconds = usedSecs; 
+                        const usedHrs = (usedSecs / 3600).toFixed(1);
+                        document.getElementById('usage-text').textContent = `${usedHrs} / ${limitHrs} H`;
+                        document.getElementById('usage-bar').style.width = Math.min((usedHrs / limitHrs * 100), 100) + '%';
+                    }
+                });
+                socket.on('log', (data) => {
+                    const p = document.createElement('p');
+                    p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
+                    p.textContent = `> ${data.message}`;
+                    const consoleEl = document.getElementById('logConsole');
+                    if (consoleEl) { consoleEl.appendChild(p); consoleEl.scrollTop = consoleEl.scrollHeight; }
+                    
+                    if (data.type === 'start' || data.type === 'end') {
+                        setTimeout(() => showDashboard(), 500);
+                    }
+                });
             }
             checkAuth();
         };

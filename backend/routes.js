@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs'); 
 const { getVideos, saveVideo, deleteVideo, db } = require('./database');
-const { startStream, stopStream, isStreaming } = require('./streamEngine');
+const { startStream, stopStream, getActiveStreams } = require('./streamEngine');
 
 // Helper: Reset harian jika tanggal berubah
 const syncUserUsage = (userId) => {
@@ -177,84 +177,84 @@ router.delete('/videos/:id', async (req, res) => {
 
 router.get('/stream/status', async (req, res) => {
     const usage = await syncUserUsage(req.session.user.id);
-    db.all("SELECT id, name, platform FROM stream_destinations WHERE user_id = ? AND is_active = 1", [req.session.user.id], (err, rows) => {
-        res.json({ 
-            active: isStreaming(), 
-            usage_seconds: usage, 
-            active_destinations: rows || [] // Mengirim detail array, bukan hanya count
-        });
+    const activeStreamsList = getActiveStreams(req.session.user.id);
+    res.json({ 
+        active_streams: activeStreamsList, // Return detailed list of all running streams
+        usage_seconds: usage,
+        total_active: activeStreamsList.length
     });
 });
 
 router.post('/playlist/start', async (req, res) => {
-  const { ids, coverImageId, loop } = req.body;
+  const { ids, coverImageId, loop, destinationIds } = req.body;
   const userId = req.session.user.id;
 
   if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih minimal 1 file audio." });
+  if (!destinationIds || destinationIds.length === 0) return res.status(400).json({ error: "Pilih minimal 1 tujuan streaming." });
 
-  // 1. Get User Usage & Plan
   const currentUsage = await syncUserUsage(userId);
   
-  // 2. Get Active Destinations
-  const destinations = await new Promise((resolve, reject) => {
-      db.all("SELECT name, platform, rtmp_url, stream_key FROM stream_destinations WHERE user_id = ? AND is_active = 1", [userId], (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-      });
-  });
-
-  if (!destinations || destinations.length === 0) {
-      return res.status(400).json({ error: "Tidak ada tujuan streaming aktif. Tambahkan di Settings > Multi-Stream." });
-  }
-
   db.get(`
-    SELECT p.allowed_types, p.daily_limit_hours 
+    SELECT p.allowed_types, p.daily_limit_hours, p.max_active_streams
     FROM users u JOIN plans p ON u.plan_id = p.id 
-    WHERE u.id = ?`, [userId], (err, plan) => {
+    WHERE u.id = ?`, [userId], async (err, plan) => {
     
-    // Cek Batasan Waktu
+    // 1. Cek Limit Waktu
     if (currentUsage >= plan.daily_limit_hours * 3600) {
         return res.status(403).json({ error: `Batas waktu harian (${plan.daily_limit_hours} jam) sudah habis.` });
     }
+
+    // 2. Cek Limit Jumlah Stream Bersamaan (Multi-Instance)
+    const activeStreams = getActiveStreams(userId);
+    if (activeStreams.length >= plan.max_active_streams) {
+        return res.status(403).json({ error: `Anda mencapai batas ${plan.max_active_streams} stream aktif bersamaan.` });
+    }
+
+    // 3. Get Selected Destinations from DB
+    const placeholdersDest = destinationIds.map(() => '?').join(',');
+    // WARNING: Validate user_id to prevent using other people's destinations
+    const destinations = await new Promise((resolve) => {
+        db.all(`SELECT name, platform, rtmp_url, stream_key FROM stream_destinations WHERE id IN (${placeholdersDest}) AND user_id = ?`, [...destinationIds, userId], (err, rows) => resolve(rows));
+    });
+
+    if (!destinations || destinations.length === 0) return res.status(400).json({ error: "Tujuan streaming tidak valid." });
 
     const placeholders = ids.map(() => '?').join(',');
     db.all(`SELECT * FROM videos WHERE id IN (${placeholders}) AND user_id = ?`, [...ids, userId], async (err, items) => {
       if (!items || items.length === 0) return res.status(404).json({ error: "Media tidak ditemukan" });
 
-      // FORCE AUDIO ONLY LOGIC
       const audioFiles = items.filter(i => i.type === 'audio');
       const imageFiles = items.filter(i => i.type === 'image');
 
-      if (audioFiles.length === 0) {
-          return res.status(400).json({ error: "Pilih setidaknya satu file Audio (MP3)." });
-      }
+      if (audioFiles.length === 0) return res.status(400).json({ error: "Pilih setidaknya satu file Audio (MP3)." });
 
       let playlistPaths = audioFiles.map(a => a.path);
       let finalCoverPath = null;
-
       if (coverImageId) {
             const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
             if(cov) finalCoverPath = cov.path;
       }
-      
       if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
       try {
-          // PASS DESTINATIONS ARRAY TO ENGINE
-          startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
-          res.json({ success: true, message: `Streaming dimulai ke ${destinations.length} tujuan.` });
+          // PASS SELECTED DESTINATIONS TO ENGINE
+          // Returns a unique stream ID for this session
+          const streamId = await startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+          res.json({ success: true, message: `Streaming baru dimulai (ID: ${streamId})` });
       } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
     });
   });
 });
 
 router.post('/stream/stop', (req, res) => {
-  const success = stopStream();
-  res.json({ success });
+  const { streamId } = req.body;
+  const userId = req.session.user.id;
+  // If streamId is provided, stops that specific stream. If not, stops all for user.
+  const success = stopStream(streamId, userId);
+  res.json({ success, message: streamId ? "Stream dihentikan" : "Semua stream dihentikan" });
 });
 
 router.get('/settings', (req, res) => {
-    // Only keeping global settings here, destination is moved to specific endpoints
     const keys = ['landing_title', 'landing_desc', 'landing_btn_reg', 'landing_btn_login'];
     const placeholders = keys.map(()=>'?').join(',');
     db.all(`SELECT key, value FROM stream_settings WHERE key IN (${placeholders})`, keys, (err, rows) => {

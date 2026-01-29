@@ -5,27 +5,29 @@ const fs = require('fs');
 const { PassThrough } = require('stream');
 const { db } = require('./database');
 
-let currentCommand = null;
-let activeInputStream = null; 
-let currentStreamLoopActive = false; 
-let currentStreamUserId = null;
+// STORE MULTIPLE STREAMS: Map<streamId, { command, inputStream, loopActive, userId }>
+const activeStreams = new Map();
 
-// Updated: Accepts an ARRAY of destinations instead of a single URL
 const startStream = (inputPaths, destinations, options = {}) => {
-  if (currentCommand) {
-    stopStream();
-  }
-
   if (!destinations || destinations.length === 0) {
-      throw new Error("No active streaming destinations found.");
+      throw new Error("Pilih minimal satu tujuan streaming.");
   }
 
+  const streamId = 'stream_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
   const shouldLoop = !!options.loop;
-  currentStreamUserId = options.userId;
+  const currentUserId = options.userId;
   
-  currentStreamLoopActive = true;
+  // State object for this specific stream
+  const streamState = {
+      id: streamId,
+      userId: currentUserId,
+      loopActive: true,
+      activeInputStream: null,
+      command: null,
+      destinations: destinations // Store info for status check
+  };
 
   return new Promise((resolve, reject) => {
     let command = ffmpeg();
@@ -33,13 +35,14 @@ const startStream = (inputPaths, destinations, options = {}) => {
 
     if (isAllAudio) {
       const mixedStream = new PassThrough();
-      activeInputStream = mixedStream;
+      streamState.activeInputStream = mixedStream;
       let fileIndex = 0;
 
       const playNextSong = () => {
-        if (!currentStreamLoopActive) return;
+        if (!streamState.loopActive) return;
         const currentFile = files[fileIndex];
         const songStream = fs.createReadStream(currentFile);
+        
         songStream.pipe(mixedStream, { end: false });
 
         songStream.on('end', () => {
@@ -55,9 +58,11 @@ const startStream = (inputPaths, destinations, options = {}) => {
              playNextSong();
            }
         });
+        
         songStream.on('error', (err) => {
-           fileIndex++;
-           playNextSong();
+           console.error(`Error playing file ${currentFile}:`, err);
+           fileIndex++; // Skip broken file
+           if(fileIndex < files.length) playNextSong();
         });
       };
 
@@ -77,13 +82,6 @@ const startStream = (inputPaths, destinations, options = {}) => {
       }
 
       command.input(mixedStream).inputFormat('mp3').inputOptions(['-re']); 
-
-      // GLOBAL ENCODING OPTIONS (Applied once, then mapped to multiple outputs)
-      // Note: Fluent-ffmpeg applies .outputOptions() to the immediately preceding output.
-      // However, if we define them before outputs, some versions might behave differently.
-      // Safe strategy: Define input options -> Add Outputs with their specific flags.
-      // Since we want the SAME encoding for all, we will repeat the encoding flags for each output
-      // OR rely on ffmpeg's ability to reuse the encoded stream.
       
       const encodingFlags = [
         '-map 0:v', '-map 1:a', `-vf ${videoFilter}`,
@@ -93,15 +91,14 @@ const startStream = (inputPaths, destinations, options = {}) => {
         '-f flv', '-flvflags no_duration_filesize'
       ];
 
-      // Add outputs for each destination
       destinations.forEach(dest => {
           const fullUrl = dest.rtmp_url + dest.stream_key;
           command.output(fullUrl).outputOptions(encodingFlags);
       });
 
     } else {
-      // Playlist logic (Existing video files)
-      const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
+      // Playlist Video Logic
+      const playlistPath = path.join(__dirname, 'uploads', `playlist_${streamId}.txt`);
       const playlistContent = files.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join('\n');
       fs.writeFileSync(playlistPath, playlistContent);
 
@@ -111,21 +108,25 @@ const startStream = (inputPaths, destinations, options = {}) => {
       command.input(playlistPath).inputOptions(videoInputOpts);
       
       const copyFlags = ['-c copy', '-f flv', '-flvflags no_duration_filesize'];
-      
       destinations.forEach(dest => {
           const fullUrl = dest.rtmp_url + dest.stream_key;
           command.output(fullUrl).outputOptions(copyFlags);
       });
+      
+      // Cleanup playlist file on exit
+      streamState.cleanupFile = playlistPath;
     }
 
-    currentCommand = command
+    streamState.command = command
       .on('start', (commandLine) => {
         const destNames = destinations.map(d => d.name || d.platform).join(', ');
-        if (global.io) global.io.emit('log', { type: 'start', message: `Multi-Stream Started to: ${destNames}` });
+        if (global.io) global.io.emit('log', { type: 'start', message: `Started Stream [${streamId}] to: ${destNames}` });
+        
+        // Save to MAP
+        activeStreams.set(streamId, streamState);
+        resolve(streamId);
       })
       .on('progress', (progress) => {
-        if (!currentStreamUserId) return;
-
         const currentTimemark = progress.timemark; 
         const parts = currentTimemark.split(':');
         const totalSeconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parseFloat(parts[2]));
@@ -134,27 +135,28 @@ const startStream = (inputPaths, destinations, options = {}) => {
         if (diff >= 5) { 
             lastProcessedSecond = totalSeconds;
             
+            // Usage Tracking (shared across all streams of user)
             db.get(`
                 SELECT u.usage_seconds, p.daily_limit_hours 
                 FROM users u JOIN plans p ON u.plan_id = p.id 
-                WHERE u.id = ?`, [currentStreamUserId], (err, row) => {
+                WHERE u.id = ?`, [currentUserId], (err, row) => {
                 if (row) {
                     const newUsage = row.usage_seconds + diff;
                     const limitSeconds = row.daily_limit_hours * 3600;
 
-                    db.run("UPDATE users SET usage_seconds = ? WHERE id = ?", [newUsage, currentStreamUserId]);
+                    db.run("UPDATE users SET usage_seconds = ? WHERE id = ?", [newUsage, currentUserId]);
 
                     if (newUsage >= limitSeconds) {
-                        if (global.io) global.io.emit('log', { type: 'error', message: 'Batas penggunaan harian tercapai! Stream dimatikan otomatis.' });
-                        stopStream();
+                        if (global.io) global.io.emit('log', { type: 'error', message: 'Quota exhausted. Stopping all streams.' });
+                        stopStream(null, currentUserId); // Stop all streams for this user
                     }
 
                     if (global.io) {
                         global.io.emit('stats', { 
+                            streamId: streamId, // Critical for frontend mapping
                             duration: progress.timemark, 
                             bitrate: progress.currentKbps ? Math.round(progress.currentKbps) + ' kbps' : 'N/A',
-                            usage_remaining: Math.max(0, limitSeconds - newUsage),
-                            destination_count: destinations.length
+                            usage_remaining: Math.max(0, limitSeconds - newUsage)
                         });
                     }
                 }
@@ -163,36 +165,60 @@ const startStream = (inputPaths, destinations, options = {}) => {
       })
       .on('error', (err) => {
         if (err.message.includes('SIGKILL')) return;
-        if (global.io) global.io.emit('log', { type: 'error', message: 'Stream Error: ' + err.message });
-        currentCommand = null;
-        reject(err);
+        if (global.io) global.io.emit('log', { type: 'error', message: `Stream [${streamId}] Error: ` + err.message });
+        stopStream(streamId);
       })
       .on('end', () => {
-        currentCommand = null;
-        if (global.io) global.io.emit('log', { type: 'end', message: 'Stream finished.' });
-        resolve();
+        if (global.io) global.io.emit('log', { type: 'end', message: `Stream [${streamId}] finished.` });
+        stopStream(streamId);
       });
 
-    // Run without explicit save() argument because we used .output() multiple times
-    currentCommand.run();
+    streamState.command.run();
   });
 };
 
-const stopStream = () => {
-  currentStreamLoopActive = false;
-  currentStreamUserId = null;
-  if (activeInputStream) {
-      try { activeInputStream.end(); } catch(e) {}
-      activeInputStream = null;
-  }
-  if (currentCommand) {
-    try { currentCommand.kill('SIGKILL'); } catch (e) {}
-    currentCommand = null;
-    return true;
-  }
-  return false;
+const stopStream = (streamId = null, userId = null) => {
+  let stoppedCount = 0;
+
+  activeStreams.forEach((state, key) => {
+      // Logic: Stop if ID matches OR if User matches (stop all for user) OR if stop ALL (no args)
+      if ((streamId && key === streamId) || (userId && state.userId === userId) || (!streamId && !userId)) {
+          
+          state.loopActive = false;
+          if (state.activeInputStream) {
+              try { state.activeInputStream.end(); } catch(e) {}
+          }
+          if (state.command) {
+              try { state.command.kill('SIGKILL'); } catch (e) {}
+          }
+          if (state.cleanupFile && fs.existsSync(state.cleanupFile)) {
+              try { fs.unlinkSync(state.cleanupFile); } catch(e) {}
+          }
+          
+          activeStreams.delete(key);
+          stoppedCount++;
+      }
+  });
+
+  return stoppedCount > 0;
 };
 
-const isStreaming = () => !!currentCommand;
+// Return array of active stream info for UI
+const getActiveStreams = (userId) => {
+    const list = [];
+    activeStreams.forEach((state, id) => {
+        if (state.userId === userId) {
+            list.push({
+                id: state.id,
+                destinations: state.destinations.map(d => ({ 
+                    name: d.name, 
+                    platform: d.platform,
+                    rtmp_url: d.rtmp_url // Optional, for debug
+                }))
+            });
+        }
+    });
+    return list;
+};
 
-module.exports = { startStream, stopStream, isStreaming };
+module.exports = { startStream, stopStream, getActiveStreams };
