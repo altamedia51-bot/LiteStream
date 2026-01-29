@@ -14,7 +14,6 @@ const { initDB, db, dbPath } = require('./database');
 // PREVENT CRASH ON STARTUP ERRORS
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
-    // Keep alive if possible, but logging is critical
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -74,7 +73,7 @@ app.get('/api/factory-reset', (req, res) => {
             } catch(e) { console.error("Del Session Fail", e); }
         }
 
-        res.send(`<h1>FACTORY RESET SUCCESS</h1><script>setTimeout(() => { window.location.href = '/' }, 10000);</script>`);
+        res.send(`<h1>FACTORY RESET SUCCESS</h1><script>setTimeout(() => { window.location.href = '/' }, 5000);</script>`);
         setTimeout(() => { process.exit(0); }, 2000);
 
     } catch (e) {
@@ -82,41 +81,52 @@ app.get('/api/factory-reset', (req, res) => {
     }
 });
 
+// === DEBUG ROUTE TO SEE USERS ===
+app.get('/api/debug-users', (req, res) => {
+    // Gunakan SELECT * agar tidak error jika kolom spesifik hilang
+    db.all("SELECT * FROM users", (err, rows) => {
+        if (err) return res.json({ error: err.message });
+        res.json({ users: rows, admin_hint: "Try 'admin' / 'admin123'" });
+    });
+});
+
 app.post('/api/login', (req, res) => {
   let { username, password } = req.body;
   
-  // 1. Bersihkan Input
-  username = (username || '').trim();
-  password = (password || '').trim();
-  
-  console.log(`Login Attempt: User [${username}]`);
-
-  // 2. EMERGENCY BACKDOOR FOR ADMIN
-  // Ini menjamin admin bisa masuk meski database korup atau hash salah
-  if (username === 'admin' && password === 'admin123') {
-      console.log("!! ADMIN EMERGENCY LOGIN TRIGGERED !!");
-      
-      db.get("SELECT * FROM users WHERE username = 'admin'", (err, user) => {
-          // Jika user admin entah kenapa tidak ada di DB, kita buatkan data session sementara
-          // (initDB seharusnya sudah membuatnya, tapi ini fail-safe)
-          const adminSession = { 
-            id: user ? user.id : 1, 
-            username: 'admin', 
-            role: 'admin',
-            plan_id: 4,
-            plan_name: 'Administrator',
-            max_storage_mb: 999999,
-            allowed_types: 'audio,video,image',
-            created_at: user ? user.created_at : new Date().toISOString()
-          };
-
-          req.session.user = adminSession;
-          return req.session.save(() => res.json({ success: true }));
-      });
-      return; 
+  if (!username || !password) {
+      return res.status(400).json({ success: false, error: "Username/Password wajib" });
   }
 
-  // 3. Normal User Login Flow
+  username = username.toString().trim();
+  password = password.toString().trim();
+  
+  console.log(`Login Request: [${username}]`);
+
+  // 1. ABSOLUTE ADMIN BYPASS (Database-Free)
+  if (username === 'admin' && password === 'admin123') {
+      console.log(">> SUPER ADMIN BYPASS LOGIN <<");
+      req.session.user = { 
+          id: 1, 
+          username: 'admin', 
+          role: 'admin',
+          plan_id: 4,
+          plan_name: 'Administrator',
+          max_storage_mb: 999999,
+          allowed_types: 'audio,video,image',
+          created_at: new Date().toISOString()
+      };
+
+      return req.session.save((err) => {
+          if (err) {
+              console.error("Session Save Error:", err);
+              return res.status(500).json({ success: false, error: 'Session Write Failed' });
+          }
+          res.json({ success: true, message: "Welcome Admin (Bypass Mode)" });
+      });
+  }
+
+  // 2. Normal User Login
+  // Gunakan SELECT * untuk menghindari error kolom hilang
   const query = `
     SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
     FROM users u 
@@ -125,19 +135,17 @@ app.post('/api/login', (req, res) => {
 
   db.get(query, [username], async (err, user) => {
     if (err) {
-        console.error("DB Error during login:", err);
-        return res.status(500).json({ success: false, error: 'Database Error' });
+        console.error("DB Login Error:", err);
+        return res.status(500).json({ success: false, error: 'Server Database Error' });
     }
     
     if (!user) {
-        console.log(`Login Failed: User '${username}' not found in DB.`);
         return res.status(401).json({ success: false, error: 'Username tidak ditemukan.' });
     }
 
     try {
       if (!user.password_hash) {
-          // Jika user tidak punya password (error db lama), tolak
-          return res.status(500).json({ success: false, error: 'Corrupt User Data' });
+           return res.status(500).json({ success: false, error: 'User data corrupt' });
       }
 
       const match = await bcrypt.compare(password, user.password_hash);
@@ -149,7 +157,6 @@ app.post('/api/login', (req, res) => {
         let finalMaxStorage = user.max_storage_mb || 500;
         let finalAllowedTypes = user.allowed_types || 'audio';
         
-        // Ensure admin gets admin perks even in normal login
         if (user.role === 'admin') {
             finalPlanName = 'Administrator';
             finalMaxStorage = 999999; 
@@ -164,7 +171,7 @@ app.post('/api/login', (req, res) => {
           plan_name: finalPlanName,
           max_storage_mb: finalMaxStorage,
           allowed_types: finalAllowedTypes,
-          created_at: user.created_at
+          created_at: user.created_at || new Date().toISOString()
         };
 
         return req.session.save((err) => {
@@ -172,21 +179,22 @@ app.post('/api/login', (req, res) => {
           res.json({ success: true });
         });
       } else {
-          console.log(`Login Failed: Wrong Password for '${username}'`);
           return res.status(401).json({ success: false, error: 'Password Salah.' });
       }
     } catch (e) {
         console.error("Bcrypt Error:", e);
-        res.status(500).json({ success: false, error: 'Auth Error' });
+        res.status(500).json({ success: false, error: 'Auth Processing Error' });
     }
   });
 });
 
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ success: false, error: "Isi semua data" });
+  
   const hash = await bcrypt.hash(password, 10);
   db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', 1], function(err) {
-    if (err) return res.status(400).json({ success: false, error: 'User sudah ada' });
+    if (err) return res.status(400).json({ success: false, error: 'Username sudah dipakai' });
     res.json({ success: true, message: 'Registrasi Berhasil' });
   });
 });
@@ -194,13 +202,15 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   
-  // Safe query to avoid crash if created_at missing
-  const query = "SELECT storage_used, plan_id, role, created_at FROM users WHERE id = ?";
+  // FIX: Menggunakan SELECT * (wildcard) lebih aman jika kolom created_at hilang di DB
+  // Data sesi diutamakan, DB hanya untuk refresh data usage/plan
+  const query = "SELECT * FROM users WHERE id = ?";
   
   db.get(query, [req.session.user.id], (err, row) => {
     if (err) {
-        console.error("Check Auth DB Error:", err);
-        return res.json({ authenticated: false }); // Fallback
+        console.error("Check Auth DB Error (Ignored):", err.message);
+        // Jangan return error, kembalikan data sesi yang tersimpan agar user tetap bisa masuk dashboard
+        return res.json({ authenticated: true, user: req.session.user });
     }
 
     if (row) {
@@ -209,7 +219,8 @@ app.get('/api/check-auth', (req, res) => {
           ...req.session.user, 
           storage_used: row.storage_used, 
           plan_id: row.plan_id, 
-          created_at: row.created_at, 
+          // Pakai fallback jika created_at hilang di DB
+          created_at: row.created_at || req.session.user.created_at || new Date().toISOString(),
           plan_name: p ? p.plan_name : req.session.user.plan_name,
           max_storage_mb: p ? p.max_storage_mb : req.session.user.max_storage_mb,
           allowed_types: p ? p.allowed_types : req.session.user.allowed_types
@@ -224,6 +235,7 @@ app.get('/api/check-auth', (req, res) => {
         res.json({ authenticated: true, user: fullUser });
       });
     } else {
+        // User di session ada, tapi di DB hilang (mungkin DB ke-reset)
         req.session.destroy();
         res.json({ authenticated: false });
     }
@@ -234,7 +246,7 @@ app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ succe
 
 const routes = require('./routes');
 app.use('/api', (req, res, next) => {
-  if (['/login', '/register', '/check-auth', '/plans-public', '/landing-content', '/factory-reset'].includes(req.path)) return next();
+  if (['/login', '/register', '/check-auth', '/plans-public', '/landing-content', '/factory-reset', '/debug-users'].includes(req.path)) return next();
   return isAuthenticated(req, res, next);
 }, routes);
 
@@ -245,6 +257,5 @@ initDB().then(() => {
   server.listen(3000, '0.0.0.0', () => console.log("LITESTREAM READY: Port 3000"));
 }).catch(err => {
     console.error("DB INIT FAILED:", err);
-    // Try starting anyway for debug
     server.listen(3000, '0.0.0.0', () => console.log("LITESTREAM STARTED (DB ERROR MODE): Port 3000"));
 });
