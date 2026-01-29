@@ -98,9 +98,19 @@ router.get('/videos', async (req, res) => res.json(await getVideos(req.session.u
 router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (req, res) => {
   const userId = req.session.user.id;
   if (!req.file) return res.status(400).json({ error: "Pilih file dulu" });
+  
   const file = req.file;
   const ext = path.extname(file.filename).toLowerCase();
-  let type = (ext === '.mp3') ? 'audio' : (['.jpg','.png','.jpeg'].includes(ext) ? 'image' : 'video');
+  
+  // RESTRICT: Only Audio and Images allowed
+  if (!['.mp3', '.jpg', '.jpeg', '.png'].includes(ext)) {
+      // Hapus file yang terlanjur terupload
+      fs.unlinkSync(file.path);
+      return res.status(400).json({ error: "Hanya file MP3 dan Gambar (JPG/PNG) yang diperbolehkan." });
+  }
+
+  let type = (ext === '.mp3') ? 'audio' : 'image';
+  
   const id = await saveVideo({ user_id: userId, filename: file.filename, path: file.path, size: file.size, type });
   db.run("UPDATE users SET storage_used = storage_used + ? WHERE id = ?", [file.size, userId]);
   res.json({ success: true, id, type });
@@ -126,7 +136,7 @@ router.post('/playlist/start', async (req, res) => {
   const { ids, rtmpUrl, coverImageId, loop } = req.body;
   const userId = req.session.user.id;
 
-  if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih minimal 1 media" });
+  if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih minimal 1 file audio." });
   if (!rtmpUrl) return res.status(400).json({ error: "RTMP URL Kosong." });
 
   const currentUsage = await syncUserUsage(userId);
@@ -145,29 +155,29 @@ router.post('/playlist/start', async (req, res) => {
     db.all(`SELECT * FROM videos WHERE id IN (${placeholders}) AND user_id = ?`, [...ids, userId], async (err, items) => {
       if (!items || items.length === 0) return res.status(404).json({ error: "Media tidak ditemukan" });
 
-      const videoFiles = items.filter(i => i.type === 'video');
+      // FORCE AUDIO ONLY LOGIC
       const audioFiles = items.filter(i => i.type === 'audio');
       const imageFiles = items.filter(i => i.type === 'image');
 
-      let playlistPaths = [];
+      if (audioFiles.length === 0) {
+          return res.status(400).json({ error: "Pilih setidaknya satu file Audio (MP3)." });
+      }
+
+      let playlistPaths = audioFiles.map(a => a.path);
       let finalCoverPath = null;
 
-      if (videoFiles.length > 0) {
-        if (!plan.allowed_types.includes('video')) return res.status(403).json({ error: "Hanya Audio yang didukung paket ini." });
-        playlistPaths = videoFiles.map(v => v.path);
-      } 
-      else if (audioFiles.length > 0) {
-        playlistPaths = audioFiles.map(a => a.path);
-        if (coverImageId) {
+      // Logic Cover Image: Check specific coverId -> check existing images in selection -> check user's other images
+      if (coverImageId) {
             const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
             if(cov) finalCoverPath = cov.path;
-        }
-        if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
-      } 
+      }
+      
+      // Jika user menselect image bersama audio, pakai image pertama yang dipilih sebagai cover
+      if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
       try {
           startStream(playlistPaths, rtmpUrl, { userId, loop: !!loop, coverImagePath: finalCoverPath });
-          res.json({ success: true, message: `Streaming dimulai.` });
+          res.json({ success: true, message: `Streaming Radio dimulai.` });
       } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
     });
   });

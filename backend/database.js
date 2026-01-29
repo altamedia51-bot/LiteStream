@@ -59,12 +59,12 @@ const initDB = () => {
       db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
       db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
 
-      // 3. Seeding Data Plans (ID 1 diatur 5 Jam sesuai permintaan)
+      // 3. Seeding Data Plans (UPDATED: Fokus Audio Only)
       const plans = [
-        [1, 'Paket Free Trial', 2048, 'video,audio', 1, 'Gratis', 'Max 720p, Batasan 5 Jam/hari, Auto Reconnect', 5],
-        [2, 'Paket Pro (Creator)', 10240, 'video,audio', 2, 'Rp 100.000', 'Max 1080p, 24 Jam Non-stop, Multi-Target', 24],
-        [3, 'Paket Radio 24/7', 5120, 'audio', 1, 'Rp 75.000', 'Khusus Radio MP3, Visualisasi Cover, Shuffle Playlist', 24],
-        [4, 'Paket Sultan (Private)', 25600, 'video,audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Setup Dibantu Full', 24]
+        [1, 'Paket Free Trial', 500, 'audio', 1, 'Gratis', 'MP3 Only, Batasan 5 Jam/hari, Auto Reconnect', 5],
+        [2, 'Paket Pro (Radio)', 5120, 'audio', 1, 'Rp 100.000', '24 Jam Non-stop, Kualitas HD, Custom Cover', 24],
+        [3, 'Paket Station 24/7', 10240, 'audio', 1, 'Rp 150.000', 'Storage Besar, Shuffle Playlist, Visualizer', 24],
+        [4, 'Paket Sultan (Private)', 25600, 'audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Setup Dibantu Full', 24]
       ];
       
       plans.forEach(p => {
@@ -76,8 +76,8 @@ const initDB = () => {
 
       // Seeding Default Settings
       const defaultSettings = [
-        ['landing_title', 'Broadcast Anywhere <br> from <span class="text-indigo-400">Any VPS.</span>'],
-        ['landing_desc', 'Server streaming paling ringan di dunia. Dirancang khusus untuk VPS 1GB RAM.'],
+        ['landing_title', 'Start Your <br> <span class="text-indigo-400">Radio Station.</span>'],
+        ['landing_desc', 'Server streaming audio paling ringan. Upload MP3, pasang cover, dan broadcast 24/7.'],
         ['landing_btn_reg', 'Daftar Sekarang'],
         ['landing_btn_login', 'Login Member']
       ];
