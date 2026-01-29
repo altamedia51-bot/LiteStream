@@ -1,5 +1,5 @@
 {
-  "name": "LiteStream",
+  "name": "LiteStream - Audio Broadcast Server",
   "description": "MUSIK NORMAL TANPA VIDIO . CPU 8 %\n\"Single Instance FFmpeg\" menjadi \"Multi-Instance FFmpeg\".",
   "requestFramePermissions": [
     "camera",

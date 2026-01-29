@@ -162,6 +162,40 @@
             </form>
         </div>
     </div>
+
+    <!-- MEDIA DETAILS MODAL -->
+    <div id="media-details-modal" class="hidden fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-slide-up">
+            <button onclick="closeMediaDetails()" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
+            
+            <div class="text-center mb-6">
+                <div id="detail-icon-container" class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-700 shadow-inner">
+                    <i id="detail-icon" class="fas fa-music text-3xl text-indigo-500"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-1 px-4 truncate" id="detail-filename">Filename.mp3</h3>
+                <p class="text-xs font-bold text-emerald-400 uppercase tracking-widest" id="detail-type">AUDIO</p>
+            </div>
+            
+            <div class="space-y-3 bg-slate-950/50 p-5 rounded-2xl border border-slate-800/50">
+                <div class="flex justify-between text-sm items-center border-b border-slate-800/50 pb-2">
+                    <span class="text-slate-500 font-medium">File Size</span>
+                    <span class="font-bold text-slate-300 font-mono" id="detail-size">0 MB</span>
+                </div>
+                <div class="flex justify-between text-sm items-center border-b border-slate-800/50 pb-2">
+                    <span class="text-slate-500 font-medium">Uploaded At</span>
+                    <span class="font-bold text-slate-300 text-xs" id="detail-date">-</span>
+                </div>
+                <div class="flex justify-between text-sm items-center">
+                    <span class="text-slate-500 font-medium">System ID</span>
+                    <span class="font-mono text-xs text-slate-600 bg-slate-900 px-2 py-0.5 rounded" id="detail-id">#0</span>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button onclick="closeMediaDetails()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm transition-colors">Tutup</button>
+            </div>
+        </div>
+    </div>
     
     <!-- CONFIRM MODAL -->
     <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
@@ -685,7 +719,7 @@
         function renderMediaList() {
             const q = document.getElementById('media-search').value.toLowerCase();
             const f = allMedia.filter(m=>m.type===window.currentMediaTab && m.filename.toLowerCase().includes(q));
-            document.getElementById('media-list').innerHTML=f.map(v=>`<div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 flex items-center gap-3 group active:scale-[0.98] transition-transform"><input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id)?'checked':''} class="w-5 h-5 accent-indigo-500 rounded"><div class="flex-1 min-w-0"><div class="truncate text-xs font-bold text-slate-300">${v.filename}</div><div class="text-[10px] text-slate-500">${(v.size/1024/1024).toFixed(1)} MB</div></div><button onclick="deleteMedia(${v.id})" class="text-slate-600 active:text-rose-500 md:text-rose-500 md:opacity-0 md:group-hover:opacity-100 p-2"><i class="fas fa-trash"></i></button></div>`).join('');
+            document.getElementById('media-list').innerHTML=f.map(v=>`<div class="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 flex items-center gap-3 group active:scale-[0.98] transition-transform"><input type="checkbox" onchange="toggleSelect(${v.id})" ${selectedMedia.has(v.id)?'checked':''} class="w-5 h-5 accent-indigo-500 rounded"><div onclick="openMediaDetails(${v.id})" class="flex-1 min-w-0 cursor-pointer hover:text-indigo-400 transition-colors"><div class="truncate text-xs font-bold text-slate-300">${v.filename}</div><div class="text-[10px] text-slate-500">${(v.size/1024/1024).toFixed(1)} MB</div></div><button onclick="deleteMedia(${v.id})" class="text-slate-600 active:text-rose-500 md:text-rose-500 md:opacity-0 md:group-hover:opacity-100 p-2"><i class="fas fa-trash"></i></button></div>`).join('');
         }
         function switchMediaTab(t){window.currentMediaTab=t; document.querySelectorAll('.media-subtab').forEach(x=>x.classList.toggle('active',x.id==='mt-'+t)); renderMediaList();}
         function toggleSelect(id) { 
@@ -703,6 +737,33 @@
             }
         }
         
+        // --- MEDIA DETAILS MODAL LOGIC ---
+        function openMediaDetails(mediaId) {
+            const media = allMedia.find(m => m.id === mediaId);
+            if (!media) return;
+
+            document.getElementById('detail-filename').innerText = media.filename;
+            document.getElementById('detail-type').innerText = media.type.toUpperCase();
+            document.getElementById('detail-size').innerText = (media.size / 1024 / 1024).toFixed(2) + ' MB';
+            document.getElementById('detail-date').innerText = new Date(media.created_at || Date.now()).toLocaleString();
+            document.getElementById('detail-id').innerText = '#' + media.id;
+
+            const iconContainer = document.getElementById('detail-icon-container');
+            const icon = document.getElementById('detail-icon');
+            
+            if (media.type === 'audio') {
+                icon.className = 'fas fa-music text-3xl text-indigo-500';
+            } else {
+                icon.className = 'fas fa-image text-3xl text-emerald-500';
+            }
+
+            document.getElementById('media-details-modal').classList.remove('hidden');
+        }
+
+        function closeMediaDetails() {
+            document.getElementById('media-details-modal').classList.add('hidden');
+        }
+
         async function handleUpload(i) {
             const f=i.files[0]; if(!f)return; if(!f.name.match(/\.(mp3|jpg|jpeg|png)$/i)){showToast('Format salah','error'); return;}
             const fd=new FormData(); fd.append('video',f); showToast('Uploading...', 'info');
