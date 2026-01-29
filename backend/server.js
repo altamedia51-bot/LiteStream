@@ -52,7 +52,10 @@ app.post('/api/login', (req, res) => {
 
   db.get(query, [username], async (err, user) => {
     if (err) return res.status(500).json({ success: false, error: 'DB Error' });
-    if (!user) return res.status(401).json({ success: false, error: 'User tidak ditemukan' });
+    if (!user) {
+        console.log(`Login Failed: User '${username}' not found.`);
+        return res.status(401).json({ success: false, error: 'User tidak ditemukan' });
+    }
 
     try {
       const match = await bcrypt.compare(password, user.password_hash);
@@ -75,8 +78,12 @@ app.post('/api/login', (req, res) => {
         return req.session.save(() => {
           res.json({ success: true });
         });
+      } else {
+          console.log(`Login Failed: Password mismatch for user '${username}'.`);
       }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Login Error:", e);
+    }
     
     res.status(401).json({ success: false, error: 'Password salah' });
   });

@@ -83,13 +83,19 @@ const initDB = () => {
       ];
       defaultSettings.forEach(s => db.run(`INSERT OR IGNORE INTO stream_settings (key, value) VALUES (?, ?)`, s));
 
-      // Seeding Admin
+      // Seeding Admin (UPDATED: FORCE RESET)
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
+      
       db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
-        if (!row) {
-          db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);
+        if (row) {
+           // Jika admin sudah ada, reset password ke default untuk fix login
+           console.log(">>> INFO: Resetting admin password to 'admin123'");
+           db.run("UPDATE users SET password_hash = ?, role = 'admin', plan_id = 4 WHERE id = ?", [hash, row.id]);
+        } else {
+           console.log(">>> INFO: Creating default admin user");
+           db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);
         }
         resolve();
       });
