@@ -1176,14 +1176,28 @@
         // --- ADMIN PANEL LOGIC ---
 
         async function fetchUsers(){ 
-            const r=await fetch('/api/users'); 
-            globalUsers = await r.json(); 
-            
-            // Also fetch plans if needed for the edit modal, but users usually have plan_name
-            const pr = await fetch('/api/plans');
-            allPlans = await pr.json();
+            try {
+                const r=await fetch('/api/users'); 
+                const data = await r.json(); 
+                
+                if (Array.isArray(data)) {
+                    globalUsers = data;
+                } else {
+                    console.error("Fetch Users returned non-array:", data);
+                    globalUsers = []; // Prevent crash
+                    if(data.error) showToast("Admin Error: " + data.error, "error");
+                }
+                
+                // Also fetch plans if needed for the edit modal, but users usually have plan_name
+                const pr = await fetch('/api/plans');
+                const pdata = await pr.json();
+                if(Array.isArray(pdata)) allPlans = pdata;
 
-            renderUserTable(); 
+                renderUserTable(); 
+            } catch(e) {
+                console.error("Fetch Users Failed:", e);
+                showToast("Gagal memuat data user", "error");
+            }
         }
 
         function filterUsers(filter) {
@@ -1203,7 +1217,7 @@
 
         function renderUserTable() {
             const container = document.getElementById('user-table-body');
-            let users = globalUsers;
+            let users = Array.isArray(globalUsers) ? globalUsers : [];
             
             // Filter Logic based on Plan Keywords or IDs
             if (currentFilter !== 'all') {

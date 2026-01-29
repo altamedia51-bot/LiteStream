@@ -209,8 +209,12 @@ router.put('/plans/:id', isAdmin, (req, res) => {
 });
 
 router.get('/users', isAdmin, (req, res) => {
-    // FIX: Add u.created_at to SELECT so Admin UI can calculate expiration correctly
-    db.all("SELECT u.id, u.username, u.role, u.storage_used, u.usage_seconds, u.plan_id, u.created_at, p.name as plan_name FROM users u JOIN plans p ON u.plan_id = p.id", (err, rows) => res.json(rows));
+    // FIX: Use LEFT JOIN so users without a valid plan_id still appear
+    // Also include created_at
+    db.all("SELECT u.id, u.username, u.role, u.storage_used, u.usage_seconds, u.plan_id, u.created_at, p.name as plan_name FROM users u LEFT JOIN plans p ON u.plan_id = p.id", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
 });
 
 router.put('/users/:id', isAdmin, (req, res) => {
@@ -319,7 +323,7 @@ router.post('/playlist/start', async (req, res) => {
           if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
           try {
-              const streamId = await startStream(audioFiles, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+              const streamId = await startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
               res.json({ success: true, message: `Streaming Administrator Dimulai (ID: ${streamId})` });
           } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
       });
