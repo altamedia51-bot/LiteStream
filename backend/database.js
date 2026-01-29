@@ -90,18 +90,19 @@ const initDB = () => {
         FOREIGN KEY(user_id) REFERENCES users(id)
       )`);
 
-      // 4. Seeding Data Plans
+      // 4. Seeding Data Plans (UPDATED TO MATCH IMAGE)
+      // Format: [ID, Name, Storage(MB), Types, Streams, Price, Duration_Text, HoursLimit]
       const plans = [
-        [1, 'Paket Free Trial', 500, 'audio', 1, 'Gratis', 'MP3 Only, Batasan 5 Jam/hari, Auto Reconnect', 5],
-        [2, 'Paket Pro (Radio)', 5120, 'audio', 1, 'Rp 100.000', '24 Jam Non-stop, Kualitas HD, Custom Cover', 24],
-        [3, 'Paket Station 24/7', 10240, 'audio', 1, 'Rp 150.000', 'Storage Besar, Shuffle Playlist, Visualizer', 24],
-        [4, 'Paket Sultan (Private)', 25600, 'audio', 5, 'Rp 250.000', 'Dedicated VPS, Unlimited Platform, Setup Dibantu Full', 24]
+        [1, 'Stream Tester', 100, 'audio', 1, 'Rp 30.000', '10 Day', 24],
+        [2, 'Starter Stream', 500, 'audio', 2, 'Rp 50.000', '1 Month', 24],
+        [3, 'Pro Streamer', 1024, 'audio', 3, 'Rp 80.000', '1 Month', 24],
+        [4, 'Ultra Broadcast', 2048, 'audio', 5, 'Rp 120.000', '1 Month', 24]
       ];
       
       plans.forEach(p => {
-        db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text, daily_limit_hours) 
+        // Gunakan INSERT OR REPLACE agar jika paket sudah ada, datanya terupdate sesuai gambar baru
+        db.run(`INSERT OR REPLACE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text, daily_limit_hours) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, p);
-        db.run(`UPDATE plans SET daily_limit_hours = ? WHERE id = ?`, [p[7], p[0]]);
       });
 
       // Seeding Default Settings
@@ -120,6 +121,7 @@ const initDB = () => {
       
       db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
         if (row) {
+           // Ensure admin has the highest plan (Ultra - ID 4) or strict admin privileges
            db.run("UPDATE users SET password_hash = ?, role = 'admin', plan_id = 4 WHERE id = ?", [hash, row.id]);
         } else {
            db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);

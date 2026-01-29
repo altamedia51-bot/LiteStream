@@ -853,8 +853,42 @@
         }
 
         async function fetchPublicPlans() {
-            const r=await fetch('/api/plans-public'); const p=await r.json();
-            document.getElementById('pricing-grid').innerHTML=p.map(x=>`<div class="glass p-6 md:p-8 rounded-[2rem] border border-slate-800 flex flex-col relative"><h4 class="text-lg font-bold">${x.name}</h4><div class="text-2xl font-black text-indigo-400 my-4">${x.price_text}</div><ul class="text-xs text-slate-400 space-y-2 flex-1 mb-6"><li>${x.daily_limit_hours} Jam/hari</li><li>${x.max_storage_mb}MB Storage</li></ul><button onclick="showAuth('register')" class="w-full py-3 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500">Pilih Paket</button></div>`).join('');
+            const r=await fetch('/api/plans-public'); 
+            const p=await r.json();
+            
+            document.getElementById('pricing-grid').innerHTML = p.map(x => {
+                // Logic untuk menampilkan storage dalam MB atau GB
+                const storageDisplay = x.max_storage_mb < 1000 
+                    ? `${x.max_storage_mb} MB` 
+                    : `${x.max_storage_mb / 1024} GB`;
+                
+                // Logic durasi (karena kolom DB features_text kita pakai untuk simpan durasi di database.js)
+                const duration = x.features_text; 
+
+                return `
+                <div class="glass p-6 md:p-8 rounded-[2rem] border border-slate-800 flex flex-col relative transform hover:scale-105 transition-all duration-300">
+                    <h4 class="text-lg font-bold text-slate-300">${x.name}</h4>
+                    <div class="text-2xl font-black text-indigo-400 my-4">${x.price_text}</div>
+                    
+                    <ul class="text-xs text-slate-400 space-y-3 flex-1 mb-8">
+                        <li class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-500"></i>
+                            <span><b class="text-white">Slot Stream:</b> ${x.max_active_streams} Live Streaming</span>
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-500"></i>
+                            <span><b class="text-white">Storage Limit:</b> ${storageDisplay}</span>
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-500"></i>
+                            <span><b class="text-white">Durasi:</b> ${duration}</span>
+                        </li>
+                    </ul>
+
+                    <button onclick="showAuth('register')" class="w-full py-3.5 bg-indigo-600 rounded-xl font-bold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all">Pilih Paket</button>
+                </div>
+                `;
+            }).join('');
         }
 
         async function fetchMedia() { const r=await fetch('/api/videos'); allMedia=await r.json(); renderMediaList(); }
