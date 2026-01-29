@@ -121,16 +121,32 @@ const initDB = () => {
       ];
       defaultSettings.forEach(s => db.run(`INSERT OR IGNORE INTO stream_settings (key, value) VALUES (?, ?)`, s));
 
-      // Seeding Admin
+      // Seeding Admin (ROBUST VERSION)
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
       db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
+        if (err) {
+            console.error("Error checking admin user:", err);
+            resolve(); // Resolve anyway to start server
+            return;
+        }
+
         if (row) {
-           db.run("UPDATE users SET password_hash = ?, role = 'admin', plan_id = 4 WHERE id = ?", [hash, row.id], () => resolve());
+           console.log("Resetting Admin Password...");
+           db.run("UPDATE users SET password_hash = ?, role = 'admin', plan_id = 4 WHERE id = ?", [hash, row.id], (err) => {
+               if(err) console.error("Failed to update admin:", err);
+               else console.log(">> Admin Access: Username 'admin', Password 'admin123'");
+               resolve();
+           });
         } else {
-           db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], () => resolve());
+           console.log("Creating Admin User...");
+           db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash], (err) => {
+               if(err) console.error("Failed to create admin:", err);
+               else console.log(">> Admin Access: Username 'admin', Password 'admin123'");
+               resolve();
+           });
         }
       });
     });

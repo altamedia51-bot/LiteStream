@@ -85,6 +85,9 @@ app.get('/api/factory-reset', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
+  // Debug log
+  console.log(`Login Attempt: User [${username}]`);
+
   const query = `
     SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
     FROM users u 
@@ -92,13 +95,27 @@ app.post('/api/login', (req, res) => {
     WHERE u.username = ?`;
 
   db.get(query, [username], async (err, user) => {
-    if (err) return res.status(500).json({ success: false, error: 'Database Error' });
-    if (!user) return res.status(401).json({ success: false, error: 'Username tidak ditemukan.' });
+    if (err) {
+        console.error("DB Error during login:", err);
+        return res.status(500).json({ success: false, error: 'Database Error' });
+    }
+    
+    if (!user) {
+        console.log(`Login Failed: User '${username}' not found in DB.`);
+        return res.status(401).json({ success: false, error: 'Username tidak ditemukan.' });
+    }
 
     try {
+      if (!user.password_hash) {
+          console.error("Login Error: User has no password hash!");
+          return res.status(500).json({ success: false, error: 'Corrupt User Data (No Password)' });
+      }
+
       const match = await bcrypt.compare(password, user.password_hash);
       
       if (match) {
+        console.log(`Login Success: ${username}`);
+        
         let finalPlanName = user.plan_name || 'Standard Plan';
         let finalMaxStorage = user.max_storage_mb || 500;
         let finalAllowedTypes = user.allowed_types || 'audio';
@@ -121,13 +138,18 @@ app.post('/api/login', (req, res) => {
         };
 
         return req.session.save((err) => {
-          if (err) return res.status(500).json({ success: false, error: 'Session Error' });
+          if (err) {
+              console.error("Session Save Error:", err);
+              return res.status(500).json({ success: false, error: 'Session Error' });
+          }
           res.json({ success: true });
         });
       } else {
+          console.log(`Login Failed: Wrong Password for '${username}'`);
           return res.status(401).json({ success: false, error: 'Password Salah.' });
       }
     } catch (e) {
+        console.error("Bcrypt/Login Error:", e);
         res.status(500).json({ success: false, error: 'Auth Error' });
     }
   });
