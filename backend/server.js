@@ -11,6 +11,18 @@ const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcryptjs');
 const { initDB, db, dbPath } = require('./database');
 
+// PREVENT CRASH ON STARTUP ERRORS
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+    // Keep alive if possible, but logging is critical
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
+
+console.log("Starting LiteStream Server...");
+
 dotenv.config();
 
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -42,14 +54,11 @@ const isAuthenticated = (req, res, next) => {
 };
 
 // === FACTORY RESET ROUTE ===
-// Akses: http://IP-VPS:3000/api/factory-reset
 app.get('/api/factory-reset', (req, res) => {
     try {
         const sessionFile = path.join(__dirname, 'sessions.sqlite');
         
-        // 1. Hapus Database Utama
         if (fs.existsSync(dbPath)) {
-            // Tutup koneksi dulu
             db.close(() => {
                 try {
                     fs.unlinkSync(dbPath);
@@ -58,7 +67,6 @@ app.get('/api/factory-reset', (req, res) => {
             });
         }
 
-        // 2. Hapus Session
         if (fs.existsSync(sessionFile)) {
             try {
                 fs.unlinkSync(sessionFile);
@@ -66,22 +74,8 @@ app.get('/api/factory-reset', (req, res) => {
             } catch(e) { console.error("Del Session Fail", e); }
         }
 
-        res.send(`
-            <h1 style="color:red">FACTORY RESET SUCCESS</h1>
-            <p>Database dan Session telah dihapus.</p>
-            <p>Server sedang restart otomatis...</p>
-            <p>Tunggu 10 detik, lalu <a href="/">LOGIN DISINI</a></p>
-            <p><b>Username:</b> admin<br><b>Password:</b> admin123</p>
-            <script>
-                setTimeout(() => { window.location.href = '/' }, 10000);
-            </script>
-        `);
-
-        // 3. Matikan Proses (PM2 akan otomatis menyalakan ulang)
-        setTimeout(() => {
-            console.log("Restarting process...");
-            process.exit(0); 
-        }, 2000);
+        res.send(`<h1>FACTORY RESET SUCCESS</h1><script>setTimeout(() => { window.location.href = '/' }, 10000);</script>`);
+        setTimeout(() => { process.exit(0); }, 2000);
 
     } catch (e) {
         res.send("Reset Error: " + e.message);
@@ -91,9 +85,6 @@ app.get('/api/factory-reset', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
-  // Debug log
-  console.log(`Login Attempt: User [${username}] with Pass [${password}]`);
-
   const query = `
     SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
     FROM users u 
@@ -101,30 +92,20 @@ app.post('/api/login', (req, res) => {
     WHERE u.username = ?`;
 
   db.get(query, [username], async (err, user) => {
-    if (err) {
-        console.error("DB Error Login:", err);
-        return res.status(500).json({ success: false, error: 'Database Error: ' + err.message });
-    }
-    
-    if (!user) {
-        console.log(`Login Failed: User '${username}' not found in DB.`);
-        return res.status(401).json({ success: false, error: 'Username tidak ditemukan.' });
-    }
+    if (err) return res.status(500).json({ success: false, error: 'Database Error' });
+    if (!user) return res.status(401).json({ success: false, error: 'Username tidak ditemukan.' });
 
     try {
       const match = await bcrypt.compare(password, user.password_hash);
       
-      console.log(`Password Check for ${username}: ${match ? 'MATCH' : 'MISMATCH'}`);
-      
       if (match) {
-        // OVERRIDE FOR ADMIN
         let finalPlanName = user.plan_name || 'Standard Plan';
         let finalMaxStorage = user.max_storage_mb || 500;
         let finalAllowedTypes = user.allowed_types || 'audio';
         
         if (user.role === 'admin') {
             finalPlanName = 'Administrator';
-            finalMaxStorage = 999999; // 1TB practically
+            finalMaxStorage = 999999; 
             finalAllowedTypes = 'audio,video,image';
         }
 
@@ -136,22 +117,18 @@ app.post('/api/login', (req, res) => {
           plan_name: finalPlanName,
           max_storage_mb: finalMaxStorage,
           allowed_types: finalAllowedTypes,
-          created_at: user.created_at // Simpan created_at di session
+          created_at: user.created_at
         };
 
         return req.session.save((err) => {
-          if (err) {
-              console.error("Session Save Error:", err);
-              return res.status(500).json({ success: false, error: 'Session Error' });
-          }
+          if (err) return res.status(500).json({ success: false, error: 'Session Error' });
           res.json({ success: true });
         });
       } else {
           return res.status(401).json({ success: false, error: 'Password Salah.' });
       }
     } catch (e) {
-        console.error("Bcrypt Error:", e);
-        res.status(500).json({ success: false, error: 'Internal Auth Error' });
+        res.status(500).json({ success: false, error: 'Auth Error' });
     }
   });
 });
@@ -159,7 +136,6 @@ app.post('/api/login', (req, res) => {
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   const hash = await bcrypt.hash(password, 10);
-  // Default Plan ID 1 (Tester)
   db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', 1], function(err) {
     if (err) return res.status(400).json({ success: false, error: 'User sudah ada' });
     res.json({ success: true, message: 'Registrasi Berhasil' });
@@ -169,21 +145,27 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   
-  // Update query: ambil created_at juga
-  db.get("SELECT storage_used, plan_id, role, created_at FROM users WHERE id = ?", [req.session.user.id], (err, row) => {
+  // Safe query to avoid crash if created_at missing
+  const query = "SELECT storage_used, plan_id, role, created_at FROM users WHERE id = ?";
+  
+  db.get(query, [req.session.user.id], (err, row) => {
+    if (err) {
+        console.error("Check Auth DB Error:", err);
+        return res.json({ authenticated: false }); // Fallback
+    }
+
     if (row) {
       db.get("SELECT name as plan_name, max_storage_mb, allowed_types FROM plans WHERE id = ?", [row.plan_id], (err, p) => {
         let fullUser = { 
           ...req.session.user, 
           storage_used: row.storage_used, 
-          plan_id: row.plan_id, // Refresh plan ID from DB
-          created_at: row.created_at, // Send registered date
+          plan_id: row.plan_id, 
+          created_at: row.created_at, 
           plan_name: p ? p.plan_name : req.session.user.plan_name,
           max_storage_mb: p ? p.max_storage_mb : req.session.user.max_storage_mb,
           allowed_types: p ? p.allowed_types : req.session.user.allowed_types
         };
         
-        // OVERRIDE FOR ADMIN
         if (req.session.user.role === 'admin' || row.role === 'admin') {
             fullUser.plan_name = 'Administrator';
             fullUser.max_storage_mb = 999999;
@@ -193,7 +175,6 @@ app.get('/api/check-auth', (req, res) => {
         res.json({ authenticated: true, user: fullUser });
       });
     } else {
-        // Session ada tapi user di DB hilang (misal habis reset DB)
         req.session.destroy();
         res.json({ authenticated: false });
     }
@@ -204,7 +185,6 @@ app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ succe
 
 const routes = require('./routes');
 app.use('/api', (req, res, next) => {
-  // Allow login, register, factory reset, etc.
   if (['/login', '/register', '/check-auth', '/plans-public', '/landing-content', '/factory-reset'].includes(req.path)) return next();
   return isAuthenticated(req, res, next);
 }, routes);
@@ -214,4 +194,8 @@ app.use(express.static(path.join(__dirname, '../')));
 
 initDB().then(() => {
   server.listen(3000, '0.0.0.0', () => console.log("LITESTREAM READY: Port 3000"));
+}).catch(err => {
+    console.error("DB INIT FAILED:", err);
+    // Try starting anyway for debug
+    server.listen(3000, '0.0.0.0', () => console.log("LITESTREAM STARTED (DB ERROR MODE): Port 3000"));
 });
