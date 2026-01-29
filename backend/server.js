@@ -135,7 +135,8 @@ app.post('/api/login', (req, res) => {
           plan_id: user.plan_id || 1,
           plan_name: finalPlanName,
           max_storage_mb: finalMaxStorage,
-          allowed_types: finalAllowedTypes
+          allowed_types: finalAllowedTypes,
+          created_at: user.created_at // Simpan created_at di session
         };
 
         return req.session.save((err) => {
@@ -158,6 +159,7 @@ app.post('/api/login', (req, res) => {
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   const hash = await bcrypt.hash(password, 10);
+  // Default Plan ID 1 (Tester)
   db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', 1], function(err) {
     if (err) return res.status(400).json({ success: false, error: 'User sudah ada' });
     res.json({ success: true, message: 'Registrasi Berhasil' });
@@ -167,12 +169,15 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   
-  db.get("SELECT storage_used, plan_id, role FROM users WHERE id = ?", [req.session.user.id], (err, row) => {
+  // Update query: ambil created_at juga
+  db.get("SELECT storage_used, plan_id, role, created_at FROM users WHERE id = ?", [req.session.user.id], (err, row) => {
     if (row) {
       db.get("SELECT name as plan_name, max_storage_mb, allowed_types FROM plans WHERE id = ?", [row.plan_id], (err, p) => {
         let fullUser = { 
           ...req.session.user, 
           storage_used: row.storage_used, 
+          plan_id: row.plan_id, // Refresh plan ID from DB
+          created_at: row.created_at, // Send registered date
           plan_name: p ? p.plan_name : req.session.user.plan_name,
           max_storage_mb: p ? p.max_storage_mb : req.session.user.max_storage_mb,
           allowed_types: p ? p.allowed_types : req.session.user.allowed_types

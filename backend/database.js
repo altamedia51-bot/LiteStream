@@ -44,6 +44,7 @@ const initDB = () => {
         storage_used INTEGER DEFAULT 0,
         usage_seconds INTEGER DEFAULT 0,
         last_usage_reset TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(plan_id) REFERENCES plans(id)
       )`);
 
@@ -51,8 +52,11 @@ const initDB = () => {
         if (err || !columns) return;
         const hasUsage = columns.some(c => c.name === 'usage_seconds');
         const hasReset = columns.some(c => c.name === 'last_usage_reset');
+        const hasCreated = columns.some(c => c.name === 'created_at'); // Cek kolom created_at
+        
         if (!hasUsage) db.run("ALTER TABLE users ADD COLUMN usage_seconds INTEGER DEFAULT 0");
         if (!hasReset) db.run("ALTER TABLE users ADD COLUMN last_usage_reset TEXT");
+        if (!hasCreated) db.run("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
       });
 
       // 3. Update Tabel Videos & Create Folders
