@@ -521,10 +521,10 @@
                 <!-- User Filters -->
                 <div class="flex flex-wrap gap-2 md:gap-3 overflow-x-auto pb-2 no-scrollbar">
                     <button onclick="filterUsers('all')" id="filter-all" class="admin-filter active px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">ALL USERS</button>
-                    <button onclick="filterUsers('trial')" id="filter-trial" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">TRIAL</button>
+                    <button onclick="filterUsers('tester')" id="filter-tester" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">TESTER</button>
                     <button onclick="filterUsers('starter')" id="filter-starter" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">STARTER</button>
-                    <button onclick="filterUsers('radio')" id="filter-radio" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">RADIO</button>
-                    <button onclick="filterUsers('sultan')" id="filter-sultan" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">SULTAN</button>
+                    <button onclick="filterUsers('pro')" id="filter-pro" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">PRO</button>
+                    <button onclick="filterUsers('ultra')" id="filter-ultra" class="admin-filter px-6 py-2.5 rounded-full text-xs font-bold border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all">ULTRA</button>
                 </div>
 
                 <!-- User Table Card -->
@@ -612,7 +612,7 @@
                                 <label for="toggle-${d.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer ${d.is_active ? 'bg-emerald-500' : ''}"></label>
                             </div>
                         </div>
-                        <button onclick="deleteDestination(${d.id})" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center justify-center"><i class="fas fa-trash text-xs"></i></button>
+                        <button onclick="deleteDestination(${d.id})" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-500 hover:text-rose-500 hover:text-white flex items-center justify-center transition-all"><i class="fas fa-trash text-xs"></i></button>
                     </div>
                 </div>
             `).join('');
@@ -1134,10 +1134,15 @@
             if (currentFilter !== 'all') {
                 users = users.filter(u => {
                     const pname = (u.plan_name || '').toLowerCase();
-                    if (currentFilter === 'trial') return pname.includes('trial') || u.plan_id === 1;
-                    if (currentFilter === 'radio') return pname.includes('radio') || pname.includes('pro') || u.plan_id === 2;
-                    if (currentFilter === 'starter') return pname.includes('station') || pname.includes('starter') || u.plan_id === 3;
-                    if (currentFilter === 'sultan') return pname.includes('sultan') || pname.includes('private') || u.plan_id === 4;
+                    const pid = u.plan_id;
+                    
+                    // Match new plan IDs from database.js: 
+                    // 1=Tester, 2=Starter, 3=Pro, 4=Ultra
+                    if (currentFilter === 'tester') return pid === 1 || pname.includes('tester');
+                    if (currentFilter === 'starter') return pid === 2 || pname.includes('starter');
+                    if (currentFilter === 'pro') return pid === 3 || pname.includes('pro');
+                    if (currentFilter === 'ultra') return pid === 4 || pname.includes('ultra');
+                    
                     return false;
                 });
             }
@@ -1148,11 +1153,12 @@
             }
 
             container.innerHTML = users.map(user => {
-                // Determine Plan Color
-                let planColor = 'text-slate-400';
-                if(user.plan_id === 4) planColor = 'text-amber-400'; // Sultan
-                else if(user.plan_id === 3) planColor = 'text-indigo-400'; // Starter
-                else if(user.plan_id === 2) planColor = 'text-emerald-400'; // Radio
+                // Determine Plan Color (Updated for new scheme)
+                let planColor = 'text-slate-400'; // Default/Tester
+                if(user.plan_id === 4) planColor = 'text-amber-400'; // Ultra (Gold)
+                else if(user.plan_id === 3) planColor = 'text-indigo-400'; // Pro (Purple)
+                else if(user.plan_id === 2) planColor = 'text-emerald-400'; // Starter (Green)
+                else if(user.plan_id === 1) planColor = 'text-slate-400'; // Tester (Gray)
 
                 // Simulated Expiration Date (Default 30 days from now for visuals)
                 // In real app this would come from DB
