@@ -209,9 +209,10 @@ router.put('/plans/:id', isAdmin, (req, res) => {
 });
 
 router.get('/users', isAdmin, (req, res) => {
-    // FIX: Use LEFT JOIN so users without a valid plan_id still appear
-    // Also include created_at
-    db.all("SELECT u.id, u.username, u.role, u.storage_used, u.usage_seconds, u.plan_id, u.created_at, p.name as plan_name FROM users u LEFT JOIN plans p ON u.plan_id = p.id", (err, rows) => {
+    // FIX: Menggunakan SELECT u.* (wildcard) daripada memilih u.created_at secara eksplisit.
+    // Jika kolom created_at belum ada di DB (karena migrasi gagal/belum restart), query ini TIDAK akan crash.
+    // Frontend akan menerima undefined untuk created_at dan menggunakan fallback Date.now().
+    db.all("SELECT u.*, p.name as plan_name FROM users u LEFT JOIN plans p ON u.plan_id = p.id", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
