@@ -484,14 +484,13 @@
             renderMediaList();
         }
 
-        // --- NEW UPLOAD & DELETE FUNCTIONS ---
         async function handleUpload(input) {
             const file = input.files[0];
             if (!file) return;
 
             showToast('Mengupload file...', 'info');
             const formData = new FormData();
-            formData.append('video', file); // 'video' matches backend multer field
+            formData.append('video', file);
 
             try {
                 const res = await fetch('/api/videos/upload', {
@@ -503,7 +502,7 @@
                 if (data.success) {
                     showToast('Upload Berhasil!', 'success');
                     fetchMedia(); 
-                    updateUIInfo(); // Refresh storage usage
+                    updateUIInfo(); 
                 } else {
                     showToast(data.error || 'Upload Gagal', 'error');
                 }
@@ -511,7 +510,7 @@
                 console.error(e);
                 showToast('Terjadi kesalahan saat upload', 'error');
             }
-            input.value = ''; // Reset input
+            input.value = ''; 
         }
 
         function deleteMedia(id) {
@@ -554,17 +553,105 @@
 
         async function startPlaylist() {
             const rtmpUrl = document.getElementById('setting-full-rtmp').value;
+            // Validasi dasar
+            if(!rtmpUrl || rtmpUrl.length < 10) {
+                showToast('Konfigurasi Stream Kosong. Simpan Settings dulu!', 'error');
+                switchTab('settings');
+                return;
+            }
             const res = await fetch('/api/playlist/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true }) });
             const d = await res.json();
             if (d.error) showToast(d.error, 'error'); else showToast(d.message);
         }
 
+        // --- NEW SETTINGS FUNCTIONS ---
+        function handlePlatformChange() {
+            const platform = document.getElementById('setting-platform').value;
+            const customContainer = document.getElementById('server-url-container');
+            if (platform === 'custom') {
+                customContainer.classList.remove('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        }
+
+        function toggleKeyVisibility() {
+            const input = document.getElementById('setting-key');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
         async function fetchSettings() {
-            const res = await fetch('/api/settings');
-            const d = await res.json();
-            document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
-            document.getElementById('setting-key').value = d.stream_key || '';
-            document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
+            try {
+                const res = await fetch('/api/settings');
+                const d = await res.json();
+                
+                // Populate Inputs
+                document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
+                document.getElementById('setting-key').value = d.stream_key || '';
+                document.getElementById('setting-server-url').value = d.custom_server_url || '';
+                
+                // Set hidden rtmp url
+                document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
+                
+                // Trigger visibility check for custom platform
+                handlePlatformChange();
+            } catch(e) { console.error("Fetch Settings Error", e); }
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const platform = document.getElementById('setting-platform').value;
+            const key = document.getElementById('setting-key').value;
+            const customServer = document.getElementById('setting-server-url').value;
+            let fullRtmp = '';
+
+            // Calculate Full RTMP URL
+            if (platform === 'custom') {
+                if(!customServer || !key) {
+                    showToast('Server URL dan Stream Key wajib diisi', 'error');
+                    return;
+                }
+                const serverClean = customServer.endsWith('/') ? customServer : customServer + '/';
+                fullRtmp = serverClean + key;
+            } else {
+                if(!key) {
+                    showToast('Stream Key wajib diisi', 'error');
+                    return;
+                }
+                if(PLATFORMS[platform]) {
+                    fullRtmp = PLATFORMS[platform] + key;
+                }
+            }
+
+            // Update hidden input for immediate usage
+            document.getElementById('setting-full-rtmp').value = fullRtmp;
+
+            const payload = {
+                stream_platform: platform,
+                stream_key: key,
+                custom_server_url: customServer,
+                rtmp_url: fullRtmp
+            };
+
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const d = await res.json();
+                if(d.success) showToast('Konfigurasi Tersimpan!', 'success');
+                else showToast('Gagal menyimpan', 'error');
+            } catch(e) {
+                showToast('Error koneksi', 'error');
+            }
         }
 
         async function fetchUsers() {
@@ -584,6 +671,34 @@
             document.getElementById('btn-stop-stream').classList.toggle('hidden', !isLive);
             document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-slate-500'}`;
             document.getElementById('status-label').textContent = isLive ? 'Live' : 'Offline';
+        }
+        
+        async function stopStream() {
+            await fetch('/api/stream/stop', {method:'POST'});
+            // UI update will happen via socket event
+        }
+        
+        async function saveProfile(e) {
+            e.preventDefault();
+            const username = document.getElementById('profile-username').value;
+            const currentPassword = document.getElementById('profile-current-pass').value;
+            const newPassword = document.getElementById('profile-new-pass').value;
+            
+            try {
+                const res = await fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, currentPassword, newPassword })
+                });
+                const d = await res.json();
+                if(d.success) {
+                    showToast('Profil diperbarui', 'success');
+                    document.getElementById('profile-current-pass').value = '';
+                    document.getElementById('profile-new-pass').value = '';
+                } else {
+                    showToast(d.error, 'error');
+                }
+            } catch(e) { showToast('Gagal update profil', 'error'); }
         }
 
         // --- SAFE INITIALIZATION ---
