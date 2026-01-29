@@ -37,15 +37,10 @@
         .view-section.active-view { display: block !important; }
         #main-app.active-view { display: flex !important; }
         
-        .pulse-live { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); animation: pulse 2s infinite; }
-        @keyframes pulse { 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-
-        .toast-enter { transform: translateY(20px); opacity: 0; }
-        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-out; }
-        .toast-exit { transform: translateY(0); opacity: 1; }
-        .toast-exit-active { transform: translateY(20px); opacity: 0; transition: all 0.3s ease-in; }
+        /* Custom Switch Toggle */
+        .toggle-checkbox:checked { right: 0; border-color: #68D391; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #68D391; }
         
-        /* Custom scrollbar for logs */
         #logConsole::-webkit-scrollbar { width: 6px; }
         #logConsole::-webkit-scrollbar-track { background: #0f172a; }
         #logConsole::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
@@ -70,7 +65,7 @@
 
         <section class="pt-40 pb-16 px-6 lg:px-20 text-center max-w-5xl mx-auto">
             <h1 id="landing-title-display" class="text-5xl lg:text-7xl font-extrabold leading-tight mb-8">Start Your <br> <span class="text-indigo-400">Radio Station.</span></h1>
-            <p id="landing-desc-display" class="text-lg text-slate-400 mb-12">Server streaming audio paling ringan. Upload MP3, pasang cover, dan broadcast 24/7.</p>
+            <p id="landing-desc-display" class="text-lg text-slate-400 mb-12">Server streaming audio paling ringan. Upload MP3, pasang cover, dan broadcast 24/7 ke YouTube, Facebook, dan lainnya secara bersamaan.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 <button id="landing-btn-reg-display" onclick="showAuth('register')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-3xl font-bold shadow-2xl transition-all">Daftar Sekarang</button>
                 <button id="landing-btn-login-display" onclick="showAuth('login')" class="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-3xl font-bold border border-slate-700">Login Member</button>
@@ -124,6 +119,38 @@
         </div>
     </div>
 
+    <!-- ADD DESTINATION MODAL -->
+    <div id="add-dest-modal" class="hidden fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl relative">
+            <button onclick="document.getElementById('add-dest-modal').classList.add('hidden')" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
+            <h3 class="text-xl font-bold text-white mb-6">Tambah Tujuan Stream</h3>
+            <form onsubmit="handleAddDestination(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Platform</label>
+                    <select id="new-dest-platform" onchange="handleNewDestPlatformChange()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                        <option value="youtube">YouTube Live</option>
+                        <option value="facebook">Facebook Live</option>
+                        <option value="twitch">Twitch</option>
+                        <option value="custom">Custom RTMP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Nama Label (Opsional)</label>
+                    <input type="text" id="new-dest-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="Contoh: My Gaming Channel">
+                </div>
+                <div id="new-dest-url-container" class="hidden">
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Server RTMP URL</label>
+                    <input type="text" id="new-dest-url" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none" placeholder="rtmp://...">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Stream Key</label>
+                    <input type="password" id="new-dest-key" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg mt-4">Simpan Tujuan</button>
+            </form>
+        </div>
+    </div>
+
     <div id="toast-container" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[120] flex flex-col gap-2 w-full max-w-xs pointer-events-none"></div>
 
     <div id="main-app" class="view-section flex flex-col md:flex-row min-h-screen">
@@ -136,7 +163,7 @@
                 <button onclick="switchTab('overview')" id="nav-overview" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium active"><i class="fas fa-home"></i> Overview</button>
                 <button onclick="switchTab('library')" id="nav-library" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-folder"></i> Media Library</button>
                 <button onclick="switchTab('users')" id="nav-users" class="nav-link hidden w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-users-cog"></i> Admin Panel</button>
-                <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-sliders"></i> Settings</button>
+                <button onclick="switchTab('settings')" id="nav-settings" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-sliders"></i> Multi-Stream</button>
                 <button onclick="switchTab('profile')" id="nav-profile" class="nav-link w-full flex items-center gap-4 px-5 py-4 text-slate-400 transition-all font-medium"><i class="fas fa-user-circle"></i> My Profile</button>
             </nav>
             <div class="pt-6 border-t border-slate-800 mt-6">
@@ -182,34 +209,23 @@
             </div>
 
             <div id="tab-overview" class="tab-content active space-y-6">
-                <!-- Header Control -->
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl font-bold text-white">Streaming Status</h2>
                     <div class="flex gap-3 w-full sm:w-auto">
-                        <div class="relative flex-1 sm:flex-none">
-                             <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs"></i>
-                             <input type="text" placeholder="Search streams..." class="w-full sm:w-64 bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-4 py-2.5 text-xs font-bold text-white focus:border-indigo-500 outline-none transition-colors placeholder:text-slate-600">
-                        </div>
                         <button onclick="switchTab('library')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 whitespace-nowrap">
                             <i class="fas fa-plus"></i> New Stream
                         </button>
                     </div>
                 </div>
 
-                <!-- Status Table -->
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                    <!-- Table Header -->
                     <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-                        <div class="col-span-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stream Name</div>
-                        <div class="col-span-2 hidden md:block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Platform</div>
-                        <div class="col-span-2 hidden md:block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Schedule</div>
-                        <div class="col-span-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</div>
-                        <div class="col-span-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</div>
+                        <div class="col-span-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stream Name</div>
+                        <div class="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Destinations</div>
+                        <div class="col-span-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</div>
                     </div>
 
-                    <!-- Table Body -->
                     <div id="overview-stream-list" class="min-h-[200px] relative">
-                        <!-- Empty State -->
                         <div id="overview-empty" class="absolute inset-0 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
                             <div class="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700/50">
                                 <i class="fas fa-broadcast-tower text-2xl text-slate-600"></i>
@@ -218,55 +234,36 @@
                             <p class="text-xs text-slate-600 mt-1">Start a new broadcast from library.</p>
                         </div>
 
-                        <!-- Active State Row (Template) -->
                         <div id="overview-active-row" class="hidden grid grid-cols-12 gap-4 px-6 py-4 items-center border-b border-slate-800 hover:bg-slate-800/20 transition-colors bg-slate-900/30">
-                            <div class="col-span-4 flex items-center gap-4">
+                            <div class="col-span-6 flex items-center gap-4">
                                 <div class="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400 border border-indigo-500/10 shrink-0">
                                      <i class="fas fa-podcast"></i>
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="font-bold text-sm text-white truncate">Radio Broadcast</div>
+                                    <div class="font-bold text-sm text-white truncate">Multi-Platform Broadcast</div>
                                     <div class="text-[10px] font-mono text-slate-500 flex items-center gap-2 mt-0.5">
                                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                                         <span id="row-bitrate">0 kbps</span>
+                                        <span class="text-slate-600">|</span>
+                                        <span id="row-duration">00:00:00</span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-span-2 hidden md:block">
-                                <span class="text-xs font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded border border-slate-700" id="row-platform">RTMP</span>
-                            </div>
-                            <div class="col-span-2 hidden md:block">
-                                <div class="text-xs font-mono font-bold text-slate-300" id="row-duration">00:00:00</div>
-                            </div>
-                            <div class="col-span-2">
-                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20 flex w-fit items-center gap-1.5">
-                                    <span class="relative flex h-2 w-2">
-                                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                    </span>
-                                    LIVE
+                            <div class="col-span-3">
+                                <span class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                    <i class="fas fa-share-alt text-indigo-400"></i>
+                                    <span id="row-dest-count">0 Target</span>
                                 </span>
                             </div>
-                            <div class="col-span-2 text-right">
+                            <div class="col-span-3 text-right">
                                 <button onclick="stopStream()" class="group bg-slate-800 hover:bg-rose-500/10 border border-slate-700 hover:border-rose-500/30 p-2 rounded-lg transition-all" title="Stop Stream">
                                     <i class="fas fa-stop text-slate-400 group-hover:text-rose-500 text-xs"></i>
                                 </button>
                             </div>
                         </div>
                     </div>
-                    
-                     <!-- Footer -->
-                    <div class="px-6 py-4 bg-slate-900 border-t border-slate-800 flex justify-between items-center">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide" id="overview-count">Showing 0 streams</span>
-                        <div class="flex items-center gap-2">
-                             <select class="bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-[10px] font-bold text-slate-400 outline-none hover:border-slate-700 transition-colors">
-                                <option>10</option>
-                             </select>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- Logs Console -->
                 <div class="mt-8">
                     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 pl-1">System Logs</h3>
                     <div class="bg-slate-950 rounded-2xl border border-slate-800 h-48 overflow-hidden flex flex-col relative group">
@@ -283,7 +280,6 @@
                         <button id="btn-start-playlist" onclick="startPlaylist()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold text-sm">START RADIO (<span id="selected-count">0</span>)</button>
                         <button onclick="document.getElementById('file-up').click()" class="bg-indigo-600 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-indigo-500 transition-all">Upload MP3/Image</button>
                     </div>
-                    <!-- Restricted to Audio and Images -->
                     <input type="file" id="file-up" class="hidden" accept=".mp3,.jpg,.jpeg,.png" onchange="handleUpload(this)">
                 </div>
 
@@ -293,7 +289,6 @@
                 </div>
 
                 <div class="flex p-1 bg-slate-900 rounded-2xl border border-slate-800 w-fit">
-                    <!-- REMOVED VIDEO BUTTON -->
                     <button onclick="switchMediaTab('audio')" id="mt-audio" class="media-subtab active px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Audios</button>
                     <button onclick="switchMediaTab('image')" id="mt-image" class="media-subtab px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase">Images</button>
                 </div>
@@ -302,38 +297,24 @@
             </div>
 
             <div id="tab-settings" class="tab-content space-y-6">
-                <h2 class="text-2xl font-bold">Settings</h2>
-                <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 max-w-2xl">
-                    <form onsubmit="saveSettings(event)" class="space-y-6">
-                        <div class="border-b border-slate-700 pb-6 mb-6">
-                             <h3 class="text-lg font-bold text-white mb-4">Streaming Configuration</h3>
-                            <div class="mb-4">
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Streaming Platform</label>
-                                <div class="relative">
-                                    <select id="setting-platform" onchange="handlePlatformChange()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white appearance-none outline-none focus:ring-2 ring-indigo-500/50 font-bold cursor-pointer">
-                                        <option value="youtube">YouTube Live</option>
-                                        <option value="facebook">Facebook Live</option>
-                                        <option value="twitch">Twitch</option>
-                                        <option value="custom">Custom RTMP</option>
-                                    </select>
-                                    <div class="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400"><i class="fas fa-chevron-down"></i></div>
-                                </div>
-                            </div>
-                            <div id="server-url-container" class="hidden mb-4">
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">RTMP Server URL</label>
-                                <input type="text" id="setting-server-url" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50" placeholder="e.g. rtmp://server/live/">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Stream Key</label>
-                                <div class="relative">
-                                    <input type="password" id="setting-key" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 ring-indigo-500/50">
-                                    <button type="button" onclick="toggleKeyVisibility()" class="absolute inset-y-0 right-5 text-slate-400 hover:text-white"><i id="eye-icon" class="fas fa-eye"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                        <input type="hidden" id="setting-full-rtmp">
-                        <button type="submit" class="bg-indigo-600 w-full py-4 rounded-2xl font-bold hover:bg-indigo-500 shadow-lg">Save Configuration</button>
-                    </form>
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Multi-Stream Manager</h2>
+                    <button onclick="openAddDestModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg"><i class="fas fa-plus mr-2"></i> Tambah Tujuan</button>
+                </div>
+                
+                <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50">
+                    <div id="destinations-list" class="space-y-4">
+                        <!-- Loaded dynamically -->
+                        <div class="text-center py-10 text-slate-500">Memuat tujuan streaming...</div>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-900/20 border border-blue-500/20 p-4 rounded-2xl flex gap-4 items-start">
+                    <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400"><i class="fas fa-info-circle"></i></div>
+                    <div>
+                        <h4 class="font-bold text-sm text-blue-200">Info Multi-Stream</h4>
+                        <p class="text-xs text-blue-300/70 mt-1">Semua tujuan yang statusnya "ON" akan menerima siaran secara bersamaan saat Anda menekan tombol START di Library.</p>
+                    </div>
                 </div>
             </div>
             
@@ -364,32 +345,19 @@
     </div>
 
     <script>
-        // --- AUTH & UI FUNCTIONS (DEFINED FIRST FOR SAFETY) ---
+        // --- AUTH & UI FUNCTIONS ---
         let isLoginMode = true;
+        let destinations = [];
 
         function showAuth(mode) {
-            // Default to login if no mode specified
             isLoginMode = (mode === 'register') ? false : true;
             updateAuthUI();
-            
             const modal = document.getElementById('login-view');
-            if (modal) {
-                modal.classList.remove('hidden');
-                console.log("Opening Auth Modal in mode:", isLoginMode ? 'Login' : 'Register');
-            } else {
-                console.error("Login modal element not found!");
-            }
+            if (modal) modal.classList.remove('hidden');
         }
 
-        function hideAuth() { 
-            document.getElementById('login-view').classList.add('hidden'); 
-        }
-
-        function toggleAuthMode() {
-            isLoginMode = !isLoginMode;
-            updateAuthUI();
-        }
-
+        function hideAuth() { document.getElementById('login-view').classList.add('hidden'); }
+        function toggleAuthMode() { isLoginMode = !isLoginMode; updateAuthUI(); }
         function updateAuthUI() {
             document.getElementById('auth-title').innerText = isLoginMode ? 'LiteStream' : 'Daftar Baru';
             document.getElementById('auth-btn').innerText = isLoginMode ? 'MASUK DASHBOARD' : 'DAFTAR SEKARANG';
@@ -402,12 +370,6 @@
             const user = document.getElementById('login-user').value;
             const pass = document.getElementById('login-pass').value;
             const endpoint = isLoginMode ? '/api/login' : '/api/register';
-            const btn = document.getElementById('auth-btn');
-            
-            const originalText = btn.innerText;
-            btn.innerText = 'Memproses...';
-            btn.disabled = true;
-
             try {
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -415,7 +377,6 @@
                     body: JSON.stringify({ username: user, password: pass })
                 });
                 const data = await res.json();
-                
                 if (data.success) {
                     if (isLoginMode) {
                         showToast('Login Berhasil!', 'success');
@@ -424,29 +385,23 @@
                         showToast('Registrasi berhasil! Silakan login.', 'success');
                         toggleAuthMode();
                     }
-                } else {
-                    showToast(data.error || 'Gagal melakukan otentikasi', 'error');
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('Koneksi Gagal ke Server', 'error');
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+                } else showToast(data.error || 'Gagal otentikasi', 'error');
+            } catch (err) { showToast('Koneksi Gagal', 'error'); }
         }
         
         async function handleLogout() { await fetch('/api/logout', {method:'POST'}); location.reload(); }
 
-        // --- CORE APP VARIABLES ---
         let socket = null;
         let currentUser = null;
         let selectedMedia = new Set();
         let allMedia = [];
         let confirmCallback = null;
-        const PLATFORMS = { youtube: 'rtmp://a.rtmp.youtube.com/live2/', facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/', twitch: 'rtmp://live.twitch.tv/app/' };
+        const PLATFORMS = { 
+            youtube: 'rtmp://a.rtmp.youtube.com/live2/', 
+            facebook: 'rtmps://live-api-s.facebook.com:443/rtmp/', 
+            twitch: 'rtmp://live.twitch.tv/app/' 
+        };
         
-        // Default to audio since video is removed
         window.currentMediaTab = 'audio';
 
         function showToast(message, type = 'success') {
@@ -456,7 +411,7 @@
             el.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${message}</span>`;
             container.appendChild(el);
             requestAnimationFrame(() => { el.classList.add('toast-enter-active'); el.classList.remove('toast-enter'); });
-            setTimeout(() => { el.classList.add('toast-exit-active'); el.addEventListener('transitionend', () => el.remove()); }, 3000);
+            setTimeout(() => { el.classList.add('toast-exit-active'); el.remove(); }, 3000);
         }
 
         function openConfirmModal(message, callback) {
@@ -484,11 +439,12 @@
             document.getElementById('login-view').classList.add('hidden');
             updateUIInfo();
             if (currentUser.role === 'admin') document.getElementById('nav-users').classList.remove('hidden');
-            fetchMedia(); fetchSettings();
+            fetchMedia(); 
+            fetchDestinations(); // Load multi-stream targets
             
             const res = await fetch('/api/stream/status');
             const state = await res.json();
-            if (state.active) updateStreamUI(true);
+            if (state.active) updateStreamUI(true, state.destination_count);
         }
 
         function updateUIInfo() {
@@ -508,25 +464,11 @@
             const res = await fetch('/api/plans-public');
             const plans = await res.json();
             document.getElementById('pricing-grid').innerHTML = plans.map(p => {
-                let extraControls = '';
-                if (p.id === 3) {
-                     let options = '';
-                     for(let i=1; i<=12; i++) options += `<option value="${i}">${i} Bulan</option>`;
-                     extraControls = `
-                        <div class="mt-4 mb-2 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Durasi Langganan</label>
-                            <select onchange="updatePlanPrice(this, '${p.price_text}', ${p.id})" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-bold">
-                                ${options}
-                            </select>
-                        </div>`;
-                }
                 const featuresList = p.features_text ? p.features_text.split(',').map(f => `<li><i class="fas fa-check text-indigo-400 mr-2"></i> ${f.trim()}</li>`).join('') : '';
-
                 return `
                 <div class="glass p-8 rounded-[3rem] border border-slate-800 flex flex-col ${p.id === 4 ? 'ring-2 ring-indigo-500' : ''} relative overflow-hidden group hover:border-indigo-500/30 transition-all">
                     <h4 class="text-lg font-bold">${p.name}</h4>
                     <div id="price-display-${p.id}" class="text-2xl font-black text-indigo-400 my-4 transition-opacity duration-300">${p.price_text}</div>
-                    ${extraControls}
                     <ul class="text-xs text-slate-400 space-y-2 flex-1 mb-6">
                         <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.daily_limit_hours} Jam/hari</li>
                         <li><i class="fas fa-check text-indigo-400 mr-2"></i> ${p.max_storage_mb}MB Storage</li>
@@ -537,22 +479,13 @@
             }).join('');
         }
 
-        function updatePlanPrice(select, basePriceStr, planId) {
-            const basePrice = parseInt(basePriceStr.replace(/[^0-9]/g, ''));
-            const months = parseInt(select.value);
-            if(isNaN(basePrice)) return;
-            const total = basePrice * months;
-            const formatted = 'Rp ' + total.toLocaleString('id-ID');
-            const el = document.getElementById(`price-display-${planId}`);
-            if (el) { el.style.opacity = '0'; setTimeout(() => { el.textContent = formatted; el.style.opacity = '1'; }, 150); }
-        }
-
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + tab));
             document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.id === 'nav-' + tab));
             if (tab === 'users') fetchUsers();
         }
 
+        // --- MEDIA FUNCTIONS ---
         async function fetchMedia() {
             const res = await fetch('/api/videos');
             allMedia = await res.json();
@@ -562,36 +495,19 @@
         async function handleUpload(input) {
             const file = input.files[0];
             if (!file) return;
-
-            // Simple client-side validation
             if (!file.name.match(/\.(mp3|jpg|jpeg|png)$/i)) {
                 showToast('Hanya file MP3 dan Gambar (JPG/PNG) yang diperbolehkan!', 'error');
-                input.value = '';
-                return;
+                input.value = ''; return;
             }
-
             showToast('Mengupload file...', 'info');
             const formData = new FormData();
             formData.append('video', file);
-
             try {
-                const res = await fetch('/api/videos/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+                const res = await fetch('/api/videos/upload', { method: 'POST', body: formData });
                 const data = await res.json();
-
-                if (data.success) {
-                    showToast('Upload Berhasil!', 'success');
-                    fetchMedia(); 
-                    updateUIInfo(); 
-                } else {
-                    showToast(data.error || 'Upload Gagal', 'error');
-                }
-            } catch (e) {
-                console.error(e);
-                showToast('Terjadi kesalahan saat upload', 'error');
-            }
+                if (data.success) { showToast('Upload Berhasil!', 'success'); fetchMedia(); updateUIInfo(); } 
+                else showToast(data.error || 'Upload Gagal', 'error');
+            } catch (e) { showToast('Terjadi kesalahan', 'error'); }
             input.value = ''; 
         }
 
@@ -602,21 +518,15 @@
                     const data = await res.json();
                     if (data.success) {
                         showToast('File dihapus', 'success');
-                        fetchMedia();
-                        updateUIInfo();
+                        fetchMedia(); updateUIInfo();
                         if (selectedMedia.has(id)) toggleSelect(id);
-                    } else {
-                        showToast(data.error || 'Gagal menghapus', 'error');
-                    }
-                } catch(e) { 
-                    showToast('Error koneksi', 'error'); 
-                }
+                    } else showToast(data.error, 'error');
+                } catch(e) { showToast('Error koneksi', 'error'); }
             });
         }
 
         function renderMediaList() {
             const query = document.getElementById('media-search') ? document.getElementById('media-search').value.toLowerCase() : '';
-            // Only render current tab (audio/image)
             const filtered = allMedia.filter(m => m.type === window.currentMediaTab && m.filename.toLowerCase().includes(query));
             document.getElementById('media-list').innerHTML = filtered.map(v => `
                 <div class="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex items-center gap-4 group">
@@ -626,11 +536,7 @@
                 </div>`).join('');
         }
 
-        function switchMediaTab(tab) { 
-            window.currentMediaTab = tab; 
-            document.querySelectorAll('.media-subtab').forEach(t => t.classList.toggle('active', t.id === 'mt-' + tab)); 
-            renderMediaList(); 
-        }
+        function switchMediaTab(tab) { window.currentMediaTab = tab; document.querySelectorAll('.media-subtab').forEach(t => t.classList.toggle('active', t.id === 'mt-' + tab)); renderMediaList(); }
 
         function toggleSelect(id) {
             if (selectedMedia.has(id)) selectedMedia.delete(id); else selectedMedia.add(id);
@@ -639,115 +545,125 @@
         }
 
         async function startPlaylist() {
-            const rtmpUrl = document.getElementById('setting-full-rtmp').value;
-            // Validasi dasar
-            if(!rtmpUrl || rtmpUrl.length < 10) {
-                showToast('Konfigurasi Stream Kosong. Simpan Settings dulu!', 'error');
-                switchTab('settings');
+            const res = await fetch('/api/playlist/start', { 
+                method: 'POST', 
+                headers: {'Content-Type':'application/json'}, 
+                body: JSON.stringify({ ids: Array.from(selectedMedia), loop: true }) 
+            });
+            const d = await res.json();
+            if (d.error) {
+                showToast(d.error, 'error');
+                if(d.error.includes("Multi-Stream")) switchTab('settings');
+            } else {
+                showToast(d.message);
+                switchTab('overview');
+            }
+        }
+
+        // --- MULTI-STREAM SETTINGS ---
+        
+        async function fetchDestinations() {
+            try {
+                const res = await fetch('/api/destinations');
+                destinations = await res.json();
+                renderDestinations();
+            } catch(e) { console.error("Fetch Dest Error", e); }
+        }
+
+        function renderDestinations() {
+            const container = document.getElementById('destinations-list');
+            if(destinations.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-500 bg-slate-900/50 rounded-2xl border border-dashed border-slate-700">Belum ada tujuan streaming. Tambahkan sekarang!</div>`;
                 return;
             }
-            const res = await fetch('/api/playlist/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: Array.from(selectedMedia), rtmpUrl, loop: true }) });
-            const d = await res.json();
-            if (d.error) showToast(d.error, 'error'); else showToast(d.message);
+            container.innerHTML = destinations.map(dest => {
+                const icon = dest.platform === 'youtube' ? 'fa-youtube text-red-500' : 
+                             dest.platform === 'facebook' ? 'fa-facebook text-blue-500' : 
+                             dest.platform === 'twitch' ? 'fa-twitch text-purple-500' : 'fa-server text-slate-400';
+                
+                return `
+                <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex items-center justify-between group hover:border-slate-700 transition-all">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-xl shadow-lg">${'<i class="fab '+icon+'"></i>'}</div>
+                        <div>
+                            <div class="font-bold text-sm text-white">${dest.name}</div>
+                            <div class="text-[10px] text-slate-500 font-mono">...${dest.stream_key.slice(-4)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2">
+                             <span class="text-[10px] font-bold text-slate-500 uppercase">${dest.is_active ? 'ON' : 'OFF'}</span>
+                             <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="toggle-${dest.id}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-700 transition-all duration-300 ${dest.is_active ? 'right-0 border-emerald-400' : 'left-0'}" ${dest.is_active ? 'checked' : ''} onclick="toggleDestination(${dest.id})"/>
+                                <label for="toggle-${dest.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer ${dest.is_active ? 'bg-emerald-500' : ''}"></label>
+                            </div>
+                        </div>
+                        <button onclick="deleteDestination(${dest.id})" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-500 hover:text-rose-500 transition-all"><i class="fas fa-trash text-xs"></i></button>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
-        // --- NEW SETTINGS FUNCTIONS ---
-        function handlePlatformChange() {
-            const platform = document.getElementById('setting-platform').value;
-            const customContainer = document.getElementById('server-url-container');
-            if (platform === 'custom') {
-                customContainer.classList.remove('hidden');
-            } else {
-                customContainer.classList.add('hidden');
-            }
+        function openAddDestModal() {
+            document.getElementById('new-dest-platform').value = 'youtube';
+            document.getElementById('new-dest-name').value = '';
+            document.getElementById('new-dest-url').value = '';
+            document.getElementById('new-dest-key').value = '';
+            handleNewDestPlatformChange();
+            document.getElementById('add-dest-modal').classList.remove('hidden');
         }
 
-        function toggleKeyVisibility() {
-            const input = document.getElementById('setting-key');
-            const icon = document.getElementById('eye-icon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'fas fa-eye-slash';
-            } else {
-                input.type = 'password';
-                icon.className = 'fas fa-eye';
-            }
+        function handleNewDestPlatformChange() {
+            const platform = document.getElementById('new-dest-platform').value;
+            const urlContainer = document.getElementById('new-dest-url-container');
+            if(platform === 'custom') urlContainer.classList.remove('hidden');
+            else urlContainer.classList.add('hidden');
         }
 
-        async function fetchSettings() {
-            try {
-                const res = await fetch('/api/settings');
-                const d = await res.json();
-                
-                // Populate Inputs
-                document.getElementById('setting-platform').value = d.stream_platform || 'youtube';
-                document.getElementById('setting-key').value = d.stream_key || '';
-                document.getElementById('setting-server-url').value = d.custom_server_url || '';
-                
-                // Set hidden rtmp url
-                document.getElementById('setting-full-rtmp').value = d.rtmp_url || '';
-                
-                // Trigger visibility check for custom platform
-                handlePlatformChange();
-                
-                // Update platform label in overview
-                const platformLabel = document.getElementById('setting-platform').options[document.getElementById('setting-platform').selectedIndex].text;
-                if(document.getElementById('row-platform')) {
-                    document.getElementById('row-platform').textContent = platformLabel;
-                }
-            } catch(e) { console.error("Fetch Settings Error", e); }
-        }
-
-        async function saveSettings(e) {
+        async function handleAddDestination(e) {
             e.preventDefault();
-            const platform = document.getElementById('setting-platform').value;
-            const key = document.getElementById('setting-key').value;
-            const customServer = document.getElementById('setting-server-url').value;
-            let fullRtmp = '';
-
-            // Calculate Full RTMP URL
-            if (platform === 'custom') {
-                if(!customServer || !key) {
-                    showToast('Server URL dan Stream Key wajib diisi', 'error');
-                    return;
-                }
-                const serverClean = customServer.endsWith('/') ? customServer : customServer + '/';
-                fullRtmp = serverClean + key;
+            const platform = document.getElementById('new-dest-platform').value;
+            let rtmpUrl = '';
+            if(platform === 'custom') {
+                rtmpUrl = document.getElementById('new-dest-url').value;
+                if(!rtmpUrl.endsWith('/')) rtmpUrl += '/';
             } else {
-                if(!key) {
-                    showToast('Stream Key wajib diisi', 'error');
-                    return;
-                }
-                if(PLATFORMS[platform]) {
-                    fullRtmp = PLATFORMS[platform] + key;
-                }
+                rtmpUrl = PLATFORMS[platform];
             }
-
-            // Update hidden input for immediate usage
-            document.getElementById('setting-full-rtmp').value = fullRtmp;
-
+            
             const payload = {
-                stream_platform: platform,
-                stream_key: key,
-                custom_server_url: customServer,
-                rtmp_url: fullRtmp
+                name: document.getElementById('new-dest-name').value || platform,
+                platform: platform,
+                rtmp_url: rtmpUrl,
+                stream_key: document.getElementById('new-dest-key').value
             };
 
             try {
-                const res = await fetch('/api/settings', {
+                const res = await fetch('/api/destinations', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
                 const d = await res.json();
-                if(d.success) showToast('Konfigurasi Tersimpan!', 'success');
-                else showToast('Gagal menyimpan', 'error');
-                
-                // Refresh platform label
-                fetchSettings();
-            } catch(e) {
-                showToast('Error koneksi', 'error');
-            }
+                if(d.success) {
+                    showToast('Tujuan ditambahkan!', 'success');
+                    document.getElementById('add-dest-modal').classList.add('hidden');
+                    fetchDestinations();
+                } else showToast(d.error, 'error');
+            } catch(e) { showToast('Error koneksi', 'error'); }
+        }
+
+        async function deleteDestination(id) {
+            openConfirmModal("Hapus tujuan stream ini?", async () => {
+                const res = await fetch(`/api/destinations/${id}`, { method: 'DELETE' });
+                if(res.ok) { fetchDestinations(); showToast('Tujuan dihapus'); }
+            });
+        }
+
+        async function toggleDestination(id) {
+            await fetch(`/api/destinations/${id}/toggle`, { method: 'PUT' });
+            // Re-fetch to sync UI perfectly or update local state
+            fetchDestinations();
         }
 
         async function fetchUsers() {
@@ -761,36 +677,29 @@
                 </tr>`).join('');
         }
 
-        function updateStreamUI(isLive) {
+        function updateStreamUI(isLive, destCount = 0) {
             const emptyState = document.getElementById('overview-empty');
             const activeRow = document.getElementById('overview-active-row');
-            const countLabel = document.getElementById('overview-count');
             
             if(isLive) {
                 emptyState.classList.add('hidden');
                 activeRow.classList.remove('hidden');
-                if(countLabel) countLabel.textContent = 'Showing 1 streams';
+                document.getElementById('row-dest-count').textContent = destCount + ' Target';
             } else {
                 emptyState.classList.remove('hidden');
                 activeRow.classList.add('hidden');
-                if(countLabel) countLabel.textContent = 'Showing 0 streams';
             }
-            
             document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-slate-500'}`;
             document.getElementById('status-label').textContent = isLive ? 'Live' : 'Offline';
         }
         
-        async function stopStream() {
-            await fetch('/api/stream/stop', {method:'POST'});
-            // UI update will happen via socket event
-        }
+        async function stopStream() { await fetch('/api/stream/stop', {method:'POST'}); }
         
         async function saveProfile(e) {
             e.preventDefault();
             const username = document.getElementById('profile-username').value;
             const currentPassword = document.getElementById('profile-current-pass').value;
             const newPassword = document.getElementById('profile-new-pass').value;
-            
             try {
                 const res = await fetch('/api/profile', {
                     method: 'PUT',
@@ -798,28 +707,25 @@
                     body: JSON.stringify({ username, currentPassword, newPassword })
                 });
                 const d = await res.json();
-                if(d.success) {
-                    showToast('Profil diperbarui', 'success');
-                    document.getElementById('profile-current-pass').value = '';
-                    document.getElementById('profile-new-pass').value = '';
-                } else {
-                    showToast(d.error, 'error');
-                }
-            } catch(e) { showToast('Gagal update profil', 'error'); }
+                if(d.success) { showToast('Profil diperbarui'); document.getElementById('profile-current-pass').value = ''; } 
+                else showToast(d.error, 'error');
+            } catch(e) { showToast('Error', 'error'); }
         }
 
-        // --- SAFE INITIALIZATION ---
+        // --- INIT ---
         window.onload = function() {
-            // Check socket availability
             if (typeof io !== 'undefined') {
                 try {
                     socket = io();
                     socket.on('stats', (data) => {
-                        const durationEl = document.getElementById('row-duration'); // New location in table
+                        const durationEl = document.getElementById('row-duration');
                         if(durationEl) durationEl.textContent = data.duration.split('.')[0]; 
-                        
-                        const bitrateEl = document.getElementById('row-bitrate'); // New location in table
+                        const bitrateEl = document.getElementById('row-bitrate');
                         if(bitrateEl) bitrateEl.textContent = data.bitrate;
+                        
+                        if(data.destination_count) {
+                             document.getElementById('row-dest-count').textContent = data.destination_count + ' Target';
+                        }
 
                         if (data.usage_remaining !== undefined && currentUser) {
                             const limitHrs = currentUser.daily_limit_hours || 24;
@@ -837,18 +743,12 @@
                         p.className = data.type === 'error' ? 'text-rose-400' : 'text-slate-400';
                         p.textContent = `> ${data.message}`;
                         const consoleEl = document.getElementById('logConsole');
-                        if (consoleEl) {
-                            consoleEl.appendChild(p);
-                            consoleEl.scrollTop = consoleEl.scrollHeight;
-                        }
+                        if (consoleEl) { consoleEl.appendChild(p); consoleEl.scrollTop = consoleEl.scrollHeight; }
                         if (data.type === 'start') updateStreamUI(true);
                         if (data.type === 'end' || data.type === 'info') updateStreamUI(false);
                     });
                 } catch(e) { console.warn("Socket Init Failed", e); }
-            } else {
-                console.warn("Socket.io library not loaded.");
             }
-            
             checkAuth();
         };
     </script>

@@ -52,6 +52,54 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// --- DESTINATION ROUTES (MULTI-STREAM) ---
+
+router.get('/destinations', (req, res) => {
+    const userId = req.session.user.id;
+    db.all("SELECT * FROM stream_destinations WHERE user_id = ? ORDER BY created_at DESC", [userId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+router.post('/destinations', (req, res) => {
+    const userId = req.session.user.id;
+    const { name, platform, rtmp_url, stream_key } = req.body;
+    
+    if(!platform || !stream_key) return res.status(400).json({ error: "Platform dan Stream Key wajib diisi" });
+
+    db.run(
+        "INSERT INTO stream_destinations (user_id, name, platform, rtmp_url, stream_key, is_active) VALUES (?, ?, ?, ?, ?, 1)", 
+        [userId, name || platform, platform, rtmp_url, stream_key], 
+        function(err) {
+            if(err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+router.delete('/destinations/:id', (req, res) => {
+    const userId = req.session.user.id;
+    db.run("DELETE FROM stream_destinations WHERE id = ? AND user_id = ?", [req.params.id, userId], (err) => {
+        if(err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+router.put('/destinations/:id/toggle', (req, res) => {
+    const userId = req.session.user.id;
+    db.get("SELECT is_active FROM stream_destinations WHERE id = ? AND user_id = ?", [req.params.id, userId], (err, row) => {
+        if(!row) return res.status(404).json({ error: "Not found" });
+        const newState = row.is_active ? 0 : 1;
+        db.run("UPDATE stream_destinations SET is_active = ? WHERE id = ?", [newState, req.params.id], (err) => {
+            if(err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, active: newState });
+        });
+    });
+});
+
+// --- EXISTING ROUTES ---
+
 router.get('/plans-public', (req, res) => {
   db.all("SELECT * FROM plans", (err, rows) => res.json(rows));
 });
@@ -129,17 +177,32 @@ router.delete('/videos/:id', async (req, res) => {
 
 router.get('/stream/status', async (req, res) => {
     const usage = await syncUserUsage(req.session.user.id);
-    res.json({ active: isStreaming(), usage_seconds: usage });
+    db.all("SELECT * FROM stream_destinations WHERE user_id = ? AND is_active = 1", [req.session.user.id], (err, rows) => {
+        const destCount = rows ? rows.length : 0;
+        res.json({ active: isStreaming(), usage_seconds: usage, destination_count: destCount });
+    });
 });
 
 router.post('/playlist/start', async (req, res) => {
-  const { ids, rtmpUrl, coverImageId, loop } = req.body;
+  const { ids, coverImageId, loop } = req.body;
   const userId = req.session.user.id;
 
   if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih minimal 1 file audio." });
-  if (!rtmpUrl) return res.status(400).json({ error: "RTMP URL Kosong." });
 
+  // 1. Get User Usage & Plan
   const currentUsage = await syncUserUsage(userId);
+  
+  // 2. Get Active Destinations
+  const destinations = await new Promise((resolve, reject) => {
+      db.all("SELECT name, platform, rtmp_url, stream_key FROM stream_destinations WHERE user_id = ? AND is_active = 1", [userId], (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+      });
+  });
+
+  if (!destinations || destinations.length === 0) {
+      return res.status(400).json({ error: "Tidak ada tujuan streaming aktif. Tambahkan di Settings > Multi-Stream." });
+  }
 
   db.get(`
     SELECT p.allowed_types, p.daily_limit_hours 
@@ -166,18 +229,17 @@ router.post('/playlist/start', async (req, res) => {
       let playlistPaths = audioFiles.map(a => a.path);
       let finalCoverPath = null;
 
-      // Logic Cover Image: Check specific coverId -> check existing images in selection -> check user's other images
       if (coverImageId) {
             const cov = await new Promise(r => db.get("SELECT path FROM videos WHERE id=?", [coverImageId], (e,row)=>r(row)));
             if(cov) finalCoverPath = cov.path;
       }
       
-      // Jika user menselect image bersama audio, pakai image pertama yang dipilih sebagai cover
       if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
       try {
-          startStream(playlistPaths, rtmpUrl, { userId, loop: !!loop, coverImagePath: finalCoverPath });
-          res.json({ success: true, message: `Streaming Radio dimulai.` });
+          // PASS DESTINATIONS ARRAY TO ENGINE
+          startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+          res.json({ success: true, message: `Streaming dimulai ke ${destinations.length} tujuan.` });
       } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
     });
   });
@@ -189,7 +251,8 @@ router.post('/stream/stop', (req, res) => {
 });
 
 router.get('/settings', (req, res) => {
-    const keys = ['rtmp_url', 'stream_platform', 'stream_key', 'custom_server_url', 'landing_title', 'landing_desc', 'landing_btn_reg', 'landing_btn_login'];
+    // Only keeping global settings here, destination is moved to specific endpoints
+    const keys = ['landing_title', 'landing_desc', 'landing_btn_reg', 'landing_btn_login'];
     const placeholders = keys.map(()=>'?').join(',');
     db.all(`SELECT key, value FROM stream_settings WHERE key IN (${placeholders})`, keys, (err, rows) => {
         const settings = {};

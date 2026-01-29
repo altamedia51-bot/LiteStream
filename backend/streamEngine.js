@@ -10,9 +10,14 @@ let activeInputStream = null;
 let currentStreamLoopActive = false; 
 let currentStreamUserId = null;
 
-const startStream = (inputPaths, rtmpUrl, options = {}) => {
+// Updated: Accepts an ARRAY of destinations instead of a single URL
+const startStream = (inputPaths, destinations, options = {}) => {
   if (currentCommand) {
     stopStream();
+  }
+
+  if (!destinations || destinations.length === 0) {
+      throw new Error("No active streaming destinations found.");
   }
 
   const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
@@ -73,15 +78,29 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
 
       command.input(mixedStream).inputFormat('mp3').inputOptions(['-re']); 
 
-      command.outputOptions([
+      // GLOBAL ENCODING OPTIONS (Applied once, then mapped to multiple outputs)
+      // Note: Fluent-ffmpeg applies .outputOptions() to the immediately preceding output.
+      // However, if we define them before outputs, some versions might behave differently.
+      // Safe strategy: Define input options -> Add Outputs with their specific flags.
+      // Since we want the SAME encoding for all, we will repeat the encoding flags for each output
+      // OR rely on ffmpeg's ability to reuse the encoded stream.
+      
+      const encodingFlags = [
         '-map 0:v', '-map 1:a', `-vf ${videoFilter}`,
         '-c:v libx264', '-preset ultrafast', '-r 24', '-g 48', '-keyint_min 48', '-sc_threshold 0',
         '-b:v 3000k', '-minrate 3000k', '-maxrate 3000k', '-bufsize 6000k', '-nal-hrd cbr',
         '-c:a aac', '-b:a 128k', '-ar 44100', '-af aresample=async=1',
         '-f flv', '-flvflags no_duration_filesize'
-      ]);
+      ];
+
+      // Add outputs for each destination
+      destinations.forEach(dest => {
+          const fullUrl = dest.rtmp_url + dest.stream_key;
+          command.output(fullUrl).outputOptions(encodingFlags);
+      });
 
     } else {
+      // Playlist logic (Existing video files)
       const playlistPath = path.join(__dirname, 'uploads', 'playlist.txt');
       const playlistContent = files.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join('\n');
       fs.writeFileSync(playlistPath, playlistContent);
@@ -90,23 +109,29 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       if (shouldLoop) videoInputOpts.unshift('-stream_loop', '-1');
 
       command.input(playlistPath).inputOptions(videoInputOpts);
-      command.outputOptions(['-c copy', '-f flv', '-flvflags no_duration_filesize']);
+      
+      const copyFlags = ['-c copy', '-f flv', '-flvflags no_duration_filesize'];
+      
+      destinations.forEach(dest => {
+          const fullUrl = dest.rtmp_url + dest.stream_key;
+          command.output(fullUrl).outputOptions(copyFlags);
+      });
     }
 
     currentCommand = command
       .on('start', (commandLine) => {
-        if (global.io) global.io.emit('log', { type: 'start', message: `Stream Started.` });
+        const destNames = destinations.map(d => d.name || d.platform).join(', ');
+        if (global.io) global.io.emit('log', { type: 'start', message: `Multi-Stream Started to: ${destNames}` });
       })
       .on('progress', (progress) => {
         if (!currentStreamUserId) return;
 
-        // Hitung selisih detik sejak progress terakhir
         const currentTimemark = progress.timemark; 
         const parts = currentTimemark.split(':');
         const totalSeconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parseFloat(parts[2]));
         const diff = Math.floor(totalSeconds - lastProcessedSecond);
 
-        if (diff >= 5) { // Update DB setiap 5 detik penggunaan
+        if (diff >= 5) { 
             lastProcessedSecond = totalSeconds;
             
             db.get(`
@@ -128,7 +153,8 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
                         global.io.emit('stats', { 
                             duration: progress.timemark, 
                             bitrate: progress.currentKbps ? Math.round(progress.currentKbps) + ' kbps' : 'N/A',
-                            usage_remaining: Math.max(0, limitSeconds - newUsage)
+                            usage_remaining: Math.max(0, limitSeconds - newUsage),
+                            destination_count: destinations.length
                         });
                     }
                 }
@@ -137,15 +163,18 @@ const startStream = (inputPaths, rtmpUrl, options = {}) => {
       })
       .on('error', (err) => {
         if (err.message.includes('SIGKILL')) return;
+        if (global.io) global.io.emit('log', { type: 'error', message: 'Stream Error: ' + err.message });
         currentCommand = null;
         reject(err);
       })
       .on('end', () => {
         currentCommand = null;
+        if (global.io) global.io.emit('log', { type: 'end', message: 'Stream finished.' });
         resolve();
       });
 
-    currentCommand.save(rtmpUrl);
+    // Run without explicit save() argument because we used .output() multiple times
+    currentCommand.run();
   });
 };
 

@@ -11,7 +11,7 @@ const initDB = () => {
     db.serialize(() => {
       db.run("PRAGMA foreign_keys = ON");
 
-      // 1. Buat Tabel Plans dengan kolom daily_limit_hours
+      // 1. Buat Tabel Plans
       db.run(`CREATE TABLE IF NOT EXISTS plans (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         name TEXT UNIQUE, 
@@ -23,7 +23,6 @@ const initDB = () => {
         daily_limit_hours INTEGER DEFAULT 24
       )`);
 
-      // Migrasi kolom baru jika belum ada
       db.all("PRAGMA table_info(plans)", (err, columns) => {
         if (err || !columns) return;
         const hasPrice = columns.some(c => c.name === 'price_text');
@@ -35,7 +34,7 @@ const initDB = () => {
         if (!hasLimit) db.run("ALTER TABLE plans ADD COLUMN daily_limit_hours INTEGER DEFAULT 24");
       });
 
-      // 2. Buat Tabel Users dengan kolom tracking penggunaan waktu
+      // 2. Buat Tabel Users
       db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         username TEXT UNIQUE, 
@@ -59,7 +58,20 @@ const initDB = () => {
       db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
       db.run(`CREATE TABLE IF NOT EXISTS stream_settings (key TEXT PRIMARY KEY, value TEXT)`);
 
-      // 3. Seeding Data Plans (UPDATED: Fokus Audio Only)
+      // 3. TABLE BARU: stream_destinations untuk Multi-Stream
+      db.run(`CREATE TABLE IF NOT EXISTS stream_destinations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        name TEXT,
+        platform TEXT,
+        rtmp_url TEXT,
+        stream_key TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      )`);
+
+      // 4. Seeding Data Plans
       const plans = [
         [1, 'Paket Free Trial', 500, 'audio', 1, 'Gratis', 'MP3 Only, Batasan 5 Jam/hari, Auto Reconnect', 5],
         [2, 'Paket Pro (Radio)', 5120, 'audio', 1, 'Rp 100.000', '24 Jam Non-stop, Kualitas HD, Custom Cover', 24],
@@ -70,7 +82,6 @@ const initDB = () => {
       plans.forEach(p => {
         db.run(`INSERT OR IGNORE INTO plans (id, name, max_storage_mb, allowed_types, max_active_streams, price_text, features_text, daily_limit_hours) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, p);
-        // Update limit jika paket sudah ada (pastikan id 1 tetap 5 jam)
         db.run(`UPDATE plans SET daily_limit_hours = ? WHERE id = ?`, [p[7], p[0]]);
       });
 
@@ -83,18 +94,15 @@ const initDB = () => {
       ];
       defaultSettings.forEach(s => db.run(`INSERT OR IGNORE INTO stream_settings (key, value) VALUES (?, ?)`, s));
 
-      // Seeding Admin (UPDATED: FORCE RESET)
+      // Seeding Admin
       const adminUser = 'admin';
       const adminPass = 'admin123';
       const hash = bcrypt.hashSync(adminPass, 10);
       
       db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
         if (row) {
-           // Jika admin sudah ada, reset password ke default untuk fix login
-           console.log(">>> INFO: Resetting admin password to 'admin123'");
            db.run("UPDATE users SET password_hash = ?, role = 'admin', plan_id = 4 WHERE id = ?", [hash, row.id]);
         } else {
-           console.log(">>> INFO: Creating default admin user");
            db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);
         }
         resolve();
