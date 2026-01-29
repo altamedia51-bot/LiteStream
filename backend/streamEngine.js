@@ -83,11 +83,13 @@ const startStream = (inputPaths, destinations, options = {}) => {
 
       command.input(mixedStream).inputFormat('mp3').inputOptions(['-re']); 
       
+      // OPTIMIZED SETTINGS FOR LOW-END VPS & MULTI-STREAM
+      // Bitrate lowered from 3000k to 1500k to prevent network congestion
       const encodingFlags = [
         '-map 0:v', '-map 1:a', `-vf ${videoFilter}`,
-        '-c:v libx264', '-preset ultrafast', '-r 24', '-g 48', '-keyint_min 48', '-sc_threshold 0',
-        '-b:v 3000k', '-minrate 3000k', '-maxrate 3000k', '-bufsize 6000k', '-nal-hrd cbr',
-        '-c:a aac', '-b:a 128k', '-ar 44100', '-af aresample=async=1',
+        '-c:v libx264', '-preset ultrafast', '-tune zerolatency', '-r 24', '-g 48', '-keyint_min 48', '-sc_threshold 0',
+        '-b:v 1500k', '-maxrate 1500k', '-bufsize 3000k', 
+        '-c:a aac', '-b:a 96k', '-ar 44100', '-af aresample=async=1',
         '-f flv', '-flvflags no_duration_filesize'
       ];
 
