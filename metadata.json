@@ -1,6 +1,6 @@
 {
-  "name": "LiteStream VPS Dashboard",
-  "description": "A lightweight dashboard for managing multi-platform RTMP streaming from a low-resource VPS using FFmpeg and SQLite.",
+  "name": "LiteStream",
+  "description": "MUSIK NORMAL TANPA VIDIO . CPU 8 %\n\"Single Instance FFmpeg\" menjadi \"Multi-Instance FFmpeg\".",
   "requestFramePermissions": [
     "camera",
     "microphone"
