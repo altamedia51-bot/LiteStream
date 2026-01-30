@@ -95,7 +95,11 @@ const startStream = (inputPaths, destinations, options = {}) => {
       ];
 
       destinations.forEach(dest => {
-          const fullUrl = dest.rtmp_url + dest.stream_key;
+          // SAFEGUARD: Ensure RTMP URL ends with slash
+          let rtmp = dest.rtmp_url;
+          if (rtmp && !rtmp.endsWith('/')) rtmp += '/';
+          
+          const fullUrl = rtmp + dest.stream_key;
           command.output(fullUrl).outputOptions(encodingFlags);
       });
 
@@ -112,7 +116,10 @@ const startStream = (inputPaths, destinations, options = {}) => {
       
       const copyFlags = ['-c copy', '-f flv', '-flvflags no_duration_filesize'];
       destinations.forEach(dest => {
-          const fullUrl = dest.rtmp_url + dest.stream_key;
+          let rtmp = dest.rtmp_url;
+          if (rtmp && !rtmp.endsWith('/')) rtmp += '/';
+          
+          const fullUrl = rtmp + dest.stream_key;
           command.output(fullUrl).outputOptions(copyFlags);
       });
       

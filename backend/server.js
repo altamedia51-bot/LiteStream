@@ -212,8 +212,8 @@ app.get('/api/check-auth', (req, res) => {
   
   db.get(query, [req.session.user.id], (err, row) => {
     if (err) {
+        // Jika error, log tapi jangan crash. Return session user yg ada.
         console.error("Check Auth DB Error (Ignored):", err.message);
-        // Jangan return error, kembalikan data sesi yang tersimpan agar user tetap bisa masuk dashboard
         return res.json({ authenticated: true, user: req.session.user });
     }
 
