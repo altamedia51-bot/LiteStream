@@ -20,7 +20,7 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
 
-console.log("Starting LiteStream Server...");
+console.log("Starting LiteStream Server v1.2...");
 
 dotenv.config();
 
@@ -83,7 +83,6 @@ app.get('/api/factory-reset', (req, res) => {
 
 // === DEBUG ROUTE TO SEE USERS ===
 app.get('/api/debug-users', (req, res) => {
-    // Gunakan SELECT * agar tidak error jika kolom spesifik hilang
     db.all("SELECT * FROM users", (err, rows) => {
         if (err) return res.json({ error: err.message });
         res.json({ users: rows, admin_hint: "Try 'admin' / 'admin123'" });
@@ -126,12 +125,8 @@ app.post('/api/login', (req, res) => {
   }
 
   // 2. Normal User Login
-  // Gunakan SELECT * untuk menghindari error kolom hilang
-  const query = `
-    SELECT u.*, p.name as plan_name, p.max_storage_mb, p.allowed_types 
-    FROM users u 
-    LEFT JOIN plans p ON u.plan_id = p.id 
-    WHERE u.username = ?`;
+  // Menggunakan SELECT * agar aman dari kolom hilang
+  const query = "SELECT * FROM users WHERE username = ?";
 
   db.get(query, [username], async (err, user) => {
     if (err) {
@@ -153,30 +148,33 @@ app.post('/api/login', (req, res) => {
       if (match) {
         console.log(`Login Success: ${username}`);
         
-        let finalPlanName = user.plan_name || 'Standard Plan';
-        let finalMaxStorage = user.max_storage_mb || 500;
-        let finalAllowedTypes = user.allowed_types || 'audio';
-        
-        if (user.role === 'admin') {
-            finalPlanName = 'Administrator';
-            finalMaxStorage = 999999; 
-            finalAllowedTypes = 'audio,video,image';
-        }
+        // Fetch Plan Details secara terpisah agar aman
+        db.get("SELECT * FROM plans WHERE id = ?", [user.plan_id], (err2, plan) => {
+            let finalPlanName = plan ? plan.name : 'Standard Plan';
+            let finalMaxStorage = plan ? plan.max_storage_mb : 500;
+            let finalAllowedTypes = plan ? plan.allowed_types : 'audio';
+            
+            if (user.role === 'admin') {
+                finalPlanName = 'Administrator';
+                finalMaxStorage = 999999; 
+                finalAllowedTypes = 'audio,video,image';
+            }
 
-        req.session.user = { 
-          id: user.id, 
-          username: user.username, 
-          role: user.role,
-          plan_id: user.plan_id || 1,
-          plan_name: finalPlanName,
-          max_storage_mb: finalMaxStorage,
-          allowed_types: finalAllowedTypes,
-          created_at: user.created_at || new Date().toISOString()
-        };
+            req.session.user = { 
+              id: user.id, 
+              username: user.username, 
+              role: user.role,
+              plan_id: user.plan_id || 1,
+              plan_name: finalPlanName,
+              max_storage_mb: finalMaxStorage,
+              allowed_types: finalAllowedTypes,
+              created_at: user.created_at || new Date().toISOString()
+            };
 
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ success: false, error: 'Session Error' });
-          res.json({ success: true });
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ success: false, error: 'Session Error' });
+              res.json({ success: true });
+            });
         });
       } else {
           return res.status(401).json({ success: false, error: 'Password Salah.' });
@@ -189,14 +187,12 @@ app.post('/api/login', (req, res) => {
 });
 
 app.post('/api/register', async (req, res) => {
-  const { username, password, plan_id } = req.body; // Ambil plan_id dari request
+  const { username, password, plan_id } = req.body;
   if (!username || !password) return res.status(400).json({ success: false, error: "Isi semua data" });
   
-  // Validasi plan_id, default ke 1 jika tidak ada
   const finalPlanId = plan_id ? parseInt(plan_id) : 1;
-  
   const hash = await bcrypt.hash(password, 10);
-  // Gunakan finalPlanId, bukan hardcode 1
+
   db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', finalPlanId], function(err) {
     if (err) return res.status(400).json({ success: false, error: 'Username sudah dipakai' });
     res.json({ success: true, message: 'Registrasi Berhasil' });
@@ -206,14 +202,13 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   
-  // FIX: Menggunakan SELECT * (wildcard) lebih aman jika kolom created_at hilang di DB
-  // Data sesi diutamakan, DB hanya untuk refresh data usage/plan
+  // FIX: Menggunakan SELECT * agar tidak crash jika kolom 'created_at' belum ada di DB
   const query = "SELECT * FROM users WHERE id = ?";
   
   db.get(query, [req.session.user.id], (err, row) => {
     if (err) {
-        // Jika error, log tapi jangan crash. Return session user yg ada.
-        console.error("Check Auth DB Error (Ignored):", err.message);
+        console.error("Check Auth DB Error (Recovered):", err.message);
+        // Tetap return true menggunakan data session yang tersimpan
         return res.json({ authenticated: true, user: req.session.user });
     }
 
@@ -223,7 +218,7 @@ app.get('/api/check-auth', (req, res) => {
           ...req.session.user, 
           storage_used: row.storage_used, 
           plan_id: row.plan_id, 
-          // Pakai fallback jika created_at hilang di DB
+          // Fallback aman untuk created_at
           created_at: row.created_at || req.session.user.created_at || new Date().toISOString(),
           plan_name: p ? p.plan_name : req.session.user.plan_name,
           max_storage_mb: p ? p.max_storage_mb : req.session.user.max_storage_mb,
@@ -239,7 +234,6 @@ app.get('/api/check-auth', (req, res) => {
         res.json({ authenticated: true, user: fullUser });
       });
     } else {
-        // User di session ada, tapi di DB hilang (mungkin DB ke-reset)
         req.session.destroy();
         res.json({ authenticated: false });
     }
@@ -261,5 +255,6 @@ initDB().then(() => {
   server.listen(3000, '0.0.0.0', () => console.log("LITESTREAM READY: Port 3000"));
 }).catch(err => {
     console.error("DB INIT FAILED:", err);
+    // Start server anyway in error mode
     server.listen(3000, '0.0.0.0', () => console.log("LITESTREAM STARTED (DB ERROR MODE): Port 3000"));
 });

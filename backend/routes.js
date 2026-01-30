@@ -209,9 +209,7 @@ router.put('/plans/:id', isAdmin, (req, res) => {
 });
 
 router.get('/users', isAdmin, (req, res) => {
-    // FIX: Menggunakan SELECT u.* (wildcard) daripada memilih u.created_at secara eksplisit.
-    // Jika kolom created_at belum ada di DB (karena migrasi gagal/belum restart), query ini TIDAK akan crash.
-    // Frontend akan menerima undefined untuk created_at dan menggunakan fallback Date.now().
+    // FIX: Menggunakan SELECT u.* agar aman
     db.all("SELECT u.*, p.name as plan_name FROM users u LEFT JOIN plans p ON u.plan_id = p.id", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -228,16 +226,7 @@ router.put('/users/:id', isAdmin, (req, res) => {
 
 router.delete('/users/:id', isAdmin, (req, res) => {
     const userId = req.params.id;
-    // Prevent deleting self (admin) if only 1 admin exists, or just logic check in frontend. 
-    // Here we just prevent deleting user ID 1 (assumed Super Admin) or check current session.
     if(parseInt(userId) === req.session.user.id) return res.status(400).json({ error: "Cannot delete yourself." });
-
-    // 1. Delete Videos
-    // 2. Delete Folders
-    // 3. Delete Destinations
-    // 4. Delete User
-    // For simplicity in SQLite, cascading delete is usually handled by DB, but we do manual cleanup if needed.
-    // Assuming Foreign Keys ON.
     db.run("DELETE FROM users WHERE id = ?", [userId], function(err) {
         if(err) return res.status(500).json({ success: false, error: err.message });
         res.json({ success: true });
@@ -250,21 +239,16 @@ router.post('/videos/upload', checkStorageQuota, upload.single('video'), async (
   const userId = req.session.user.id;
   if (!req.file) return res.status(400).json({ error: "Pilih file dulu" });
   
-  // Get Folder ID from Query or Body
   const folderId = req.body.folderId || req.query.folderId || null;
-
   const file = req.file;
   const ext = path.extname(file.filename).toLowerCase();
   
-  // RESTRICT: Only Audio and Images allowed
   if (!['.mp3', '.jpg', '.jpeg', '.png'].includes(ext)) {
-      // Hapus file yang terlanjur terupload
       fs.unlinkSync(file.path);
       return res.status(400).json({ error: "Hanya file MP3 dan Gambar (JPG/PNG) yang diperbolehkan." });
   }
 
   let type = (ext === '.mp3') ? 'audio' : 'image';
-  
   const id = await saveVideo({ user_id: userId, filename: file.filename, path: file.path, size: file.size, type, folder_id: folderId });
   db.run("UPDATE users SET storage_used = storage_used + ? WHERE id = ?", [file.size, userId]);
   res.json({ success: true, id, type });
@@ -285,7 +269,7 @@ router.get('/stream/status', async (req, res) => {
     const usage = await syncUserUsage(req.session.user.id);
     const activeStreamsList = getActiveStreams(req.session.user.id);
     res.json({ 
-        active_streams: activeStreamsList, // Return detailed list of all running streams
+        active_streams: activeStreamsList,
         usage_seconds: usage,
         total_active: activeStreamsList.length
     });
@@ -302,7 +286,6 @@ router.post('/playlist/start', async (req, res) => {
   
   // LOGIC ADMIN BYPASS
   if (req.session.user.role === 'admin') {
-      // Admin Logic: Langsung gas tanpa cek kuota
       const placeholdersDest = destinationIds.map(() => '?').join(',');
       const destinations = await new Promise((resolve) => {
             db.all(`SELECT name, platform, rtmp_url, stream_key FROM stream_destinations WHERE id IN (${placeholdersDest}) AND user_id = ?`, [...destinationIds, userId], (err, rows) => resolve(rows));
@@ -324,7 +307,7 @@ router.post('/playlist/start', async (req, res) => {
           if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
           try {
-              // FIX: variable playlistPaths undefined here, use audioFiles
+              // FIX: variable playlistPaths undefined here, use audioFiles (CORRECTED)
               const streamId = await startStream(audioFiles, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
               res.json({ success: true, message: `Streaming Administrator Dimulai (ID: ${streamId})` });
           } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
@@ -343,15 +326,14 @@ router.post('/playlist/start', async (req, res) => {
         return res.status(403).json({ error: `Batas waktu harian (${plan.daily_limit_hours} jam) sudah habis.` });
     }
 
-    // 2. Cek Limit Jumlah Stream Bersamaan (Multi-Instance)
+    // 2. Cek Limit Jumlah Stream Bersamaan
     const activeStreams = getActiveStreams(userId);
     if (activeStreams.length >= plan.max_active_streams) {
         return res.status(403).json({ error: `Anda mencapai batas ${plan.max_active_streams} stream aktif bersamaan.` });
     }
 
-    // 3. Get Selected Destinations from DB
+    // 3. Get Selected Destinations
     const placeholdersDest = destinationIds.map(() => '?').join(',');
-    // WARNING: Validate user_id to prevent using other people's destinations
     const destinations = await new Promise((resolve) => {
         db.all(`SELECT name, platform, rtmp_url, stream_key FROM stream_destinations WHERE id IN (${placeholdersDest}) AND user_id = ?`, [...destinationIds, userId], (err, rows) => resolve(rows));
     });
@@ -376,8 +358,6 @@ router.post('/playlist/start', async (req, res) => {
       if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
       try {
-          // PASS SELECTED DESTINATIONS TO ENGINE
-          // Returns a unique stream ID for this session
           const streamId = await startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
           res.json({ success: true, message: `Streaming baru dimulai (ID: ${streamId})` });
       } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
@@ -388,7 +368,6 @@ router.post('/playlist/start', async (req, res) => {
 router.post('/stream/stop', (req, res) => {
   const { streamId } = req.body;
   const userId = req.session.user.id;
-  // If streamId is provided, stops that specific stream. If not, stops all for user.
   const success = stopStream(streamId, userId);
   res.json({ success, message: streamId ? "Stream dihentikan" : "Semua stream dihentikan" });
 });

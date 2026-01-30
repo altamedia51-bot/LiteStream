@@ -10,16 +10,25 @@ db.on('error', (err) => {
     console.error("CRITICAL SQLITE ERROR:", err);
 });
 
-// Helper untuk mencoba menambah kolom, abaikan error jika kolom sudah ada
-const safeAddColumn = (table, colDef) => {
+// Helper: Ensure column exists by checking table info first
+const ensureColumn = (table, column, definition) => {
     return new Promise((resolve) => {
-        db.run(`ALTER TABLE ${table} ADD COLUMN ${colDef}`, (err) => {
-            // Error "duplicate column name" itu wajar jika kolom sudah ada, abaikan.
-            // Error lain kita log.
-            if (err && !err.message.includes('duplicate column')) {
-                console.log(`Migration Info (${table}): ${err.message}`); 
+        db.all(`PRAGMA table_info(${table})`, (err, rows) => {
+            if (err) {
+                console.error(`Error checking table ${table}:`, err.message);
+                return resolve();
             }
-            resolve();
+            const exists = rows && rows.some(r => r.name === column);
+            if (!exists) {
+                console.log(`Migrating: Adding ${column} to ${table}...`);
+                db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`, (err) => {
+                    if (err) console.error(`Migration Failed (${table}.${column}):`, err.message);
+                    else console.log(`Migration Success: ${column} added.`);
+                    resolve();
+                });
+            } else {
+                resolve();
+            }
         });
     });
 };
@@ -52,7 +61,7 @@ const initDB = () => {
         FOREIGN KEY(plan_id) REFERENCES plans(id)
       )`);
 
-      db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+      db.run(`CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER, type TEXT DEFAULT 'video', folder_id INTEGER DEFAULT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
       db.run(`CREATE TABLE IF NOT EXISTS folders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,17 +86,19 @@ const initDB = () => {
         FOREIGN KEY(user_id) REFERENCES users(id)
       )`);
 
-      // 2. AGGRESSIVE MIGRATION (Force Add Columns)
-      // Jalankan satu per satu untuk memastikan schema terupdate
-      await safeAddColumn('plans', 'price_text TEXT');
-      await safeAddColumn('plans', 'features_text TEXT');
-      await safeAddColumn('plans', 'daily_limit_hours INTEGER DEFAULT 24');
+      // 2. ROBUST MIGRATION (Ensure Columns Exist)
+      // Gunakan setTimeout untuk memberi jeda agar tabel terbentuk sempurna
+      await new Promise(r => setTimeout(r, 500));
+
+      await ensureColumn('plans', 'price_text', 'TEXT');
+      await ensureColumn('plans', 'features_text', 'TEXT');
+      await ensureColumn('plans', 'daily_limit_hours', 'INTEGER DEFAULT 24');
       
-      await safeAddColumn('users', 'usage_seconds INTEGER DEFAULT 0');
-      await safeAddColumn('users', 'last_usage_reset TEXT');
-      await safeAddColumn('users', 'created_at DATETIME DEFAULT CURRENT_TIMESTAMP');
+      await ensureColumn('users', 'usage_seconds', 'INTEGER DEFAULT 0');
+      await ensureColumn('users', 'last_usage_reset', 'TEXT');
+      await ensureColumn('users', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
       
-      await safeAddColumn('videos', 'folder_id INTEGER DEFAULT NULL');
+      await ensureColumn('videos', 'folder_id', 'INTEGER DEFAULT NULL');
 
       // 3. SEEDING
       const plans = [
@@ -117,14 +128,12 @@ const initDB = () => {
       
       db.get("SELECT id FROM users WHERE username = ?", [adminUser], (err, row) => {
           if (row) {
-             console.log("Resetting Admin Password...");
-             db.run("UPDATE users SET password_hash = ?, role = 'admin', plan_id = 4 WHERE id = ?", [hash, row.id]);
+             console.log("Database Ready.");
           } else {
              console.log("Creating Admin User...");
              db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);
           }
-          // Resolve setelah semua command dikirim ke antrian SQLite
-          setTimeout(resolve, 500); 
+          resolve(); 
       });
   });
 };
