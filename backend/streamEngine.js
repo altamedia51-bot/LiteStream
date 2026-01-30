@@ -78,14 +78,14 @@ const startStream = (inputPaths, destinations, options = {}) => {
 
       // RUNNING TEXT FILTER (If text is provided)
       if (runningText && runningText.trim().length > 0) {
-          // Sanitasi text untuk FFmpeg (escape colon dan single quote)
-          const safeText = runningText.replace(/:/g, '\\:').replace(/'/g, '');
-          
-          // Formula: x=w-mod(t*100,w+text_w) -> Bergerak dari kanan ke kiri
-          // fontsize=36, warna putih, background box hitam transparan
-          // Fontfile: Menggunakan default sistem atau fallback. 
-          // Note: Di VPS Linux minimal, pastikan ada font. Jika error, hapus bagian fontfile atau install font.
-          // Kita gunakan generic drawtext tanpa path font spesifik agar fallback ke internal/system default.
+          // Sanitasi text untuk FFmpeg
+          // 1. Hapus single quote (konflik dengan wrapper text='')
+          // 2. Escape colon (:) karena itu separator parameter filter
+          // 3. Escape comma (,) karena itu separator filter chain
+          const safeText = runningText
+              .replace(/'/g, '') 
+              .replace(/:/g, '\\:')
+              .replace(/,/g, '\\,');
           
           // Coba cari font umum di Linux
           let fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
@@ -113,12 +113,27 @@ const startStream = (inputPaths, destinations, options = {}) => {
       // OPTIMIZED SETTINGS FOR LOW-END VPS & MULTI-STREAM
       // Video: 1500k bitrate (balanced). 
       // Audio: 320k @ 48000Hz (Ultra HQ / Studio Quality)
+      // FIX: Argument flags dan values DIPISAHKAN agar FFmpeg membacanya dengan benar.
       const encodingFlags = [
-        '-map 0:v', '-map 1:a', `-vf ${filterString}`,
-        '-c:v libx264', '-preset ultrafast', '-tune zerolatency', '-r 24', '-g 48', '-keyint_min 48', '-sc_threshold 0',
-        '-b:v 2500k', '-maxrate 2500k', '-bufsize 4000k', 
-        '-c:a aac', '-b:a 320k', '-ar 48000', '-af aresample=async=1',
-        '-f flv', '-flvflags no_duration_filesize'
+        '-map', '0:v', 
+        '-map', '1:a', 
+        '-vf', filterString, // Separated flag and value
+        '-c:v', 'libx264', 
+        '-preset', 'ultrafast', 
+        '-tune', 'zerolatency', 
+        '-r', '24', 
+        '-g', '48', 
+        '-keyint_min', '48', 
+        '-sc_threshold', '0',
+        '-b:v', '2500k', 
+        '-maxrate', '2500k', 
+        '-bufsize', '4000k', 
+        '-c:a', 'aac', 
+        '-b:a', '320k', 
+        '-ar', '48000', 
+        '-af', 'aresample=async=1',
+        '-f', 'flv', 
+        '-flvflags', 'no_duration_filesize'
       ];
 
       destinations.forEach(dest => {
@@ -141,7 +156,13 @@ const startStream = (inputPaths, destinations, options = {}) => {
 
       command.input(playlistPath).inputOptions(videoInputOpts);
       
-      const copyFlags = ['-c copy', '-f flv', '-flvflags no_duration_filesize'];
+      // Gunakan flag terpisah juga untuk konsistensi
+      const copyFlags = [
+          '-c', 'copy', 
+          '-f', 'flv', 
+          '-flvflags', 'no_duration_filesize'
+      ];
+      
       destinations.forEach(dest => {
           let rtmp = dest.rtmp_url;
           if (rtmp && !rtmp.endsWith('/')) rtmp += '/';
