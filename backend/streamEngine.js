@@ -5,29 +5,22 @@ const fs = require('fs');
 const { PassThrough } = require('stream');
 const { db } = require('./database');
 
-// STORE MULTIPLE STREAMS: Map<streamId, { command, inputStream, loopActive, userId }>
+// STORE MULTIPLE STREAMS
 const activeStreams = new Map();
 
 const startStream = (inputPaths, destinations, options = {}) => {
-  if (!destinations || destinations.length === 0) {
-      throw new Error("Pilih minimal satu tujuan streaming.");
-  }
+  if (!destinations || destinations.length === 0) throw new Error("Pilih minimal satu tujuan streaming.");
 
   const streamId = 'stream_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   const files = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
   const shouldLoop = !!options.loop;
   const currentUserId = options.userId;
-  const runningText = options.runningText || ''; // New Option
+  const runningText = options.runningText || '';
   
-  // State object for this specific stream
   const streamState = {
-      id: streamId,
-      userId: currentUserId,
-      loopActive: true,
-      activeInputStream: null,
-      command: null,
-      destinations: destinations // Store info for status check
+      id: streamId, userId: currentUserId, loopActive: true, 
+      activeInputStream: null, command: null, destinations: destinations
   };
 
   return new Promise((resolve, reject) => {
@@ -42,61 +35,52 @@ const startStream = (inputPaths, destinations, options = {}) => {
       const playNextSong = () => {
         if (!streamState.loopActive) return;
         const currentFile = files[fileIndex];
-        const songStream = fs.createReadStream(currentFile);
         
-        songStream.pipe(mixedStream, { end: false });
+        if (!fs.existsSync(currentFile)) {
+             // Notify frontend about missing file
+             if (global.io) global.io.emit('log', { type: 'error', message: `File hilang, melewati: ${path.basename(currentFile)}` });
+             fileIndex++;
+             if (fileIndex < files.length) playNextSong();
+             return;
+        }
 
+        const songStream = fs.createReadStream(currentFile);
+        songStream.pipe(mixedStream, { end: false });
         songStream.on('end', () => {
            fileIndex++;
            if (fileIndex >= files.length) {
-             if (shouldLoop) {
-               fileIndex = 0; 
-               playNextSong(); 
-             } else {
-               mixedStream.end();
-             }
-           } else {
-             playNextSong();
-           }
+             if (shouldLoop) { fileIndex = 0; playNextSong(); } 
+             else { mixedStream.end(); }
+           } else { playNextSong(); }
         });
-        
-        songStream.on('error', (err) => {
-           console.error(`Error playing file ${currentFile}:`, err);
-           fileIndex++; // Skip broken file
-           if(fileIndex < files.length) playNextSong();
+        songStream.on('error', (err) => { 
+            console.error("Read Stream Error:", err);
+            fileIndex++; if(fileIndex < files.length) playNextSong(); 
         });
       };
 
       playNextSong();
 
-      // BASE VIDEO FILTERS
+      // BASE FILTERS
       const videoFilters = [
         'scale=1280:720:force_original_aspect_ratio=decrease',
         'pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black',
         'format=yuv420p'
       ];
 
-      // RUNNING TEXT FILTER (If text is provided)
+      // RUNNING TEXT LOGIC
       if (runningText && runningText.trim().length > 0) {
-          // Sanitasi text untuk FFmpeg
-          // 1. Hapus single quote (konflik dengan wrapper text='')
-          // 2. Escape colon (:) karena itu separator parameter filter
-          // 3. Escape comma (,) karena itu separator filter chain
-          const safeText = runningText
-              .replace(/'/g, '') 
-              .replace(/:/g, '\\:')
-              .replace(/,/g, '\\,');
-          
-          // Coba cari font umum di Linux
-          let fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+          const safeText = runningText.replace(/'/g, '').replace(/:/g, '\\:').replace(/,/g, '\\,');
           let fontOption = '';
-          if (fs.existsSync(fontPath)) {
-              fontOption = `:fontfile=${fontPath}`;
+          const possibleFonts = [
+              '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+              '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+              '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'
+          ];
+          for (const f of possibleFonts) {
+              if (fs.existsSync(f)) { fontOption = `:fontfile=${f}`; break; }
           }
-
-          videoFilters.push(
-              `drawtext=text='${safeText}'${fontOption}:fontcolor=white:fontsize=40:box=1:boxcolor=black@0.6:boxborderw=10:x=w-mod(t*100\\,w+text_w):y=h-th-20`
-          );
+          videoFilters.push(`drawtext=text='${safeText}'${fontOption}:fontcolor=white:fontsize=40:box=1:boxcolor=black@0.6:boxborderw=10:x=w-mod(t*100\\,w+text_w):y=h-th-20`);
       }
 
       const filterString = videoFilters.join(',');
@@ -110,125 +94,88 @@ const startStream = (inputPaths, destinations, options = {}) => {
 
       command.input(mixedStream).inputFormat('mp3').inputOptions(['-re']); 
       
-      // OPTIMIZED SETTINGS FOR LOW-END VPS & MULTI-STREAM
-      // Video: 1500k bitrate (balanced). 
-      // Audio: 320k @ 48000Hz (Ultra HQ / Studio Quality)
-      // FIX: Argument flags dan values DIPISAHKAN agar FFmpeg membacanya dengan benar.
       const encodingFlags = [
-        '-map', '0:v', 
-        '-map', '1:a', 
-        '-vf', filterString, // Separated flag and value
-        '-c:v', 'libx264', 
-        '-preset', 'ultrafast', 
-        '-tune', 'zerolatency', 
-        '-r', '24', 
-        '-g', '48', 
-        '-keyint_min', '48', 
-        '-sc_threshold', '0',
-        '-b:v', '2500k', 
-        '-maxrate', '2500k', 
-        '-bufsize', '4000k', 
-        '-c:a', 'aac', 
-        '-b:a', '320k', 
-        '-ar', '48000', 
-        '-af', 'aresample=async=1',
-        '-f', 'flv', 
-        '-flvflags', 'no_duration_filesize'
+        '-map', '0:v', '-map', '1:a', 
+        '-vf', filterString,
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency', 
+        '-r', '24', '-g', '48', '-keyint_min', '48', '-sc_threshold', '0',
+        '-b:v', '2500k', '-maxrate', '2500k', '-bufsize', '4000k', 
+        '-c:a', 'aac', '-b:a', '320k', '-ar', '48000', '-af', 'aresample=async=1',
+        '-f', 'flv', '-flvflags', 'no_duration_filesize'
       ];
 
       destinations.forEach(dest => {
-          // SAFEGUARD: Ensure RTMP URL ends with slash
           let rtmp = dest.rtmp_url;
           if (rtmp && !rtmp.endsWith('/')) rtmp += '/';
-          
-          const fullUrl = rtmp + dest.stream_key;
-          command.output(fullUrl).outputOptions(encodingFlags);
+          command.output(rtmp + dest.stream_key).outputOptions(encodingFlags);
       });
 
     } else {
-      // Playlist Video Logic
+      // PLAYLIST MODE
       const playlistPath = path.join(__dirname, 'uploads', `playlist_${streamId}.txt`);
       const playlistContent = files.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join('\n');
       fs.writeFileSync(playlistPath, playlistContent);
+      streamState.cleanupFile = playlistPath;
 
       const videoInputOpts = ['-f', 'concat', '-safe', '0', '-re'];
       if (shouldLoop) videoInputOpts.unshift('-stream_loop', '-1');
 
       command.input(playlistPath).inputOptions(videoInputOpts);
-      
-      // Gunakan flag terpisah juga untuk konsistensi
-      const copyFlags = [
-          '-c', 'copy', 
-          '-f', 'flv', 
-          '-flvflags', 'no_duration_filesize'
-      ];
+      const copyFlags = ['-c', 'copy', '-f', 'flv', '-flvflags', 'no_duration_filesize'];
       
       destinations.forEach(dest => {
           let rtmp = dest.rtmp_url;
           if (rtmp && !rtmp.endsWith('/')) rtmp += '/';
-          
-          const fullUrl = rtmp + dest.stream_key;
-          command.output(fullUrl).outputOptions(copyFlags);
+          command.output(rtmp + dest.stream_key).outputOptions(copyFlags);
       });
-      
-      // Cleanup playlist file on exit
-      streamState.cleanupFile = playlistPath;
     }
 
     streamState.command = command
-      .on('start', (commandLine) => {
-        const destNames = destinations.map(d => d.name || d.platform).join(', ');
-        if (global.io) global.io.emit('log', { type: 'start', message: `Started Stream [${streamId}] to: ${destNames}` });
-        
-        // Save to MAP
+      .on('start', () => {
+        const destNames = destinations.map(d => d.name).join(', ');
+        if (global.io) global.io.emit('log', { type: 'start', message: `Broadcast dimulai ke: ${destNames}` });
         activeStreams.set(streamId, streamState);
         resolve(streamId);
       })
       .on('progress', (progress) => {
-        const currentTimemark = progress.timemark; 
-        const parts = currentTimemark.split(':');
+        const parts = progress.timemark.split(':');
         const totalSeconds = (+parts[0]) * 3600 + (+parts[1]) * 60 + (+parseFloat(parts[2]));
         const diff = Math.floor(totalSeconds - lastProcessedSecond);
-
         if (diff >= 5) { 
             lastProcessedSecond = totalSeconds;
-            
-            // Usage Tracking (shared across all streams of user)
-            db.get(`
-                SELECT u.usage_seconds, p.daily_limit_hours 
-                FROM users u JOIN plans p ON u.plan_id = p.id 
-                WHERE u.id = ?`, [currentUserId], (err, row) => {
-                if (row) {
-                    const newUsage = row.usage_seconds + diff;
-                    const limitSeconds = row.daily_limit_hours * 3600;
-
-                    db.run("UPDATE users SET usage_seconds = ? WHERE id = ?", [newUsage, currentUserId]);
-
-                    if (newUsage >= limitSeconds) {
-                        if (global.io) global.io.emit('log', { type: 'error', message: 'Quota exhausted. Stopping all streams.' });
-                        stopStream(null, currentUserId); // Stop all streams for this user
-                    }
-
-                    if (global.io) {
-                        global.io.emit('stats', { 
-                            streamId: streamId, // Critical for frontend mapping
-                            duration: progress.timemark, 
-                            bitrate: progress.currentKbps ? Math.round(progress.currentKbps) + ' kbps' : 'N/A',
-                            usage_remaining: Math.max(0, limitSeconds - newUsage)
-                        });
-                    }
-                }
-            });
+            if (global.io) global.io.emit('stats', { streamId: streamId, duration: progress.timemark, bitrate: progress.currentKbps ? Math.round(progress.currentKbps) + ' kbps' : 'N/A' });
+            db.run("UPDATE users SET usage_seconds = usage_seconds + ? WHERE id = ?", [diff, currentUserId]);
         }
       })
       .on('error', (err) => {
-        if (err.message.includes('SIGKILL')) return;
-        if (global.io) global.io.emit('log', { type: 'error', message: `Stream [${streamId}] Error: ` + err.message });
+        const errMsg = err.message;
+        
+        // --- TRANSLATE ERROR MESSAGES TO HUMAN READABLE ---
+        if (errMsg.includes('SIGKILL')) {
+            // Ini normal, user menekan tombol stop. Jangan kirim error.
+            return;
+        }
+
+        let humanError = `Engine Error: ${errMsg.substring(0, 50)}...`; // Default fallback
+
+        if (errMsg.includes('Connection refused') || errMsg.includes('I/O error') || errMsg.includes('EPIPE')) {
+            humanError = "Koneksi ke YouTube/Facebook GAGAL. Cek Stream Key & Internet VPS.";
+        } else if (errMsg.includes('No such file')) {
+            humanError = "File hilang atau path salah.";
+        } else if (errMsg.includes('Invalid argument') || errMsg.includes('Option not found')) {
+            humanError = "Settingan Stream salah (Code Error).";
+        } else if (errMsg.includes('Conversion failed')) {
+            humanError = "Format File tidak didukung.";
+        }
+
+        console.error(`[STREAM ERROR ${streamId}]`, errMsg);
+        if (global.io) global.io.emit('log', { type: 'error', message: `STOP: ${humanError}` });
+        
         stopStream(streamId);
       })
       .on('end', () => {
-        if (global.io) global.io.emit('log', { type: 'end', message: `Stream [${streamId}] finished.` });
-        stopStream(streamId);
+         if (global.io) global.io.emit('log', { type: 'end', message: `Stream Selesai (Playlist habis).` });
+         stopStream(streamId);
       });
 
     streamState.command.run();
@@ -236,69 +183,28 @@ const startStream = (inputPaths, destinations, options = {}) => {
 };
 
 const stopStream = (streamId = null, userId = null) => {
-  let stoppedCount = 0;
-
+  let count = 0;
   activeStreams.forEach((state, key) => {
-      let shouldStop = false;
+      let stop = false;
+      if (streamId && key === streamId) stop = true;
+      if (userId && state.userId === userId) stop = true;
+      if (!streamId && !userId) stop = true; 
 
-      if (streamId) {
-          // KASUS 1: Stop Stream Tertentu
-          // Cek apakah key cocok DAN (jika userId disediakan) apakah pemiliknya benar
-          if (key === streamId) {
-              if (userId) {
-                  // Jika ini dipanggil oleh user, pastikan ini punya dia
-                  if (state.userId === userId) shouldStop = true;
-              } else {
-                  // Jika dipanggil oleh system/admin tanpa userId, force stop
-                  shouldStop = true;
-              }
-          }
-      } else if (userId) {
-          // KASUS 2: Stop Semua Stream milik User Tertentu (streamId kosong)
-          // Ini biasanya dipanggil saat logout atau kuota habis
-          if (state.userId === userId) {
-              shouldStop = true;
-          }
-      } else {
-          // KASUS 3: Stop Semua Stream (Factory Reset / Shutdown)
-          shouldStop = true;
-      }
-
-      if (shouldStop) {
+      if (stop) {
           state.loopActive = false;
-          if (state.activeInputStream) {
-              try { state.activeInputStream.end(); } catch(e) {}
-          }
-          if (state.command) {
-              try { state.command.kill('SIGKILL'); } catch (e) {}
-          }
-          if (state.cleanupFile && fs.existsSync(state.cleanupFile)) {
-              try { fs.unlinkSync(state.cleanupFile); } catch(e) {}
-          }
-          
+          if (state.activeInputStream) try { state.activeInputStream.end(); } catch(e){}
+          if (state.command) try { state.command.kill('SIGKILL'); } catch(e){}
+          if (state.cleanupFile && fs.existsSync(state.cleanupFile)) try { fs.unlinkSync(state.cleanupFile); } catch(e){}
           activeStreams.delete(key);
-          stoppedCount++;
+          count++;
       }
   });
-
-  return stoppedCount > 0;
+  return count > 0;
 };
 
-// Return array of active stream info for UI
 const getActiveStreams = (userId) => {
     const list = [];
-    activeStreams.forEach((state, id) => {
-        if (state.userId === userId) {
-            list.push({
-                id: state.id,
-                destinations: state.destinations.map(d => ({ 
-                    name: d.name, 
-                    platform: d.platform,
-                    rtmp_url: d.rtmp_url // Optional, for debug
-                }))
-            });
-        }
-    });
+    activeStreams.forEach((v, k) => { if(v.userId === userId) list.push({ id: k, destinations: v.destinations }); });
     return list;
 };
 
