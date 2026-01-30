@@ -18,6 +18,7 @@ const startStream = (inputPaths, destinations, options = {}) => {
   const isAllAudio = files.every(f => f.toLowerCase().endsWith('.mp3'));
   const shouldLoop = !!options.loop;
   const currentUserId = options.userId;
+  const runningText = options.runningText || ''; // New Option
   
   // State object for this specific stream
   const streamState = {
@@ -68,11 +69,37 @@ const startStream = (inputPaths, destinations, options = {}) => {
 
       playNextSong();
 
-      const videoFilter = [
+      // BASE VIDEO FILTERS
+      const videoFilters = [
         'scale=1280:720:force_original_aspect_ratio=decrease',
         'pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black',
         'format=yuv420p'
-      ].join(',');
+      ];
+
+      // RUNNING TEXT FILTER (If text is provided)
+      if (runningText && runningText.trim().length > 0) {
+          // Sanitasi text untuk FFmpeg (escape colon dan single quote)
+          const safeText = runningText.replace(/:/g, '\\:').replace(/'/g, '');
+          
+          // Formula: x=w-mod(t*100,w+text_w) -> Bergerak dari kanan ke kiri
+          // fontsize=36, warna putih, background box hitam transparan
+          // Fontfile: Menggunakan default sistem atau fallback. 
+          // Note: Di VPS Linux minimal, pastikan ada font. Jika error, hapus bagian fontfile atau install font.
+          // Kita gunakan generic drawtext tanpa path font spesifik agar fallback ke internal/system default.
+          
+          // Coba cari font umum di Linux
+          let fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+          let fontOption = '';
+          if (fs.existsSync(fontPath)) {
+              fontOption = `:fontfile=${fontPath}`;
+          }
+
+          videoFilters.push(
+              `drawtext=text='${safeText}'${fontOption}:fontcolor=white:fontsize=40:box=1:boxcolor=black@0.6:boxborderw=10:x=w-mod(t*100\\,w+text_w):y=h-th-20`
+          );
+      }
+
+      const filterString = videoFilters.join(',');
 
       let imageInput = options.coverImagePath;
       if (!imageInput || !fs.existsSync(imageInput)) {
@@ -87,7 +114,7 @@ const startStream = (inputPaths, destinations, options = {}) => {
       // Video: 1500k bitrate (balanced). 
       // Audio: 320k @ 48000Hz (Ultra HQ / Studio Quality)
       const encodingFlags = [
-        '-map 0:v', '-map 1:a', `-vf ${videoFilter}`,
+        '-map 0:v', '-map 1:a', `-vf ${filterString}`,
         '-c:v libx264', '-preset ultrafast', '-tune zerolatency', '-r 24', '-g 48', '-keyint_min 48', '-sc_threshold 0',
         '-b:v 2500k', '-maxrate 2500k', '-bufsize 4000k', 
         '-c:a aac', '-b:a 320k', '-ar 48000', '-af aresample=async=1',

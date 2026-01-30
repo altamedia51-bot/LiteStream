@@ -276,7 +276,7 @@ router.get('/stream/status', async (req, res) => {
 });
 
 router.post('/playlist/start', async (req, res) => {
-  const { ids, coverImageId, loop, destinationIds } = req.body;
+  const { ids, coverImageId, loop, destinationIds, runningText } = req.body;
   const userId = req.session.user.id;
 
   if (!ids || ids.length === 0) return res.status(400).json({ error: "Pilih minimal 1 file audio." });
@@ -307,8 +307,13 @@ router.post('/playlist/start', async (req, res) => {
           if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
           try {
-              // FIX: variable playlistPaths undefined here, use audioFiles (CORRECTED)
-              const streamId = await startStream(audioFiles, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+              // Add runningText to options
+              const streamId = await startStream(audioFiles, destinations, { 
+                  userId, 
+                  loop: !!loop, 
+                  coverImagePath: finalCoverPath,
+                  runningText: runningText // PASS TO ENGINE
+              });
               res.json({ success: true, message: `Streaming Administrator Dimulai (ID: ${streamId})` });
           } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
       });
@@ -358,7 +363,12 @@ router.post('/playlist/start', async (req, res) => {
       if (!finalCoverPath && imageFiles.length > 0) finalCoverPath = imageFiles[0].path; 
 
       try {
-          const streamId = await startStream(playlistPaths, destinations, { userId, loop: !!loop, coverImagePath: finalCoverPath });
+          const streamId = await startStream(playlistPaths, destinations, { 
+              userId, 
+              loop: !!loop, 
+              coverImagePath: finalCoverPath,
+              runningText: runningText // PASS TO ENGINE
+          });
           res.json({ success: true, message: `Streaming baru dimulai (ID: ${streamId})` });
       } catch (e) { res.status(500).json({ error: "Engine Error: " + e.message }); }
     });

@@ -115,12 +115,22 @@
             <div class="w-12 h-1.5 bg-slate-800 rounded-full mx-auto mb-6 md:hidden"></div>
             <button onclick="closeStartModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white hidden md:block"><i class="fas fa-times"></i></button>
             
-            <div class="mb-6">
-                <h3 class="text-lg font-bold text-white mb-1">Pilih Tujuan Broadcast</h3>
-                <p class="text-xs text-slate-400">Pilih channel mana yang akan memutar playlist ini.</p>
+            <div class="mb-4">
+                <h3 class="text-lg font-bold text-white mb-1">Mulai Streaming</h3>
+                <p class="text-xs text-slate-400">Pilih tujuan broadcast & opsi tambahan.</p>
             </div>
             
-            <div id="start-dest-list" class="space-y-3 mb-6 max-h-60 overflow-y-auto pr-1">
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Running Text (Opsional)</label>
+                <input type="text" id="start-running-text" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-indigo-500" placeholder="Contoh: Selamat Datang di Radio Kami...">
+                <p class="text-[10px] text-slate-500 mt-1">*Teks berjalan di bagian bawah layar.</p>
+            </div>
+
+            <div class="mb-2">
+                 <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Tujuan Broadcast</label>
+            </div>
+
+            <div id="start-dest-list" class="space-y-3 mb-6 max-h-40 overflow-y-auto pr-1">
                 <!-- Checkboxes populated dynamically -->
             </div>
 
@@ -624,6 +634,9 @@
 
         // --- NEW START STREAM MODAL ---
         function openStartModal() {
+            // Reset running text input
+            document.getElementById('start-running-text').value = '';
+
             const list = document.getElementById('start-dest-list');
             list.innerHTML = destinations.filter(d => d.is_active).map(d => `
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-slate-800 border border-slate-700 cursor-pointer hover:border-emerald-500/50 transition-colors">
@@ -645,6 +658,7 @@
         async function confirmStartStream() {
             const checkboxes = document.querySelectorAll('input[name="start_dest"]:checked');
             const selectedDestIds = Array.from(checkboxes).map(c => c.value);
+            const runningText = document.getElementById('start-running-text').value;
 
             if(selectedDestIds.length === 0) { showToast('Pilih minimal satu channel', 'error'); return; }
 
@@ -660,7 +674,8 @@
                     body: JSON.stringify({ 
                         ids: Array.from(selectedMedia), 
                         destinationIds: selectedDestIds, // Send specific IDs
-                        loop: true 
+                        loop: true,
+                        runningText: runningText // Pass text to backend
                     })
                 });
                 const d = await res.json();
@@ -880,7 +895,7 @@
                     const createdDate = new Date(currentUser.created_at || Date.now());
                     
                     // ID 1 (Stream Tester) gets 10 days, others get 30 days
-                    const durationDays = currentUser.plan_id === 1 ? 10 : 30;
+                    const durationDays = currentUser.plan_id === 1 ? 10 : 30; 
                     
                     const expireDate = new Date(createdDate);
                     expireDate.setDate(expireDate.getDate() + durationDays);
