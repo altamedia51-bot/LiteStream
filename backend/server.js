@@ -20,7 +20,10 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
 
-console.log("Starting LiteStream Server v1.3 (Fix Applied)...");
+console.log("------------------------------------------");
+console.log("LITESTREAM SERVER v1.4 (DATABASE FIX)");
+console.log("Starting up...");
+console.log("------------------------------------------");
 
 dotenv.config();
 
@@ -125,7 +128,6 @@ app.post('/api/login', (req, res) => {
   }
 
   // 2. Normal User Login
-  // Menggunakan SELECT * agar aman dari kolom hilang
   const query = "SELECT * FROM users WHERE username = ?";
 
   db.get(query, [username], async (err, user) => {
@@ -160,6 +162,9 @@ app.post('/api/login', (req, res) => {
                 finalAllowedTypes = 'audio,video,image';
             }
 
+            // Jika created_at null (karena baru dimigrasi), isi dengan hari ini
+            const safeCreatedAt = user.created_at || new Date().toISOString();
+
             req.session.user = { 
               id: user.id, 
               username: user.username, 
@@ -168,7 +173,7 @@ app.post('/api/login', (req, res) => {
               plan_name: finalPlanName,
               max_storage_mb: finalMaxStorage,
               allowed_types: finalAllowedTypes,
-              created_at: user.created_at || new Date().toISOString()
+              created_at: safeCreatedAt
             };
 
             return req.session.save((err) => {
@@ -192,8 +197,10 @@ app.post('/api/register', async (req, res) => {
   
   const finalPlanId = plan_id ? parseInt(plan_id) : 1;
   const hash = await bcrypt.hash(password, 10);
+  const now = new Date().toISOString();
 
-  db.run("INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, ?, ?)", [username, hash, 'user', finalPlanId], function(err) {
+  db.run("INSERT INTO users (username, password_hash, role, plan_id, created_at) VALUES (?, ?, ?, ?, ?)", 
+    [username, hash, 'user', finalPlanId, now], function(err) {
     if (err) return res.status(400).json({ success: false, error: 'Username sudah dipakai' });
     res.json({ success: true, message: 'Registrasi Berhasil' });
   });
@@ -202,7 +209,7 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/check-auth', (req, res) => {
   if (!req.session.user) return res.json({ authenticated: false });
   
-  // FIX: Menggunakan SELECT * agar tidak crash jika kolom 'created_at' belum ada di DB
+  // FIX: Menggunakan SELECT * (wildcard)
   const query = "SELECT * FROM users WHERE id = ?";
   
   db.get(query, [req.session.user.id], (err, row) => {
@@ -218,7 +225,7 @@ app.get('/api/check-auth', (req, res) => {
           ...req.session.user, 
           storage_used: row.storage_used, 
           plan_id: row.plan_id, 
-          // Fallback aman untuk created_at
+          // Handle created_at null
           created_at: row.created_at || req.session.user.created_at || new Date().toISOString(),
           plan_name: p ? p.plan_name : req.session.user.plan_name,
           max_storage_mb: p ? p.max_storage_mb : req.session.user.max_storage_mb,

@@ -21,6 +21,7 @@ const ensureColumn = (table, column, definition) => {
             const exists = rows && rows.some(r => r.name === column);
             if (!exists) {
                 console.log(`Migrating: Adding ${column} to ${table}...`);
+                // FIX: Gunakan query paling sederhana agar kompatibel dengan semua versi SQLite
                 db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`, (err) => {
                     if (err) console.error(`Migration Failed (${table}.${column}):`, err.message);
                     else console.log(`Migration Success: ${column} added.`);
@@ -57,7 +58,7 @@ const initDB = () => {
         storage_used INTEGER DEFAULT 0,
         usage_seconds INTEGER DEFAULT 0,
         last_usage_reset TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TEXT, 
         FOREIGN KEY(plan_id) REFERENCES plans(id)
       )`);
 
@@ -87,8 +88,7 @@ const initDB = () => {
       )`);
 
       // 2. ROBUST MIGRATION (Ensure Columns Exist)
-      // Gunakan setTimeout untuk memberi jeda agar tabel terbentuk sempurna
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000)); // Jeda lebih lama untuk memastikan lock database lepas
 
       await ensureColumn('plans', 'price_text', 'TEXT');
       await ensureColumn('plans', 'features_text', 'TEXT');
@@ -97,9 +97,9 @@ const initDB = () => {
       await ensureColumn('users', 'usage_seconds', 'INTEGER DEFAULT 0');
       await ensureColumn('users', 'last_usage_reset', 'TEXT');
       
-      // FIX: Gunakan Constant Default '2024-01-01' atau NULL untuk menghindari error "non-constant default" di SQLite versi lama
-      // CURRENT_TIMESTAMP sering gagal di ALTER TABLE pada beberapa versi SQLite
-      await ensureColumn('users', 'created_at', "DATETIME DEFAULT '2024-01-01 00:00:00'");
+      // FIX UTAMA: Gunakan TEXT tanpa default value untuk ALTER TABLE.
+      // Ini 100% aman untuk semua versi SQLite. Kita handle value-nya di aplikasi.
+      await ensureColumn('users', 'created_at', "TEXT");
       
       await ensureColumn('videos', 'folder_id', 'INTEGER DEFAULT NULL');
 
@@ -134,7 +134,8 @@ const initDB = () => {
              console.log("Database Ready.");
           } else {
              console.log("Creating Admin User...");
-             db.run(`INSERT INTO users (username, password_hash, role, plan_id) VALUES (?, ?, 'admin', 4)`, [adminUser, hash]);
+             db.run(`INSERT INTO users (username, password_hash, role, plan_id, created_at) VALUES (?, ?, 'admin', 4, ?)`, 
+                [adminUser, hash, new Date().toISOString()]);
           }
           resolve(); 
       });
