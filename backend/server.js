@@ -20,7 +20,7 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
 
-console.log("Starting LiteStream Server v1.2...");
+console.log("Starting LiteStream Server v1.3 (Fix Applied)...");
 
 dotenv.config();
 

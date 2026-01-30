@@ -96,7 +96,10 @@ const initDB = () => {
       
       await ensureColumn('users', 'usage_seconds', 'INTEGER DEFAULT 0');
       await ensureColumn('users', 'last_usage_reset', 'TEXT');
-      await ensureColumn('users', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+      
+      // FIX: Gunakan Constant Default '2024-01-01' atau NULL untuk menghindari error "non-constant default" di SQLite versi lama
+      // CURRENT_TIMESTAMP sering gagal di ALTER TABLE pada beberapa versi SQLite
+      await ensureColumn('users', 'created_at', "DATETIME DEFAULT '2024-01-01 00:00:00'");
       
       await ensureColumn('videos', 'folder_id', 'INTEGER DEFAULT NULL');
 
